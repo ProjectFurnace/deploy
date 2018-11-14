@@ -1,0 +1,9 @@
+version: "3"
+
+services:
+  deploy:
+    image: project-furnace/deploy:latest
+    environment:
+      PULUMI_ACCESS_TOKEN: abc
+      AWS_ACCESS_KEY_ID: abc
+      AWS_SECRET_ACCESS_KEY: abc

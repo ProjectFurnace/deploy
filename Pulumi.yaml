@@ -1,0 +1,5 @@
+name: furnace-deploy
+runtime: nodejs
+description: Project Furnace
+template:
+  description: A minimal TypeScript Pulumi program
