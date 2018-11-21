@@ -1,0 +1,3 @@
+- name: elasticsearch
+  config:
+    param-id: val

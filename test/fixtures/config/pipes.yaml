@@ -1,0 +1,5 @@
+- tap: passthrough
+  pipeline: enrichment
+
+- pipeline: enrichment
+  sink: elasticsearch

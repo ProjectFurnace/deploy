@@ -1,22 +1,14 @@
+import Processor from "./src/Processor";
+import ConfigUtil from "./src/Util/ConfigUtil";
+import { FurnaceConfig } from "./src/Model/Config";
 import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
+import { Config } from "@pulumi/pulumi";
 
-import awsUtil from "./util/awsUtil";
+let config = new Config("deploy");
+let configPath: string = config.require("configPath");
 
-const lambdaName = "Test"
+const furnaceConfig: FurnaceConfig = ConfigUtil.getConfig(configPath);
+const environment = pulumi.getStack().split("-").pop();
 
-const role = awsUtil.createSimpleIamRole(`${lambdaName}FunctionRole`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
-const policy = awsUtil.createSimpleIamRolePolicy(`${lambdaName}FunctionPolicy`, role.id, [
-    { 
-        resource: "arn:aws:logs:*:*:*",
-        actions: [ "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents" ]
-    }
-])
-
-let lambda = new aws.lambda.Function("mylambda", {
-    handler: "handler.handler",
-    role: role.arn,
-    runtime: aws.lambda.NodeJS8d10Runtime,
-    s3Bucket: "furnace-artifacts",
-    s3Key: "Test"
-});
+const processor = new Processor(furnaceConfig, environment as string);
+processor.process();

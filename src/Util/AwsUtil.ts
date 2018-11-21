@@ -21,7 +21,7 @@ export default class awsUtil {
     }
 
     static createSimpleIamRolePolicy(name: string, roleId: pulumi.Output<string>, allows: Array<any>): aws.iam.RolePolicy {
-        return new aws.iam.RolePolicy(`${name}PreParserRolePolicy`, {
+        return new aws.iam.RolePolicy(name, {
             role: roleId,
             policy: JSON.stringify({
                 "Version": "2012-10-17",

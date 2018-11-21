@@ -1,0 +1,6 @@
+- name: enrichment
+  modules:
+    - name: geo
+      module: core/geo
+      config:
+        param-id: a

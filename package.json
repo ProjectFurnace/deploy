@@ -1,10 +1,48 @@
 {
-    "name": "typescript",
-    "devDependencies": {
-        "@types/node": "latest"
+  "name": "typescript",
+  "scripts": {
+    "test": "jest",
+    "test:watch": "jest --watch"
+  },
+  "devDependencies": {
+    "@types/jest": "^23.3.9",
+    "@types/node": "latest",
+    "jest": "^23.6.0",
+    "jest-config": "^23.6.0",
+    "ts-jest": "^23.10.4"
+  },
+  "dependencies": {
+    "@pulumi/aws": "^0.16.2",
+    "@pulumi/pulumi": "latest",
+    "@types/yamljs": "^0.2.30",
+    "yamljs": "^0.3.0"
+  },
+  "jest": {
+    "transform": {
+      ".(ts|tsx)": "<rootDir>/node_modules/ts-jest/preprocessor.js"
     },
-    "dependencies": {
-        "@pulumi/aws": "^0.16.2",
-        "@pulumi/pulumi": "latest"
-    }
+    "testEnvironment": "node",
+    "testRegex": "(/__tests__/.*|\\.(test|spec))\\.(ts|tsx|js)$",
+    "moduleFileExtensions": [
+      "ts",
+      "tsx",
+      "js"
+    ],
+    "coveragePathIgnorePatterns": [
+      "/node_modules/",
+      "/test/"
+    ],
+    "coverageThreshold": {
+      "global": {
+        "branches": 90,
+        "functions": 95,
+        "lines": 95,
+        "statements": 95
+      }
+    },
+    "collectCoverage": false,
+    "collectCoverageFrom": [
+      "src/*.{js,ts}"
+    ]
+  }
 }
