@@ -14,7 +14,10 @@
   "dependencies": {
     "@pulumi/aws": "^0.16.2",
     "@pulumi/pulumi": "latest",
+    "@types/tmp": "0.0.33",
     "@types/yamljs": "^0.2.30",
+    "simple-git": "^1.107.0",
+    "tmp": "0.0.33",
     "yamljs": "^0.3.0"
   },
   "jest": {

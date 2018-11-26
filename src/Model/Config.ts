@@ -3,6 +3,7 @@ export type FurnaceConfig = {
     pipelines: Array<Pipeline>
     sinks: Array<Sink>
     pipes: Array<Pipe>
+    stack: Stack
     [key: string]: any; // allows us to reference items by key
 }
 
@@ -28,4 +29,10 @@ export type Pipe = {
     tap?: string
     pipeline?: string
     sink?: string
+}
+
+export type Stack = {
+    platform: {
+        type: string
+    }
 }

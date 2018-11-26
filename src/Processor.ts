@@ -1,7 +1,4 @@
-import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
-
-import awsUtil from "./Util/AwsUtil";
+import AwsFlowProcessor from "./AwsFlowProcessor";
 import { FurnaceConfig, Module } from "./Model/Config"
 
 export default class Processor {
@@ -13,27 +10,14 @@ export default class Processor {
     process() {
         const flows = this.getFlows();
 
-        for(let flow of flows) {
-            for (let step of flow) {
-                const lambdaName = `${step.name}-${this.environment}`;
-                const role = awsUtil.createSimpleIamRole(`${lambdaName}-FunctionRole`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
-                const policy = awsUtil.createSimpleIamRolePolicy(`${lambdaName}-FunctionPolicy`, role.id, [
-                    { 
-                        resource: "arn:aws:logs:*:*:*",
-                        actions: [ "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents" ]
-                    }
-                ])
-
-                let lambda = new aws.lambda.Function(lambdaName, {
-                    name: lambdaName,
-                    handler: "handler.handler",
-                    role: role.arn,
-                    runtime: aws.lambda.NodeJS8d10Runtime,
-                    s3Bucket: "furnace-artifacts",
-                    s3Key: "Test"
-                });
-            }
+        switch(this.config.stack.platform.type) {
+            case "aws":
+                new AwsFlowProcessor(flows, this.environment);
+                break;
+            default:
+                throw new Error("unknown stack platform type");
         }
+
     }
 
     getFlows(): Array<Array<Module>> {

@@ -1,7 +1,7 @@
 - name: passthrough
   module: core/passthrough
   aws:
-    shards: 2
+    shards: 1
   config:
     param-id: val
 
