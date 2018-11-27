@@ -39,8 +39,20 @@ export type Pipe = {
 }
 
 export type Stack = {
-    platform?: {
-        type: string
-        artifactBucket: string
+    platform: {
+        aws?: StackAws
+        build : {
+            bucket: string
+        }
+    }
+    state: {
+        repo: string
     }
 }
+
+export type StackAws = {
+    region?: string
+    defaultBatchSize?: number
+    defaultStartingPosition?: string
+}
+

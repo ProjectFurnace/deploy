@@ -12,15 +12,22 @@ export default class AwsFlowProcessor {
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
         
         for(let flow of flows) {
+            if (flow.length === 0) continue;
+
+            const firstStep = flow[0];
+            const streamName = `${firstStep.name}`;
+            const kinesisConfig = {
+                name: streamName,
+                shardCount: firstStep.config.aws && firstStep.config.aws.shards ? firstStep.config.aws.shards : 1
+            }
+            let inputStream = new aws.kinesis.Stream(`${firstStep.name}`, kinesisConfig);
+
             for (let step of flow) {
                 const lambdaName = `${step.name}-${environment}`;
+                const outputStream = `${lambdaName}-output-stream`;
+                const isLastStep = flow.indexOf(step) === flow.length -1;
 
-                // create kinesis stream
-                const kinesisConfig = {
-                    shardCount: step.config.aws && step.config.aws.shards ? step.config.aws.shards : 1
-                }
-
-                const stream = new aws.kinesis.Stream(`${lambdaName}-output-stream`, kinesisConfig);
+                if (!step.config.aws) step.config.aws = {};
 
                 const role = AwsUtil.createSimpleIamRole(`${lambdaName}-FunctionRole`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
                 const policy = AwsUtil.createSimpleIamRolePolicy(`${lambdaName}-FunctionPolicy`, role.id, [
@@ -39,9 +46,35 @@ export default class AwsFlowProcessor {
                     handler: "handler.handler",
                     role: role.arn,
                     runtime: aws.lambda.NodeJS8d10Runtime,
-                    s3Bucket: config.stack.platform!.artifactBucket,
-                    s3Key: `${step.module}/${step.meta.hash}`
+                    s3Bucket: config.stack.platform.build.bucket,
+                    s3Key: `${step.module}/${step.meta.hash}`,
+                    environment: {
+                        variables: { 
+                            "OUTPUT_STREAM": isLastStep ? "": outputStream
+                        }
+                    }
                 });
+                
+                const sourceMapping = new aws.lambda.EventSourceMapping(
+                    lambdaName + "-source",
+                    {
+                        eventSourceArn: inputStream.arn,
+                        functionName: lambdaName,
+                        enabled: true,
+                        batchSize: step.config.aws!.batchSize || config.stack.platform.aws!.defaultBatchSize || 1,
+                        startingPosition: step.config.aws!.startingPosition || config.stack.platform.aws!.defaultStartingPosition || "LATEST",
+                    }
+                );
+
+                if (!isLastStep) { // not last step
+                    // create kinesis stream
+                    const streamName = outputStream;
+                    const kinesisConfig = {
+                        name: streamName,
+                        shardCount: step.config.aws && step.config.aws.shards ? step.config.aws.shards : 1
+                    }
+                    inputStream = new aws.kinesis.Stream(streamName, kinesisConfig);
+                }
             }
         }
     }

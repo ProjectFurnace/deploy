@@ -14,7 +14,7 @@ export default class ConfigUtil {
             pipelines: [],
             pipes: [],
             sinks: [],
-            stack: {}
+            stack: { platform: { aws: {  }, build: { bucket: "" } }, state: { repo: "" }}
         };
 
         let moduleHashes = new Map<string, string>();

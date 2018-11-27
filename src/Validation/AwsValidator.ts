@@ -6,8 +6,8 @@ export default class AwsValidator {
         if (!config.stack.platform) errors.push("stack has no platform config set");
         const platform = config.stack.platform!;
 
-        if (!platform.artifactBucket) {
-            errors.push(`no artifactBucket set for stack`);
+        if (!platform.build.bucket) {
+            errors.push(`no build bucket set for stack`);
         }
 
         for (let flow of flows) {

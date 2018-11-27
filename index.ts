@@ -21,8 +21,6 @@ import * as tmp from "tmp";
 
     const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(tmpDir);
 
-    console.log(furnaceConfig);
-
     const processor = new Processor(furnaceConfig, environment as string);
     processor.process();
 

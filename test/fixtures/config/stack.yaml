@@ -1,3 +1,8 @@
 platform:
-  type: aws
-  artifactBucket: furnace-artifacts
+  build:
+    bucket: furnace-artifacts
+  aws:
+    region: eu-west-1
+    defaultBatchSize: 10
+state:
+  repo: https://github.com/ProjectFurnace/state-repo
