@@ -1,6 +1,6 @@
 - name: enrichment
   modules:
     - name: geo
-      module: core/geo
+      module: passthrough
       config:
         param-id: a

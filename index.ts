@@ -19,7 +19,7 @@ import * as tmp from "tmp";
 
     await GitUtil.clone(tmpDir, gitRemote, gitUsername, gitToken);
 
-    const furnaceConfig: FurnaceConfig = ConfigUtil.getConfig(tmpDir)
+    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(tmpDir);
 
     console.log(furnaceConfig);
 

@@ -2,7 +2,7 @@ import GitUtil from "../../src/Util/GitUtil";
 import * as tmp from "tmp";
 import * as fs from "fs";
 
-describe('GitUtil', () => {
+describe.skip('GitUtil', () => {
     describe('clone', () => {
         it('should successfully clone', async () => {
             const tmpDir = tmp.dirSync().name;

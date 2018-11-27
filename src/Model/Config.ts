@@ -7,23 +7,30 @@ export type FurnaceConfig = {
     [key: string]: any; // allows us to reference items by key
 }
 
-export type Module = {
+export type ModuleSpec = {
     name: string
-    module: string,
-    config: any
-    aws: any
+    module: string
+    config: ModuleConfig
+    meta: {
+        hash?: string
+    }
 }
 
-export type Tap = Module
+export type ModuleConfig = {
+    config: any
+    aws?: any
+}
+
+export type Tap = ModuleSpec
 
 export type Pipeline = {
     name: string
     modules: Array<PipelineModule>
 }
 
-export type PipelineModule = Module
+export type PipelineModule = ModuleSpec
 
-export type Sink = Module
+export type Sink = ModuleSpec
 
 export type Pipe = {
     tap?: string
@@ -32,7 +39,8 @@ export type Pipe = {
 }
 
 export type Stack = {
-    platform: {
+    platform?: {
         type: string
+        artifactBucket: string
     }
 }

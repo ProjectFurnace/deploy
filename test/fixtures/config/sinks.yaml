@@ -1,3 +1,4 @@
 - name: elasticsearch
+  module: passthrough
   config:
     param-id: val

@@ -1,5 +1,5 @@
 - name: passthrough
-  module: core/passthrough
+  module: passthrough
   aws:
     shards: 1
   config:

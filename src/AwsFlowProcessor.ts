@@ -1,14 +1,14 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import AwsUtil from "./Util/AwsUtil";
-import { Module } from "./Model/Config";
+import { FurnaceConfig, ModuleSpec } from "./Model/Config";
 import AwsValidator from "./Validation/AwsValidator";
 
 export default class AwsFlowProcessor {
 
-    constructor(private flows: Array<Array<Module>>, environment: string) {
+    constructor(private flows: Array<Array<ModuleSpec>>, config: FurnaceConfig, environment: string) {
 
-        const errors = AwsValidator.validate(flows);
+        const errors = AwsValidator.validate(config, flows);
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
         
         for(let flow of flows) {
@@ -17,8 +17,9 @@ export default class AwsFlowProcessor {
 
                 // create kinesis stream
                 const kinesisConfig = {
-                    shardCount: step.aws.shards ? step.aws!.shards : 1
+                    shardCount: step.config.aws && step.config.aws.shards ? step.config.aws.shards : 1
                 }
+
                 const stream = new aws.kinesis.Stream(`${lambdaName}-output-stream`, kinesisConfig);
 
                 const role = AwsUtil.createSimpleIamRole(`${lambdaName}-FunctionRole`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
@@ -38,8 +39,8 @@ export default class AwsFlowProcessor {
                     handler: "handler.handler",
                     role: role.arn,
                     runtime: aws.lambda.NodeJS8d10Runtime,
-                    s3Bucket: "furnace-artifacts",
-                    s3Key: "Test"
+                    s3Bucket: config.stack.platform!.artifactBucket,
+                    s3Key: `${step.module}/${step.meta.hash}`
                 });
             }
         }

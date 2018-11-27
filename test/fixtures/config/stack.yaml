@@ -1,0 +1,3 @@
+platform:
+  type: aws
+  artifactBucket: furnace-artifacts

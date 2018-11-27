@@ -1,5 +1,5 @@
 import AwsFlowProcessor from "./AwsFlowProcessor";
-import { FurnaceConfig, Module } from "./Model/Config"
+import { FurnaceConfig, ModuleSpec } from "./Model/Config"
 
 export default class Processor {
 
@@ -10,17 +10,19 @@ export default class Processor {
     process() {
         const flows = this.getFlows();
 
-        switch(this.config.stack.platform.type) {
+        const platformType = "aws"; //this.config.stack!.platform!.type
+
+
+        switch(platformType) {
             case "aws":
-                new AwsFlowProcessor(flows, this.environment);
+                new AwsFlowProcessor(flows, this.config, this.environment);
                 break;
             default:
                 throw new Error("unknown stack platform type");
         }
-
     }
 
-    getFlows(): Array<Array<Module>> {
+    getFlows(): Array<Array<ModuleSpec>> {
 
         let flows: Array<any> = [];
 
