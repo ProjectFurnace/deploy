@@ -16,9 +16,9 @@ export default class AwsFlowProcessor {
 
             const firstStep = flow[0];
             const streamName = `${firstStep.name}`;
-            const kinesisConfig = {
+            const kinesisConfig: aws.kinesis.StreamArgs = {
                 name: streamName,
-                shardCount: firstStep.config.aws && firstStep.config.aws.shards ? firstStep.config.aws.shards : 1
+                shardCount: firstStep.config.aws && firstStep.config.aws.shards ? firstStep.config.aws.shards : 1,
             }
             let inputStream = new aws.kinesis.Stream(`${firstStep.name}`, kinesisConfig);
 
@@ -40,7 +40,7 @@ export default class AwsFlowProcessor {
                         actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords" ]
                     }
                 ])
-
+step.meta.hash = "c84c8f53b427414a71029b8132e9c93822d99c31";
                 let lambda = new aws.lambda.Function(lambdaName, {
                     name: lambdaName,
                     handler: "handler.handler",
@@ -50,7 +50,8 @@ export default class AwsFlowProcessor {
                     s3Key: `${step.module}/${step.meta.hash}`,
                     environment: {
                         variables: { 
-                            "OUTPUT_STREAM": isLastStep ? "": outputStream
+                            "STREAM_NAME": isLastStep ? "": outputStream,
+                            "PARTITION_KEY": step.config.aws!.partitionKey || "DEFAULT"
                         }
                     }
                 });
@@ -69,7 +70,7 @@ export default class AwsFlowProcessor {
                 if (!isLastStep) { // not last step
                     // create kinesis stream
                     const streamName = outputStream;
-                    const kinesisConfig = {
+                    const kinesisConfig: aws.kinesis.StreamArgs = {
                         name: streamName,
                         shardCount: step.config.aws && step.config.aws.shards ? step.config.aws.shards : 1
                     }
