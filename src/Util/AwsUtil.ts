@@ -36,4 +36,13 @@ export default class awsUtil {
             })
         });
     }
+
+    static runtimeFromString(runtime: string): aws.lambda.Runtime {
+        switch (runtime) {
+            case "nodejs8.10":
+                return aws.lambda.NodeJS8d10Runtime;
+            default:
+                throw new Error(`unsupported runtime ${runtime}`);
+        }
+    }
 }

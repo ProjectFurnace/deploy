@@ -1,5 +1,6 @@
-- name: passthrough
-  module: passthrough
+- name: flowlogs
+  module: aws-vpcfl
+  source: flowlogs
   aws:
     shards: 1
   config:

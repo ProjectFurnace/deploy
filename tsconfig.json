@@ -3,7 +3,8 @@
         "outDir": "bin",
         "target": "es6",
         "lib": [
-            "es6"
+            "es6",
+            "es2017"
         ],
         "module": "commonjs",
         "moduleResolution": "node",

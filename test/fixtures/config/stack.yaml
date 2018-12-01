@@ -1,4 +1,5 @@
 platform:
+  type: aws
   build:
     bucket: furnace-artifacts
   aws:
