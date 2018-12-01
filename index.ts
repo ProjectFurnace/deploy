@@ -1,11 +1,12 @@
 import Processor from "./src/Processor";
 import ConfigUtil from "./src/Util/ConfigUtil";
-import GitUtil from "./src/Util/GitUtil";
+import * as gitUtils from "@project-furnace/gitutils";
 import { FurnaceConfig } from "./src/Model/Config";
 import * as pulumi from "@pulumi/pulumi";
 import { Config } from "@pulumi/pulumi";
 import * as tmp from "tmp";
 import * as fsUtils from "@project-furnace/fsutils";
+import Build from "./src/Build";
 
 (async () => {
     const config = new Config("deploy")
@@ -20,12 +21,14 @@ import * as fsUtils from "@project-furnace/fsutils";
         , templateRepoDir = tmp.dirSync().name
         ;
 
-    await GitUtil.clone(repoDir, gitRemote, gitUsername, gitToken);
-    await GitUtil.clone(templateRepoDir, templateRepoRemote, gitUsername, gitToken);
+    await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
+    await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername, gitToken);
 
-    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir);
+    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir);
 
-    const processor = new Processor(furnaceConfig, environment as string);
-    processor.process();
+    Build.buildStack(repoDir, templateRepoDir, furnaceConfig.stack.platform.build.bucket, furnaceConfig.stack.platform.type);
+
+    const processor = new Processor();
+    processor.process(furnaceConfig, environment as string);
 
 })();

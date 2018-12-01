@@ -4,3 +4,7 @@
       module: passthrough
       config:
         param-id: a
+    - name: inventory
+      module: passthrough
+      config:
+        param-id: a

@@ -1,4 +1,9 @@
 - name: elasticsearch
-  module: passthrough
   config:
     param-id: val
+
+# - name: s3
+#   aws:
+#     firehose: s3
+#   config:
+#     bucket: test
