@@ -2,8 +2,6 @@ import { FurnaceConfig, ModuleSpec, Tap } from "./Model/Config";
 
 export default class FlowGenerator {
 
-
-
     static getFlows(config: FurnaceConfig, environment: string): Array<Array<ModuleSpec>> {
 
         let flows: Array<Array<ModuleSpec>> = [];

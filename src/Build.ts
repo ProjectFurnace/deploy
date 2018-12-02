@@ -135,7 +135,7 @@ export default class Build {
         {
             // TODO: merge dependencies from template
             const execResult = await this.execPromise("npm install", { cwd: buildPath });
-            console.log("build module", name, buildPath, execResult);
+
             if (execResult.stderr) {
                 throw new Error("npm install returned an error: " + execResult.stderr);
             }

@@ -6,7 +6,7 @@ import * as util from "util";
 describe('FlowGenerator', () => {
 
     it('should return correct flows', async () => {
-        const config = await ConfigUtil.getConfig("test/fixtures/config");
+        const config = await ConfigUtil.getConfig("test/fixtures/config", );
         const flows = FlowGenerator.getFlows(config, "test");
        
         console.log(util.inspect(flows, { depth: 5 }));

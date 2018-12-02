@@ -44,7 +44,7 @@ export default class AwsFlowProcessor {
             for (let step of flow) {
                 const lambdaName = step.meta.function!; //`${step.name}-${environment}`;
                 const outputStream = step.meta.output!; //`${lambdaName}-output-stream`;
-                const isFirstStep = flow.indexOf(step) === 0;
+
                 const isLastStep = flow.indexOf(step) === flow.length -1;
 
                 if (!step.config.aws) step.config.aws = {};
@@ -65,12 +65,14 @@ export default class AwsFlowProcessor {
                     "STACK_NAME": config.stack.name || "unknown"
                 };
 
+                for (let param of step.parameters) {
+                    variables[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1];
+                }
+
                 if (!isLastStep) {
                     variables["STREAM_NAME"] = outputStream;
                     variables["PARTITION_KEY"] = step.config.aws!.partitionKey || "DEFAULT";
                 }
-
-                // console.log(`processor ${step.name} ${step.meta.moduleHash} ${step.meta.templateHash} ${step.meta.hash}`)
 
                 const lambda = new aws.lambda.Function(lambdaName, {
                     name: lambdaName,
@@ -93,7 +95,7 @@ export default class AwsFlowProcessor {
                     }
                 );
 
-                if (!isFirstStep && !isLastStep) {
+                if (!isLastStep) {
                     // create kinesis stream
                     const kinesisConfig: aws.kinesis.StreamArgs = {
                         name: outputStream,

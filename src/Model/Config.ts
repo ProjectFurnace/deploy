@@ -5,7 +5,7 @@ export type FurnaceConfig = {
     sinks: Array<Sink>
     pipes: Array<Pipe>
     stack: Stack
-    [key: string]: any; // allows us to reference items by key
+    [key: string]: any // allows us to reference items by key
 }
 
 export type ModuleSpec = {
@@ -13,6 +13,7 @@ export type ModuleSpec = {
     module: string
     runtime: string
     config: ModuleConfig
+    parameters: Map<string, string>
     meta: {
         hash?: string
         moduleHash?: string
@@ -20,12 +21,13 @@ export type ModuleSpec = {
         source?: string
         function?: string
         output?: string
+        
     }
 }
 
 export type ModuleConfig = {
-    config: any
     aws?: any
+    [key: string]: any
 }
 
 export type Source = {

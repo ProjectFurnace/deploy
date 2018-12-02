@@ -1,6 +1,6 @@
 - name: elasticsearch
   config:
-    param-id: val
+    server: https://search-furnace-6vw266ix5rozsupnduhwy755mu.eu-west-1.es.amazonaws.com
 
 # - name: s3
 #   aws:
