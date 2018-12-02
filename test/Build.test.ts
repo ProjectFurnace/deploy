@@ -5,7 +5,6 @@ import * as fsUtils from "@project-furnace/fsutils";
 describe('build', () => {
 
     beforeAll(() => {
-        console.log("test");
         process.env.GIT_USERNAME = "";
         process.env.GIT_TOKEN = "";
     })
@@ -42,7 +41,7 @@ describe('build', () => {
                 "aws"
             );
             
-            console.log(result);
+
         });
     });
 

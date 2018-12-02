@@ -6,7 +6,7 @@ import { FurnaceConfig, ModuleSpec, Pipeline, Tap } from "../Model/Config";
 
 export default class ConfigUtil {
 
-    static async getConfig(configPath: string, templatesPath: string): Promise<FurnaceConfig> {
+    static async getConfig(configPath: string, templatesPath: string, stackName: string, environment: string): Promise<FurnaceConfig> {
         const files = [ "stack", "sources", "taps", "pipelines", "sinks", "pipes" ];
 
         const config: FurnaceConfig = {
@@ -15,7 +15,7 @@ export default class ConfigUtil {
             pipelines: [],
             pipes: [],
             sinks: [],
-            stack: { name: "", platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }}
+            stack: { name: stackName, platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }}
         };
 
         const modulesPath = path.join(configPath, "modules");
@@ -33,7 +33,7 @@ export default class ConfigUtil {
                 case "sinks":
                     let specs: Array<ModuleSpec> = [];
                     for (let item of configObject as Array<ModuleSpec>) {
-                        specs.push(this.getModuleSpec(file, item, moduleHashes, templateHashes, config.stack.platform.type, modulesPath));
+                        specs.push(this.getModuleSpec(file, item, moduleHashes, templateHashes, config.stack.platform.type, modulesPath, environment));
                     }
                     configObject = specs;
                     break;
@@ -42,7 +42,7 @@ export default class ConfigUtil {
                     for (let item of configObject as Array<Pipeline>) {
                         let pipelineSpecs: Array<ModuleSpec> = [];
                         for (let m of item.modules) {
-                            pipelineSpecs.push(this.getModuleSpec(file, m, moduleHashes, templateHashes, config.stack.platform.type, modulesPath));
+                            pipelineSpecs.push(this.getModuleSpec(file, m, moduleHashes, templateHashes, config.stack.platform.type, modulesPath, environment));
                         }
                         item.modules = pipelineSpecs;
                     }
@@ -71,7 +71,7 @@ export default class ConfigUtil {
         return await HashUtil.getDirectoryHash(dir);
     }
 
-    private static getModuleSpec(file: string, item: any, modules: Map<string,string>, templates: Map<string,string>, platform: string, modulesPath: string) {
+    private static getModuleSpec(file: string, item: any, modules: Map<string,string>, templates: Map<string,string>, platform: string, modulesPath: string, environment: string) {
 
         if (!platform) throw new Error("platform type is not set");
 
@@ -80,25 +80,42 @@ export default class ConfigUtil {
             meta: {},
             module: item.module || item.name,
             runtime: "",
-            config: { config: {} }
+            config: { },
+            parameters: new Map<string, string>()
         }
 
-        const moduleFile = path.join(modulesPath, spec.module, "module.yaml");
+        const moduleSpecFile = path.join(modulesPath, spec.module, "module.yaml");
+        const configSpecFile = path.join(modulesPath, spec.module, "config.yaml");
 
-        let moduleConfig: any = yaml.load(moduleFile);
+        let moduleSpec: any = yaml.load(moduleSpecFile);
+        let moduleConfigSpec: any = yaml.load(configSpecFile);
 
-        if (!moduleConfig.runtime) throw new Error(`module ${item.module} has no runtime specified`)
-        else spec.runtime = moduleConfig.runtime;
+        if (!moduleSpec.runtime) throw new Error(`module ${item.module} has no runtime specified`)
+        else spec.runtime = moduleSpec.runtime;
 
-        delete item.name;
-        delete item.module;
-        spec.config = item;
+        if (moduleConfigSpec["config-groups"]) {
+            for(let group in moduleConfigSpec["config-groups"]) {
+                const paramList = moduleConfigSpec["config-groups"][group];
+                for (let key in paramList) {
+                    const param = paramList[key];
+
+                    const value = item.config[key];
+                    if (!value && param.mandatory && !param.default) throw new Error(`module ${spec.module} has mandatory parameter ${key} which is not set`);
+
+                    spec.parameters.set(key, value || param.default);
+                }
+            }
+        }
+
+        const platformConfigs = ["aws"];
+        for (let p of platformConfigs) {
+            if (item[p]) spec.config[p] = item[p];
+        }
 
         const moduleHash = modules.get(spec.module);
         if (!moduleHash) throw new Error(`unable to get hash for module ${spec.module}`);
 
         const template = `${platform}-${spec.runtime}`;
-
         const templateHash = templates.get(template);
         if (!templateHash) throw new Error(`unable to get hash for template ${template}`);
 
@@ -107,7 +124,7 @@ export default class ConfigUtil {
         spec.meta.hash = HashUtil.combineHashes(moduleHash, templateHash);
         
         if (file !== "sinks") {
-            spec.meta.output = spec.meta.output = spec.name + "-out";
+            spec.meta.output = `${spec.name}-${environment}-out`;
         }
 
         if (file === "taps") {

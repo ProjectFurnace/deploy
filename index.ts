@@ -17,6 +17,7 @@ import Build from "./src/Build";
         , gitUsername = "" //process.env.GIT_USERNAME
         , gitToken = "" //process.env.GIT_TOKEN
         , environment = pulumi.getStack().split("-").pop()
+        , stackName = gitRemote.split("/").pop()
         , repoDir = tmp.dirSync().name
         , templateRepoDir = tmp.dirSync().name
         ;
@@ -24,7 +25,7 @@ import Build from "./src/Build";
     await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
     await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername, gitToken);
 
-    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir);
+    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, stackName as string, environment as string);
 
     Build.buildStack(repoDir, templateRepoDir, furnaceConfig.stack.platform.build.bucket, furnaceConfig.stack.platform.type);
 
