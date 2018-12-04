@@ -1,5 +1,8 @@
-- tap: passthrough
+- tap: flowlogs
   pipeline: enrichment
 
 - pipeline: enrichment
   sink: elasticsearch
+
+# - pipeline: enrichment
+#   sink: s3
