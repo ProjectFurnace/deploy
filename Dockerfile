@@ -15,9 +15,14 @@ ENV PATH=$PATH:/root/.pulumi/bin
 
 WORKDIR /app
 
+ARG NPM_TOKEN  
+COPY .npmrc .npmrc 
+
 COPY package*.json ./
 
 RUN npm install
+
+RUN rm -f .npmrc
 
 COPY . .
 
