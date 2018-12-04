@@ -4,6 +4,7 @@ const tmp = require('tmp');
 (async () => {
     const gitRemote = process.env.GIT_REMOTE // "https://github.com/ProjectFurnace/dev-stack"
         , gitToken = process.env.GIT_TOKEN
+        , gitUsername = process.env.GIT_USERNAME
         , repoDir = tmp.dirSync().name
         ;
 
