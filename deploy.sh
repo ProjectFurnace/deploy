@@ -1,5 +1,10 @@
 #!/bin/bash
 
+# clone the code repo
+TMP_DIR="$(node /app/deploy.js)"
+# get data from the stack.yaml file
+STATE_REPO="$(node /app/readyaml.js $TMP_DIR/stack.yaml state.repo)"
+STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
 # clone state repo to folder prev-config
 git clone $STATE_REPO prev-config
 # login to pulumi locally
