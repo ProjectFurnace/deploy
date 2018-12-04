@@ -9,15 +9,15 @@ import * as tmp from "tmp";
 (async () => {
     const config = new Config("deploy")
         // , configPath: string = config.require("configPath")
-        , gitRemote = "https://github.com/ProjectFurnace/dev-stack" //process.env.GIT_REMOTE
-        , gitTag = "master" //process.env.GIT_TAG
-        , gitUsername = "" //process.env.GIT_USERNAME
-        , gitToken = "" //process.env.GIT_TOKEN
+        , codeRepo = process.env.CODE_REPO_URL
+        , codeRepoTag = "master" //process.env.GIT_TAG
+        , codeRepoUsername = process.env.CODE_REPO_USER
+        , codeRepoToken = process.env.CODE_REPO_TOKEN
         , environment = pulumi.getStack().split("-").pop()
         , tmpDir = tmp.dirSync().name;
         ;
 
-    await GitUtil.clone(tmpDir, gitRemote, gitUsername, gitToken);
+    await GitUtil.clone(tmpDir, codeRepo, codeRepoUsername, codeRepoToken);
 
     const furnaceConfig: FurnaceConfig = ConfigUtil.getConfig(tmpDir)
 

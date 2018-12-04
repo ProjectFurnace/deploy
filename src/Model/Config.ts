@@ -34,5 +34,9 @@ export type Pipe = {
 export type Stack = {
     platform: {
         type: string
+        artifactBucket: string
+    }
+    state: {
+        repo: string
     }
 }
