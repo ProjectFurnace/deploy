@@ -134,6 +134,7 @@ export default class Build {
         try
         {
             if (process.env.NPM_TOKEN) { 
+                console.log("NPM_TOKEN is set, adding .npmrc");
                 const npmrc = "//registry.npmjs.org/:_authToken=${NPM_TOKEN}";
                 fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
             }
