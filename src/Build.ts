@@ -52,6 +52,8 @@ export default class Build {
                     //     continue;
                     // }
 
+                    console.log(`got build artifact for ${moduleDef.name} at ${buildArtifactPath}`)
+
                     moduleDef.moduleHash = await HashUtil.getDirectoryHash(moduleDir);
                     moduleDef.templateHash = await HashUtil.getDirectoryHash(templatePath);
                     moduleDef.hash = HashUtil.combineHashes(moduleDef.moduleHash, moduleDef.templateHash);
@@ -79,6 +81,8 @@ export default class Build {
                     try {
                         const uploadResult = await s3Utils.upload(bucket, s3Key, buildArtifactPath);
                         moduleDef.uploadResult = uploadResult;
+                        console.log(`uploaded module ${moduleDef.name} to s3`)
+                        
                     } catch (err) {
                         moduleDef.error = "unable to build module: " + err;
                         continue;
