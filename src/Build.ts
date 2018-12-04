@@ -133,6 +133,10 @@ export default class Build {
 
         try
         {
+            if (process.env.NPM_TOKEN) { 
+                const npmrc = "//registry.npmjs.org/:_authToken=${NPM_TOKEN}";
+                fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
+            }
             // TODO: merge dependencies from template
             const execResult = await this.execPromise("npm install", { cwd: buildPath });
 
