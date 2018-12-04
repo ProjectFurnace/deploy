@@ -7,7 +7,7 @@ import { FurnaceConfig, ModuleSpec, Pipeline, Tap } from "../Model/Config";
 export default class ConfigUtil {
 
     static async getConfig(configPath: string, templatesPath: string, stackName: string, environment: string): Promise<FurnaceConfig> {
-        const files = [ "stack", "sources", "taps", "pipelines", "sinks", "pipes" ];
+        const files = [ "stack", "sources", "taps", "pipelines", "sinks", "pipes", "resources" ];
 
         const config: FurnaceConfig = {
             sources: [],
@@ -15,7 +15,8 @@ export default class ConfigUtil {
             pipelines: [],
             pipes: [],
             sinks: [],
-            stack: { name: stackName, platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }}
+            stack: { name: stackName, platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }},
+            resources: []
         };
 
         const modulesPath = path.join(configPath, "modules");
@@ -24,6 +25,10 @@ export default class ConfigUtil {
 
         for (let file of files) {
             const filePath = path.join(configPath, file + ".yaml");
+            if (!fsUtils.exists(filePath)) {
+                console.log(`WARNING: file ${file} does not exist in config`);
+                continue;
+            }
 
             let configObject: any = yaml.load(filePath);
 
