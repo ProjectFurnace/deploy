@@ -3,12 +3,13 @@ FROM ubuntu:bionic
 RUN apt-get update && \
     apt-get install -my \
         curl \
-        gnupg
+        gnupg \
+        git
 
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
-RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.2
+RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.5
 
 ENV PATH=$PATH:/root/.pulumi/bin
 
@@ -19,6 +20,5 @@ COPY package*.json ./
 RUN npm install
 
 COPY . .
-
 
 CMD /app/deploy.sh
