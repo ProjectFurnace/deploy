@@ -30,6 +30,10 @@ export default class AwsFlowProcessor {
             }
         }
 
+        for (let resource of config.resources) {
+            AwsUtil.createResource(resource.name, resource.type, resource.config);
+        }
+
         for(let flow of flows) {
             if (flow.length === 0) continue;
 
