@@ -138,12 +138,15 @@ export default class Build {
                 const npmrc = "//registry.npmjs.org/:_authToken=${NPM_TOKEN}";
                 fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
             }
+
+            console.log(`building ${name} in ${buildPath}`);
+
             // TODO: merge dependencies from template
             const execResult = await this.execPromise("npm install", 
                 { cwd: buildPath, env: process.env });
 
             if (execResult.stderr) {
-                throw new Error("npm install returned an error: " + execResult.stderr);
+                throw new Error(`npm install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
             }
             
         } catch (err) {
