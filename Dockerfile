@@ -9,7 +9,7 @@ RUN apt-get update && \
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
-RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.5
+RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.6
 
 ENV PATH=$PATH:/root/.pulumi/bin
 
