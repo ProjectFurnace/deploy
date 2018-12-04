@@ -13,6 +13,7 @@ import Build from "./src/Build";
         , gitTag = process.env.GIT_TAG //"master"
         , gitUsername = process.env.GIT_USERNAME
         , gitToken = process.env.GIT_TOKEN
+        , buildBucket = process.env.BUILD_BUCKET
         , environment = pulumi.getStack().split("-").pop()
         , stackName = gitRemote!.split("/").pop()
         , repoDir = tmp.dirSync().name
@@ -36,10 +37,10 @@ import Build from "./src/Build";
     if (process.env.SKIP_BUILD) {
         console.log("SKIP_BUILD is set, pausing processing")
     } else {
-        Build.buildStack(repoDir, templateRepoDir, furnaceConfig.stack.platform.build.bucket, furnaceConfig.stack.platform.type);
+        Build.buildStack(repoDir, templateRepoDir, buildBucket!, furnaceConfig.stack.platform.type);
 
         const processor = new Processor();
-        processor.process(furnaceConfig, environment as string);
+        processor.process(furnaceConfig, environment!, buildBucket!);
     }
 
 })();

@@ -64,9 +64,6 @@ export type Stack = {
     platform: {
         type: string
         aws?: StackAws
-        build : {
-            bucket: string
-        }
     }
     state: {
         repo: string
@@ -74,7 +71,6 @@ export type Stack = {
 }
 
 export type StackAws = {
-    region?: string
     defaultBatchSize?: number
     defaultStartingPosition?: string
 }

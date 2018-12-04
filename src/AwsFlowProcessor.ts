@@ -7,7 +7,7 @@ import awsUtil from "./Util/AwsUtil";
 
 export default class AwsFlowProcessor {
 
-    constructor(private flows: Array<Array<ModuleSpec>>, config: FurnaceConfig, environment: string) {
+    constructor(private flows: Array<Array<ModuleSpec>>, config: FurnaceConfig, environment: string, buildBucket: string) {
 
         const errors = AwsValidator.validate(config, flows);
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
@@ -38,11 +38,6 @@ export default class AwsFlowProcessor {
             if (flow.length === 0) continue;
 
             const firstStep = flow[0];
-            // const streamName = `${firstStep.name}`;
-            // const kinesisConfig: aws.kinesis.StreamArgs = {
-            //     name: streamName,
-            //     shardCount: firstStep.config.aws && firstStep.config.aws.shards ? firstStep.config.aws.shards : 1,
-            // }
             let inputStream = sourceStreams.get(firstStep.meta.source!) as aws.kinesis.Stream;
 
             for (let step of flow) {
@@ -83,7 +78,7 @@ export default class AwsFlowProcessor {
                     handler: "handler.handler",
                     role: role.arn,
                     runtime: awsUtil.runtimeFromString("nodejs8.10"), //TODO: get runtime from module spec
-                    s3Bucket: config.stack.platform.build.bucket,
+                    s3Bucket: buildBucket,
                     s3Key: `${step.module}/${step.meta.hash}`,
                     environment: { variables }
                 });
