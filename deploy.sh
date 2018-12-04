@@ -1,4 +1,4 @@
 #!/bin/bash
 
-pulumi stack select furnace-deploy-dev
+pulumi stack select ${STACK_NAME}
 pulumi up -y

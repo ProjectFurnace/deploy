@@ -5,6 +5,7 @@ export type FurnaceConfig = {
     sinks: Array<Sink>
     pipes: Array<Pipe>
     stack: Stack
+    resources: Array<Resource>
     [key: string]: any // allows us to reference items by key
 }
 
@@ -21,7 +22,6 @@ export type ModuleSpec = {
         source?: string
         function?: string
         output?: string
-        
     }
 }
 
@@ -82,4 +82,10 @@ export type StackAws = {
 export enum SourceType {
     AwsKinesisStream= "KinesisStream",
     KafkaStream="KafkaStream"
+}
+
+export type Resource = {
+    name: string
+    type: string
+    config: any
 }

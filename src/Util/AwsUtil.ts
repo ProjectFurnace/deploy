@@ -45,4 +45,16 @@ export default class awsUtil {
                 throw new Error(`unsupported runtime ${runtime}`);
         }
     }
+
+    static createResource(name: string, type: string, config: any) {
+        config.name = name;
+
+        switch (type) {
+            case "elasticsearch.Domain":
+                new aws.elasticsearch.Domain(name, config);
+                break;
+            default:
+                throw new Error(`unknown resource type ${type}`)
+        }
+    }
 }
