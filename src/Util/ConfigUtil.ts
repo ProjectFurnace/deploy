@@ -2,7 +2,7 @@ import * as yaml from "yamljs";
 import * as fsUtils from "@project-furnace/fsutils";
 import HashUtil from "../Util/HashUtil";
 import * as path from "path";
-import { FurnaceConfig, ModuleSpec, Pipeline, Tap } from "../Model/Config";
+import { FurnaceConfig, ModuleSpec, Pipeline, Tap, Stack } from "../Model/Config";
 
 export default class ConfigUtil {
 
@@ -15,7 +15,8 @@ export default class ConfigUtil {
             pipelines: [],
             pipes: [],
             sinks: [],
-            stack: { name: stackName, platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }},
+            // stack: { name: stackName, platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }},
+            stack: <Stack>{},
             resources: []
         };
 
