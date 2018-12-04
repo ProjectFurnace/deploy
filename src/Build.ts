@@ -139,7 +139,8 @@ export default class Build {
                 fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
             }
             // TODO: merge dependencies from template
-            const execResult = await this.execPromise("npm install", { cwd: buildPath });
+            const execResult = await this.execPromise("npm install", 
+                { cwd: buildPath, env: process.env });
 
             if (execResult.stderr) {
                 throw new Error("npm install returned an error: " + execResult.stderr);
