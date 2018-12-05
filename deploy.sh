@@ -3,8 +3,6 @@
 # clone the code repo
 TMP_DIR="$(node /app/deploy.js)"
 # get data from the stack.yaml file
-cat $TMP_DIR/stack.yaml
-
 STATE_REPO="$(node /app/readyaml.js $TMP_DIR/stack.yaml state.repo)"
 STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
 STACK_REGION="$(node /app/readyaml.js $TMP_DIR/stack.yaml platform.aws.region)"
@@ -13,8 +11,6 @@ echo "Git and Stack info"
 echo "STATE REPO: $STATE_REPO"
 echo "STACK NAME: $STACK_NAME"
 echo "STACK REGION: $STACK_REGION"
-
-cat $TMP_DIR/sources.yaml
 
 STATE_REPO="${STATE_REPO/:\/\//://$GIT_TOKEN@}"
 
