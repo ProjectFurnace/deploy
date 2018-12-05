@@ -41,6 +41,7 @@ else
   # previous stack config found
   echo "Initializing stack $STACK_NAME-$STACK_ENV to import previous config..."
   if pulumi stack init $STACK_NAME-$STACK_ENV; then
+    pulumi config set --plaintext aws:region $STACK_REGION
     echo "Trying to import previous stack config..."
     if pulumi stack import --file /tmp/pulumi-prev-config/config.checkpoint.json; then
       echo "Selecting stack $STACK_NAME-$STACK_ENV..."
