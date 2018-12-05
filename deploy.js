@@ -5,6 +5,7 @@ const fsUtils = require('@project-furnace/fsutils');
     const gitRemote = process.env.GIT_REMOTE
         , gitToken = process.env.GIT_TOKEN
         , gitUsername = process.env.GIT_USERNAME
+        , gitTag = process.env.GIT_TAG
         , repoDir = "/tmp/stack/"
         ;
 
@@ -15,6 +16,7 @@ const fsUtils = require('@project-furnace/fsutils');
     if (!fsUtils.exists(repoDir)) fsUtils.mkdir(repoDir);
 
     await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
+    await gitUtils.checkout(repoDir, gitTag);
 
     console.log(repoDir);
 })();
