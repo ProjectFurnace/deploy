@@ -15,15 +15,20 @@ export default class AwsFlowProcessor {
         // create the source streams
         let sourceStreams = new Map<string, aws.kinesis.Stream>();
 
+        console.log(config.sources);
+
         for (let source of config.sources) {
             const name = source.name + (source.perEnvironment ? `-${environment}` : "");
+
             switch (source.type) {
                 case SourceType.AwsKinesisStream:
-                    sourceStreams.set(name, new aws.kinesis.Stream(name, {
+                    const streamOptions = {
                         name,
                         shardCount: 1
                         // TODO: add more initialisers
-                    }))
+                    }
+                    console.log(`creating stream ${name}`, streamOptions);
+                    sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
                     break;
                 default:
                     throw new Error(`unknown source type ${source.type}`);

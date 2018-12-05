@@ -28,20 +28,18 @@ import Build from "./src/Build";
     if (!environment) throw new Error(`unable to extract environment`);
     if (!stackName) throw new Error(`unable to extract stack name`);
 
+    //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
+
     await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
     await gitUtils.checkout(repoDir, gitTag!);
     await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
 
     const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, stackName as string, environment as string);
 
-    if (process.env.SKIP_BUILD) {
-        console.log("SKIP_BUILD is set, pausing processing")
-    } else {
-        Build.buildStack(repoDir, templateRepoDir, buildBucket!, furnaceConfig.stack.platform.type);
+    Build.buildStack(repoDir, templateRepoDir, buildBucket!, furnaceConfig.stack.platform.type);
 
-        const processor = new Processor();
-        processor.process(furnaceConfig, environment!, buildBucket!);
-    }
-
+    const processor = new Processor();
+    processor.process(furnaceConfig, environment!, buildBucket!);
+    
 })();
 
