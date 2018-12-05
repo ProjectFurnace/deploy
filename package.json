@@ -12,7 +12,7 @@
     "ts-jest": "^23.10.4"
   },
   "dependencies": {
-    "@project-furnace/fsutils": "^0.1.3",
+    "@project-furnace/fsutils": "^0.1.5",
     "@project-furnace/gitutils": "^0.1.1",
     "@project-furnace/s3utils": "^0.1.1",
     "@project-furnace/ziputils": "^0.1.1",

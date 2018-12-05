@@ -1,16 +1,18 @@
 const gitUtils = require('@project-furnace/gitutils');
-const tmp = require('tmp');
+const fsUtils = require('@project-furnace/fsutils');
 
 (async () => {
-    const gitRemote = process.env.GIT_REMOTE // "https://github.com/ProjectFurnace/dev-stack"
+    const gitRemote = process.env.GIT_REMOTE
         , gitToken = process.env.GIT_TOKEN
         , gitUsername = process.env.GIT_USERNAME
-        , repoDir = tmp.dirSync().name
+        , repoDir = "/tmp/stack/"
         ;
 
     if (!gitRemote) throw new Error(`GIT_REMOTE not set`);
     if (!gitUsername) throw new Error(`GIT_USERNAME not set`);
     if (!gitToken) throw new Error(`GIT_TOKEN not set`);
+
+    if (!fsUtils.exists(repoDir)) fsUtils.mkdir(repoDir);
 
     await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
 

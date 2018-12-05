@@ -7,6 +7,7 @@ import { Config } from "@pulumi/pulumi";
 import * as tmp from "tmp";
 import * as fsUtils from "@project-furnace/fsutils";
 import Build from "./src/Build";
+import * as path from "path";
 
 (async () => {
     const gitRemote = process.env.GIT_REMOTE // "https://github.com/ProjectFurnace/dev-stack"
@@ -16,7 +17,7 @@ import Build from "./src/Build";
         , buildBucket = process.env.BUILD_BUCKET
         , environment = pulumi.getStack().split("-").pop()
         , stackName = gitRemote!.split("/").pop()
-        , repoDir = tmp.dirSync().name
+        , repoDir = "/tmp/stack/"
         , templateRepoRemote = "https://github.com/ProjectFurnace/function-templates"
         , templateRepoDir = tmp.dirSync().name
         ;
@@ -30,11 +31,13 @@ import Build from "./src/Build";
 
     //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
 
-    await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
-    await gitUtils.checkout(repoDir, gitTag!);
+    // await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
+    // await gitUtils.checkout(repoDir, gitTag!);
     await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
 
     const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, stackName as string, environment as string);
+    
+    console.log(fsUtils.readFile(path.join(repoDir, "sources.yaml")));
 
     Build.buildStack(repoDir, templateRepoDir, buildBucket!, furnaceConfig.stack.platform.type);
 
