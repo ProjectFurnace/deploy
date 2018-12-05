@@ -3,6 +3,8 @@
 # clone the code repo
 TMP_DIR="$(node /app/deploy.js)"
 # get data from the stack.yaml file
+cat $TMP_DIR/stack.yaml
+
 STATE_REPO="$(node /app/readyaml.js $TMP_DIR/stack.yaml state.repo)"
 STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
 STACK_REGION="$(node /app/readyaml.js $TMP_DIR/stack.yaml platform.aws.region)"
@@ -37,10 +39,13 @@ if [ ! -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
     fi
 else
   # previous stack config found
-  echo "Trying to import previous stack config..."
-  if pulumi stack import --file /tmp/pulumi-prev-config/config.checkpoint.json; then
-    echo "Selecting stack $STACK_NAME-$STACK_ENV..."
-    pulumi stack select $STACK_NAME-$STACK_ENV
+  echo "Initializing stack $STACK_NAME-$STACK_ENV to import previous config..."
+  if pulumi stack init $STACK_NAME-$STACK_ENV; then
+    echo "Trying to import previous stack config..."
+    if pulumi stack import --file /tmp/pulumi-prev-config/config.checkpoint.json; then
+      echo "Selecting stack $STACK_NAME-$STACK_ENV..."
+      pulumi stack select $STACK_NAME-$STACK_ENV
+    fi
   fi
 fi
 
