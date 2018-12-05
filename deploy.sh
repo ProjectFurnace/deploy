@@ -28,7 +28,7 @@ echo "Logging into pulumi locally..."
 pulumi login --local
 
 # check if we have a previous stack config
-if [ ! -f prev-config/config.checkpoint.json ]; then
+if [ ! -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
     echo "No previous stack found in github. Proceeding to create a new one..."
     echo "Initializing stack $STACK_NAME-$STACK_ENV..."
     if pulumi stack init $STACK_NAME-$STACK_ENV; then
