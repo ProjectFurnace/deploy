@@ -31,8 +31,6 @@ import * as path from "path";
 
     //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
 
-    // await gitUtils.clone(repoDir, gitRemote, gitUsername, gitToken);
-    // await gitUtils.checkout(repoDir, gitTag!);
     await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
 
     const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, stackName as string, environment as string);
