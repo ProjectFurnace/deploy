@@ -17,6 +17,9 @@ echo "STACK REGION: $STACK_REGION"
 echo "GIT OWNER: $GIT_OWNER"
 echo "GIT REPO: $GIT_REPO"
 
+# set status as pending for deployment
+curl -o /dev/null -d '{"state":"pending","description":"Deployment started..."}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
+
 STATE_REPO="${STATE_REPO/:\/\//://$GIT_TOKEN@}"
 
 # initial git config
