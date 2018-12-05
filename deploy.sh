@@ -7,10 +7,15 @@ STATE_REPO="$(node /app/readyaml.js $TMP_DIR/stack.yaml state.repo)"
 STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
 STACK_REGION="$(node /app/readyaml.js $TMP_DIR/stack.yaml platform.aws.region)"
 
+GIT_OWNER="$(echo $GIT_REMOTE | cut -d '/' -f4)"
+GIT_REPO="$(echo $GIT_REMOTE | cut -d '/' -f5 | cut -d '.' -f1 )"
+
 echo "Git and Stack info"
 echo "STATE REPO: $STATE_REPO"
 echo "STACK NAME: $STACK_NAME"
 echo "STACK REGION: $STACK_REGION"
+echo "GIT OWNER: $GIT_OWNER"
+echo "GIT REPO: $GIT_REPO"
 
 STATE_REPO="${STATE_REPO/:\/\//://$GIT_TOKEN@}"
 
@@ -66,6 +71,7 @@ if [ $? -eq 0 ]; then
       git commit -m 'Update stack'
       if git push --set-upstream origin $STACK_ENV; then
         echo "State successfully saved to git"
+        curl -d '{"state":"success","description":"Deployment finished successfully"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
       fi
     fi
   fi
