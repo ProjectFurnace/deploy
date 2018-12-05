@@ -65,7 +65,7 @@ if [ $? -eq 0 ]; then
       git remote rm origin
       git remote add origin $STATE_REPO
       # commit to github
-      git checkout -b $STACK_ENV
+      git checkout $(git show-ref --verify --quiet refs/heads/$STACK_ENV || echo '-b') $STACK_ENV
       git add .
       git commit -m 'Update stack'
       if git push --set-upstream origin $STACK_ENV; then
