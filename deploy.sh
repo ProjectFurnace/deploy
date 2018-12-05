@@ -70,9 +70,12 @@ if [ $? -eq 0 ]; then
       git add .
       git commit -m 'Update stack'
       if git push --set-upstream origin $STACK_ENV; then
-        echo "State successfully saved to git"
+        echo "State successfully saved to git. Marking deployment as succesful."
         curl -d '{"state":"success","description":"Deployment finished successfully"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
       fi
     fi
+  else
+    echo "Deployment failed"
+    curl -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
   fi
 fi
