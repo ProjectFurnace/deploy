@@ -47,7 +47,7 @@ rm -rf /tmp/pulumi-prev-config
 git clone $STATE_REPO /tmp/pulumi-prev-config
 
 # set credentials for pulumi
-AWS_CREDS=$(curl -s "http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
+AWS_CREDS=$(curl -s "http://169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
 
 AWS_ACCESS_KEY_ID="$(echo $AWS_CREDS | jq -r .AccessKeyId)"
 AWS_SECRET_ACCESS_KEY="$(echo $AWS_CREDS | jq -r .SecretAccessKey)"
