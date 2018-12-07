@@ -1,20 +1,20 @@
 #!/bin/bash
 
 # get stack region from container metadata
-STACK_REGION=$(curl -s "$ECS_CONTAINER_METADATA_URI" |jq '.Labels["com.amazonaws.ecs.task-arn"]' | cut -d : -f 4)
+STACK_REGION=$(curl -s "$ECS_CONTAINER_METADATA_URI" |jq -r '.Labels["com.amazonaws.ecs.task-arn"]' | cut -d : -f 4)
 # STACK_REGION="$(node /app/readyaml.js $TMP_DIR/stack.yaml platform.aws.region)"
 
-GIT_TOKEN="$(aws secretsmanager get-secret-value --secret-id "$FURNACE_INSTANCE/GitToken" --region "$STACK_REGION" | jq .SecretString)"
-NPM_TOKEN="$(aws secretsmanager get-secret-value --secret-id "$FURNACE_INSTANCE/NpmToken" --region "$STACK_REGION" | jq .SecretString)"
+GIT_TOKEN="$(aws secretsmanager get-secret-value --secret-id "$FURNACE_INSTANCE/GitToken" --region "$STACK_REGION" | jq -r .SecretString)"
+NPM_TOKEN="$(aws secretsmanager get-secret-value --secret-id "$FURNACE_INSTANCE/NpmToken" --region "$STACK_REGION" | jq -r .SecretString)"
 
 if [ -n "$GIT_TOKEN" ]; then
   echo "Setting GIT token env var..."
-  export GIT_TOKEN=$GIT_TOKEN
+  export GIT_TOKEN="$GIT_TOKEN"
 fi
 
 if [ -n "$NPM_TOKEN" ]; then
   echo "Setting NPM token env var..."
-  export NPM_TOKEN=$NPM_TOKEN
+  export NPM_TOKEN="$NPM_TOKEN"
 fi
 
 # clone the code repo
@@ -49,13 +49,13 @@ git clone $STATE_REPO /tmp/pulumi-prev-config
 # set credentials for pulumi
 AWS_CREDS=$(curl -s "http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
 
-AWS_ACCESS_KEY_ID="$(echo $AWS_CREDS | jq .AccessKeyId)"
-AWS_SECRET_ACCESS_KEY="$(echo $AWS_CREDS | jq .SecretAccessKey)"
+AWS_ACCESS_KEY_ID="$(echo $AWS_CREDS | jq -r .AccessKeyId)"
+AWS_SECRET_ACCESS_KEY="$(echo $AWS_CREDS | jq -r .SecretAccessKey)"
 
 if [[ -n "$VAR1" && -n "$VAR2" ]]; then
   echo "Setting up AWS credentials for pulumi..."
-  export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
-  export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+  export AWS_ACCESS_KEY_ID="$AWS_ACCESS_KEY_ID"
+  export AWS_SECRET_ACCESS_KEY="$AWS_SECRET_ACCESS_KEY"
 fi
 
 # login to pulumi locally
