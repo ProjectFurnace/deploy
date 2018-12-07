@@ -1,11 +1,27 @@
 #!/bin/bash
 
+# get stack region from container metadata
+STACK_REGION=$(curl -s "$ECS_CONTAINER_METADATA_URI" |jq '.Labels["com.amazonaws.ecs.task-arn"]' | cut -d : -f 4)
+# STACK_REGION="$(node /app/readyaml.js $TMP_DIR/stack.yaml platform.aws.region)"
+
+GIT_TOKEN="$(aws secretsmanager get-secret-value --secret-id "$FURNACE_INSTANCE/GitToken" --region "$STACK_REGION" | jq .SecretString)"
+NPM_TOKEN="$(aws secretsmanager get-secret-value --secret-id "$FURNACE_INSTANCE/NpmToken" --region "$STACK_REGION" | jq .SecretString)"
+
+if [ -n "$GIT_TOKEN" ]; then
+  echo "Setting GIT token env var..."
+  export GIT_TOKEN=$GIT_TOKEN
+fi
+
+if [ -n "$NPM_TOKEN" ]; then
+  echo "Setting NPM token env var..."
+  export NPM_TOKEN=$NPM_TOKEN
+fi
+
 # clone the code repo
 TMP_DIR="$(node /app/deploy.js)"
 # get data from the stack.yaml file
 STATE_REPO="$(node /app/readyaml.js $TMP_DIR/stack.yaml state.repo)"
 STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
-STACK_REGION="$(node /app/readyaml.js $TMP_DIR/stack.yaml platform.aws.region)"
 
 GIT_OWNER="$(echo $GIT_REMOTE | cut -d '/' -f4)"
 GIT_REPO="$(echo $GIT_REMOTE | cut -d '/' -f5 | cut -d '.' -f1 )"
@@ -29,6 +45,19 @@ git config --global user.email "hello@projectfurnace.io"
 echo "Cloning state repo..."
 rm -rf /tmp/pulumi-prev-config
 git clone $STATE_REPO /tmp/pulumi-prev-config
+
+# set credentials for pulumi
+AWS_CREDS=$(curl -s "http://169.254.170.2/$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI")
+
+AWS_ACCESS_KEY_ID="$(echo $AWS_CREDS | jq .AccessKeyId)"
+AWS_SECRET_ACCESS_KEY="$(echo $AWS_CREDS | jq .SecretAccessKey)"
+
+if [[ -n "$VAR1" && -n "$VAR2" ]]; then
+  echo "Setting up AWS credentials for pulumi..."
+  export AWS_ACCESS_KEY_ID=$AWS_ACCESS_KEY_ID
+  export AWS_SECRET_ACCESS_KEY=$AWS_SECRET_ACCESS_KEY
+fi
+
 # login to pulumi locally
 echo "Logging into pulumi locally..."
 pulumi login --local
