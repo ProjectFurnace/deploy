@@ -15,10 +15,8 @@ export default class AwsFlowProcessor {
         // create the source streams
         let sourceStreams = new Map<string, aws.kinesis.Stream>();
 
-        console.log(config.sources);
-
         for (let source of config.sources) {
-            const name = source.name + (source.perEnvironment ? `-${environment}` : "");
+            const name = `${config.stack.name}-${source.name}` + (source.perEnvironment ? `-${environment}` : "");
 
             switch (source.type) {
                 case SourceType.AwsKinesisStream:
@@ -27,7 +25,7 @@ export default class AwsFlowProcessor {
                         shardCount: 1
                         // TODO: add more initialisers
                     }
-                    console.log(`creating stream ${name}`, streamOptions);
+
                     sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
                     break;
                 default:
@@ -38,7 +36,7 @@ export default class AwsFlowProcessor {
         if (!config.resources || !Array.isArray(config.resources)) config.resources = [];
 
         for (let resource of config.resources) {
-            AwsUtil.createResource(resource.name, resource.type, resource.config);
+            AwsUtil.createResource(resource.name, resource.type, resource.config, config.stack.name);
         }
 
         for(let flow of flows) {
@@ -48,8 +46,8 @@ export default class AwsFlowProcessor {
             let inputStream = sourceStreams.get(firstStep.meta.source!) as aws.kinesis.Stream;
 
             for (let step of flow) {
-                const lambdaName = step.meta.function!; //`${step.name}-${environment}`;
-                const outputStream = step.meta.output!; //`${lambdaName}-output-stream`;
+                const lambdaName = step.meta.function!;
+                const outputStream = step.meta.output!; 
 
                 const isLastStep = flow.indexOf(step) === flow.length -1;
 

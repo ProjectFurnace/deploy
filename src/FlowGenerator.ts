@@ -5,6 +5,7 @@ export default class FlowGenerator {
     static getFlows(config: FurnaceConfig, environment: string): Array<Array<ModuleSpec>> {
 
         let flows: Array<Array<ModuleSpec>> = [];
+
         const stackName = config.stack.name;
 
         for (let pipe of config.pipes) {

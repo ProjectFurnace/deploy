@@ -46,8 +46,8 @@ export default class awsUtil {
         }
     }
 
-    static createResource(name: string, type: string, config: any) {
-        config.name = name;
+    static createResource(name: string, type: string, config: any, stackName: string) {
+        config.name = `${stackName}-${name}`;
 
         switch (type) {
             case "elasticsearch.Domain":
