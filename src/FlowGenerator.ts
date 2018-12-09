@@ -26,6 +26,7 @@ export default class FlowGenerator {
 
                 tap.meta.source = tapSource;
                 tap.meta.function = `${stackName}-${tap.name}-${environment}`;
+                tap.meta.output = `${stackName}-${tap.meta.output}`;
 
                 const pipeline = config.pipelines.find(pipeline => pipeline.name === pipe.pipeline);
                 if (!pipeline) throw new Error(`unable to find pipeline ${pipe.pipeline} specified in pipe ${config.pipes.indexOf(pipe)}`)
@@ -37,6 +38,7 @@ export default class FlowGenerator {
                     
                     mod.meta.source = (m === 0 ? `${stackName}-${tap.name}` : `${stackName}-${pipeline.modules[m -1].name}-${environment}-out`);
                     mod.meta.function = `${mod.name}-${environment}`;
+                    mod.meta.output = `${stackName}-${mod.meta.output}`;
 
                     flow.push(mod);
                 }
