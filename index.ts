@@ -17,6 +17,7 @@ import * as path from "path";
         , buildBucket = process.env.BUILD_BUCKET
         , environment = pulumi.getStack().split("-").pop()
         , stackName = gitRemote!.split("/").pop()
+        , platform = process.env.PLATFORM
         , repoDir = "/tmp/stack/"
         , modulesDir = path.join(repoDir, "modules")
         , templateRepoRemote = "https://github.com/ProjectFurnace/function-templates"
@@ -27,6 +28,7 @@ import * as path from "path";
     if (!gitTag) throw new Error(`GIT_TAG not set`);
     if (!gitUsername) throw new Error(`GIT_USERNAME not set`);
     if (!gitToken) throw new Error(`GIT_TOKEN not set`);
+    if (!platform) throw new Error(`PLATFORM not set`);
     if (!environment) throw new Error(`unable to extract environment`);
     if (!stackName) throw new Error(`unable to extract stack name`);
 
@@ -36,11 +38,9 @@ import * as path from "path";
 
     await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
 
-    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, stackName as string, environment as string);
-    
-    console.log(fsUtils.readFile(path.join(repoDir, "sources.yaml")));
+    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, stackName!, environment!, platform!);
 
-    Build.buildStack(repoDir, templateRepoDir, buildBucket!, furnaceConfig.stack.platform.type);
+    Build.buildStack(repoDir, templateRepoDir, buildBucket!, platform!);
 
     const processor = new Processor();
     processor.process(furnaceConfig, environment!, buildBucket!);

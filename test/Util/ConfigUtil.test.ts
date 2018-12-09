@@ -3,8 +3,8 @@ import * as util from "util";
 
 describe('configUtil', () => {
     it('should correctly parse config', async () => {
-        const config = await ConfigUtil.getConfig("test/fixtures/config", "test/fixtures/templates/", "test", "test");
-        console.log(util.inspect(config, { depth: 5 }));
+        const config = await ConfigUtil.getConfig("test/fixtures/config", "test/fixtures/templates", "test-stack", "test", "aws");
+        // console.log(util.inspect(config, { depth: 5 }));
         
         expect(config.taps).toBeDefined();
         expect(config.pipelines).toBeDefined();

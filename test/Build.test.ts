@@ -21,7 +21,7 @@ describe('build', () => {
         fsUtils.writeFile(path.join(codePath, "codeFile"), "test");
         fsUtils.writeFile(path.join(templatePath, "templateFile"), "test");
 
-        const artifact = await Build.buildModule(codePath, templatePath, buildPath);
+        const artifact = await Build.buildModule( { name: "testModule", info: { runtime: "nodejs8.10" }  }, codePath, templatePath, buildPath);
         
         expect(artifact.length).toBeGreaterThan(0);
         expect(artifact.endsWith(".zip")).toBe(true);
@@ -37,11 +37,11 @@ describe('build', () => {
             jest.setTimeout(20000);
             const result = await Build.buildStack(
                 "https://github.com/ProjectFurnace/dev-stack",
+                "https://github.com/ProjectFurnace/dev-stack-state",
                 "furnace-artifacts",
                 "aws"
             );
             
-
         });
     });
 

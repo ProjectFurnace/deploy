@@ -6,7 +6,7 @@ import { FurnaceConfig, ModuleSpec, Pipeline, Tap, Stack } from "../Model/Config
 
 export default class ConfigUtil {
 
-    static async getConfig(configPath: string, templatesPath: string, stackName: string, environment: string): Promise<FurnaceConfig> {
+    static async getConfig(configPath: string, templatesPath: string, stackName: string, environment: string, platform: string): Promise<FurnaceConfig> {
         const files = [ "stack", "sources", "taps", "pipelines", "sinks", "pipes", "resources" ];
 
         const config: FurnaceConfig = {
@@ -15,7 +15,6 @@ export default class ConfigUtil {
             pipelines: [],
             pipes: [],
             sinks: [],
-            // stack: { name: stackName, platform: { type: "", aws: {  }, build: { bucket: "" } }, state: { repo: "" }},
             stack: <Stack>{},
             resources: []
         };
@@ -39,7 +38,7 @@ export default class ConfigUtil {
                 case "sinks":
                     let specs: Array<ModuleSpec> = [];
                     for (let item of configObject as Array<ModuleSpec>) {
-                        specs.push(this.getModuleSpec(file, item, moduleHashes, templateHashes, config.stack.platform.type, modulesPath, environment));
+                        specs.push(this.getModuleSpec(file, item, moduleHashes, templateHashes, platform, modulesPath, environment, stackName));
                     }
                     configObject = specs;
                     break;
@@ -48,7 +47,7 @@ export default class ConfigUtil {
                     for (let item of configObject as Array<Pipeline>) {
                         let pipelineSpecs: Array<ModuleSpec> = [];
                         for (let m of item.modules) {
-                            pipelineSpecs.push(this.getModuleSpec(file, m, moduleHashes, templateHashes, config.stack.platform.type, modulesPath, environment));
+                            pipelineSpecs.push(this.getModuleSpec(file, m, moduleHashes, templateHashes, platform, modulesPath, environment, stackName));
                         }
                         item.modules = pipelineSpecs;
                     }
@@ -77,12 +76,12 @@ export default class ConfigUtil {
         return await HashUtil.getDirectoryHash(dir);
     }
 
-    private static getModuleSpec(file: string, item: any, modules: Map<string,string>, templates: Map<string,string>, platform: string, modulesPath: string, environment: string) {
+    private static getModuleSpec(file: string, item: any, modules: Map<string,string>, templates: Map<string,string>, platform: string, modulesPath: string, environment: string, stackName: string) {
 
         if (!platform) throw new Error("platform type is not set");
 
         let spec: ModuleSpec = {
-            name: item.name,
+            name: `${stackName}-${item.name}`,
             meta: {},
             module: item.module || item.name,
             runtime: "",

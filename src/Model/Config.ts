@@ -62,10 +62,6 @@ export type Pipe = {
 export type Stack = {
     name: string
     platform: {
-        type: string
-        build: {
-            bucket: string
-        }
         aws?: StackAws
     }
     state: {
