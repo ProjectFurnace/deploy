@@ -44,6 +44,7 @@ export default class AwsFlowProcessor {
 
             const firstStep = flow[0];
             let inputStream = sourceStreams.get(firstStep.meta.source!) as aws.kinesis.Stream;
+            if (!inputStream) throw new Error(`unable to find input stream ${firstStep.meta.source!}`)
 
             for (let step of flow) {
                 const lambdaName = step.meta.function!;

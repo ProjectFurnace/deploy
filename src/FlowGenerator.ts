@@ -21,8 +21,8 @@ export default class FlowGenerator {
                 const source = config.sources.find(sources => sources.name === tap.source);
                 if (!source) throw new Error(`tap ${tap.name} references source ${tap.source} that was not found`);
 
-                let tapSource = source.config.stream || source.name;
-                if (source.perEnvironment) tapSource = `${stackName}-${tapSource}-${environment}`; // append the environment
+                let tapSource = `${stackName}-${source.config.stream || source.name}`;
+                if (source.perEnvironment) tapSource = `${tapSource}-${environment}`; // append the environment
 
                 tap.meta.source = tapSource;
                 tap.meta.function = `${stackName}-${tap.name}-${environment}`;
