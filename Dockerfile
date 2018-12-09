@@ -1,15 +1,21 @@
 FROM ubuntu:bionic
 
+ENV DEBIAN_FRONTEND=noninteractive
+
 RUN apt-get update && \
     apt-get install -my \
         curl \
         gnupg \
-        git
+        git \
+        python-pip \
+        jq
 
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
 RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.6
+
+RUN pip install awscli
 
 ENV PATH=$PATH:/root/.pulumi/bin
 
