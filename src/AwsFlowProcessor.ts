@@ -34,6 +34,8 @@ export default class AwsFlowProcessor {
                     throw new Error(`unknown source type ${source.type}`);
             }
         }
+        
+        if (!config.resources || !Array.isArray(config.resources)) config.resources = [];
 
         for (let resource of config.resources) {
             AwsUtil.createResource(resource.name, resource.type, resource.config);

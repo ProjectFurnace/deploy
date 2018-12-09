@@ -54,6 +54,9 @@
     "collectCoverage": false,
     "collectCoverageFrom": [
       "src/*.{js,ts}"
+    ],
+    "testPathIgnorePatterns": [
+      "/test/fixtures/"
     ]
   }
 }
