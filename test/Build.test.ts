@@ -36,8 +36,8 @@ describe('build', () => {
         it('should build stack', async () => {
             jest.setTimeout(20000);
             const result = await Build.buildStack(
-                "https://github.com/ProjectFurnace/dev-stack",
-                "https://github.com/ProjectFurnace/dev-stack-state",
+                "test/fixtures/config",
+                "test/fixtures/templates",
                 "furnace-artifacts",
                 "aws"
             );

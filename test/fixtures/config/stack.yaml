@@ -1,3 +1,4 @@
+name: test-stack
 platform:
   type: aws
   build:
@@ -6,4 +7,8 @@ platform:
     region: eu-west-1
     defaultBatchSize: 10
 state:
-  repo: https://github.com/ProjectFurnace/state-repo
+  repo: https://github.com/ProjectFurnace/dev-stack-state
+environments:
+  - dev
+  - staging
+  - production

@@ -5,6 +5,7 @@ export default class FlowGenerator {
     static getFlows(config: FurnaceConfig, environment: string): Array<Array<ModuleSpec>> {
 
         let flows: Array<Array<ModuleSpec>> = [];
+        const stackName = config.stack.name;
 
         for (let pipe of config.pipes) {
 
@@ -20,10 +21,10 @@ export default class FlowGenerator {
                 if (!source) throw new Error(`tap ${tap.name} references source ${tap.source} that was not found`);
 
                 let tapSource = source.config.stream || source.name;
-                if (source.perEnvironment) tapSource = `${tapSource}-${environment}`; // append the environment
+                if (source.perEnvironment) tapSource = `${stackName}-${tapSource}-${environment}`; // append the environment
 
                 tap.meta.source = tapSource;
-                tap.meta.function = `${tap.name}-${environment}`;
+                tap.meta.function = `${stackName}-${tap.name}-${environment}`;
 
                 const pipeline = config.pipelines.find(pipeline => pipeline.name === pipe.pipeline);
                 if (!pipeline) throw new Error(`unable to find pipeline ${pipe.pipeline} specified in pipe ${config.pipes.indexOf(pipe)}`)
@@ -33,7 +34,7 @@ export default class FlowGenerator {
                 for (let m = 0; m < pipeline.modules.length; m++) {
                     const mod = pipeline.modules[m];
                     
-                    mod.meta.source = (m === 0 ? tap.name : pipeline.modules[m -1].name) + `-${environment}-out`;
+                    mod.meta.source = (m === 0 ? `${stackName}-${tap.name}` : `${stackName}-${pipeline.modules[m -1].name}-${environment}-out`);
                     mod.meta.function = `${mod.name}-${environment}`;
 
                     flow.push(mod);
@@ -44,8 +45,8 @@ export default class FlowGenerator {
                 if (outputPipe) {
                     if (outputPipe.sink) {
                         const output = config.sinks.find(sink => sink.name === outputPipe.sink) as ModuleSpec;
-                        output.meta.source = pipeline.modules[pipeline.modules.length -1].name + `-${environment}-out`;
-                        output.meta.function = `${output.name}-${environment}`;
+                        output.meta.source = `${stackName}-${pipeline.modules[pipeline.modules.length -1].name}-${environment}-out`;
+                        output.meta.function = `${stackName}-${output.name}-${environment}`;
                         flow.push(output)
                     } else {
                         throw new Error(`unsupported output for pipeline ${pipe.pipeline}`);
