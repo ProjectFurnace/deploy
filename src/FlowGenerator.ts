@@ -37,7 +37,7 @@ export default class FlowGenerator {
                     const mod = pipeline.modules[m];
                     
                     mod.meta.source = (m === 0 ? `${stackName}-${tap.name}` : `${stackName}-${pipeline.modules[m -1].name}-${environment}-out`);
-                    mod.meta.function = `${mod.name}-${environment}`;
+                    mod.meta.function = `${stackName}-${mod.name}-${environment}`;
                     mod.meta.output = `${stackName}-${mod.meta.output}`;
 
                     flow.push(mod);
