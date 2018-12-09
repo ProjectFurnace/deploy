@@ -18,6 +18,7 @@ import * as path from "path";
         , environment = pulumi.getStack().split("-").pop()
         , stackName = gitRemote!.split("/").pop()
         , repoDir = "/tmp/stack/"
+        , modulesDir = path.join(repoDir, "modules")
         , templateRepoRemote = "https://github.com/ProjectFurnace/function-templates"
         , templateRepoDir = tmp.dirSync().name
         ;
@@ -28,6 +29,8 @@ import * as path from "path";
     if (!gitToken) throw new Error(`GIT_TOKEN not set`);
     if (!environment) throw new Error(`unable to extract environment`);
     if (!stackName) throw new Error(`unable to extract stack name`);
+
+    if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
 
     //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
 
