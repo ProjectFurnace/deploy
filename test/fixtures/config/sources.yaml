@@ -1,6 +1,5 @@
 - name: flowlogs
   type: KinesisStream
-  perEnvironment: false
   initialize: false
   config:
     shards: 1

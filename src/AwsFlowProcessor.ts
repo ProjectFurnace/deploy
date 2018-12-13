@@ -12,55 +12,34 @@ export default class AwsFlowProcessor {
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
 
         // create the source streams
-        this.sourceStreams = new Map<string, Object>();
+        this.sourceStreams = new Map<string, aws.kinesis.Stream>();
 
     }
 
     async run() {
         for (let source of this.config.sources) {
             let sourceExists = false;
-            let name = `${this.config.stack.name}-${source.name}`;
-            let ks = null;
-
-            if (source.perEnvironment) {
-                // if its a source per environmet, they should never have been created before and we need to append the env
-                name = `${name}-${this.environment}`;
-            } else {
-                // if its a 'shared' source, it may already exist so we'll need to check that first
-
-                try {
-                    // check if the stream already exists. if it does not we will create it
-                    ks = await aws.kinesis.getStream({ name: name });
-                    sourceExists = true;
-                } catch(e) {
-                }
+            let name = `${this.config.stack.name}-${source.name}-${this.environment}`;
+            
+            switch (source.type) {
+                case SourceType.AwsKinesisStream:
+                    const streamOptions = {
+                        name,
+                        shardCount: 1
+                        // TODO: add more initialisers
+                    }  
+                    this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
+                    break;
+                default:
+                    throw new Error(`unknown source type ${source.type}`);
             }
-
-            if (!sourceExists) {
-                switch (source.type) {
-                    case SourceType.AwsKinesisStream:
-                        const streamOptions = {
-                            name,
-                            shardCount: 1
-                            // TODO: add more initialisers
-                        }
-
-                        ks = new aws.kinesis.Stream(name, streamOptions)
-                        break;
-                    default:
-                        throw new Error(`unknown source type ${source.type}`);
-                }
-            }
-
-            if( ks && ks.arn )
-                this.sourceStreams.set(name, { arn: ks.arn });
         }
         
         //if (!this.config.resources || !Array.isArray(this.config.resources)) this.config.resources = [];
 
         if ( this.config.resources && Array.isArray(this.config.resources) ) {
             for (let resource of this.config.resources) {
-                AwsUtil.createResource(resource.name, resource.type, resource.config, this.config.stack.name, resource.perEnvironment ? this.environment : '' );
+                AwsUtil.createResource(resource.name, resource.type, resource.config, this.config.stack.name, this.environment );
             }
         }
 

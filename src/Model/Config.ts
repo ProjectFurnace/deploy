@@ -33,7 +33,6 @@ export type ModuleConfig = {
 export type Source = {
     name: string
     type: SourceType
-    perEnvironment: boolean
     initialize: boolean
     config: any
 }
@@ -82,6 +81,5 @@ export enum SourceType {
 export type Resource = {
     name: string
     type: string
-    perEnvironment: boolean
     config: any
 }
