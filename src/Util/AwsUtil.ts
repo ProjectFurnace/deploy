@@ -46,12 +46,15 @@ export default class awsUtil {
         }
     }
 
-    static createResource(name: string, type: string, config: any, stackName: string) {
-        config.name = `${stackName}-${name}`;
+    static createResource(name: string, type: string, config: any, stackName: string, environment?: string) {
+        let resourceName = `${stackName}-${name}`;
+        if( environment )
+            resourceName += `-${environment}`;
 
         switch (type) {
-            case "elasticsearch.Domain":
-                new aws.elasticsearch.Domain(name, config);
+            case "elasticsearch":
+                config.domainName = resourceName;
+                new aws.elasticsearch.Domain(resourceName, config);
                 break;
             default:
                 throw new Error(`unknown resource type ${type}`)

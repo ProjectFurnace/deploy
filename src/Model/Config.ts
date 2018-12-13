@@ -82,5 +82,6 @@ export enum SourceType {
 export type Resource = {
     name: string
     type: string
+    perEnvironment: boolean
     config: any
 }

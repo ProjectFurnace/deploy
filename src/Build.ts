@@ -146,7 +146,7 @@ export default class Build {
             console.log(`building ${name} in ${buildPath}`);
 
             // TODO: merge dependencies from template
-            const execResult = await this.execPromise("npm install", 
+            const execResult = await this.execPromise("npm install --production", 
                 { cwd: buildPath, env: process.env });
 
             if (execResult.stderr) {

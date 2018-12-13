@@ -1,49 +1,70 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import AwsUtil from "./Util/AwsUtil";
 import { FurnaceConfig, ModuleSpec, SourceType } from "./Model/Config";
 import AwsValidator from "./Validation/AwsValidator";
-import awsUtil from "./Util/AwsUtil";
+import AwsUtil from "./Util/AwsUtil";
 
 export default class AwsFlowProcessor {
+    sourceStreams: Map<string, aws.kinesis.Stream>;
 
-    constructor(private flows: Array<Array<ModuleSpec>>, config: FurnaceConfig, environment: string, buildBucket: string) {
-
+    constructor(private flows: Array<Array<ModuleSpec>>, private config: FurnaceConfig, private environment: string, private buildBucket: string) {
         const errors = AwsValidator.validate(config, flows);
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
-        
+
         // create the source streams
-        let sourceStreams = new Map<string, aws.kinesis.Stream>();
+        this.sourceStreams = new Map<string, aws.kinesis.Stream>();
 
-        for (let source of config.sources) {
-            const name = `${config.stack.name}-${source.name}` + (source.perEnvironment ? `-${environment}` : "");
+    }
 
-            switch (source.type) {
-                case SourceType.AwsKinesisStream:
-                    const streamOptions = {
-                        name,
-                        shardCount: 1
-                        // TODO: add more initialisers
-                    }
+    async run() {
+        for (let source of this.config.sources) {
+            let sourceExists = false;
+            let name = `${this.config.stack.name}-${source.name}`;
 
-                    sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
-                    break;
-                default:
-                    throw new Error(`unknown source type ${source.type}`);
+            if (source.perEnvironment) {
+                // if its a source per environmet, they should never have been created before and we need to append the env
+                name = `${name}-${this.environment}`;
+            } else {
+                // if its a 'shared' source, it may already exist so we'll need to check that first
+
+                try {
+                    // check if the stream already exists. if it does not we will create it
+                    const ks = await aws.kinesis.getStream({ name: name });
+                    sourceExists = true;
+                } catch(e) {
+                }
+            }
+
+            if (!sourceExists) {
+                switch (source.type) {
+                    case SourceType.AwsKinesisStream:
+                        const streamOptions = {
+                            name,
+                            shardCount: 1
+                            // TODO: add more initialisers
+                        }
+
+                        this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
+                        break;
+                    default:
+                        throw new Error(`unknown source type ${source.type}`);
+                }
             }
         }
         
-        if (!config.resources || !Array.isArray(config.resources)) config.resources = [];
+        //if (!this.config.resources || !Array.isArray(this.config.resources)) this.config.resources = [];
 
-        for (let resource of config.resources) {
-            AwsUtil.createResource(resource.name, resource.type, resource.config, config.stack.name);
+        if ( this.config.resources && Array.isArray(this.config.resources) ) {
+            for (let resource of this.config.resources) {
+                AwsUtil.createResource(resource.name, resource.type, resource.config, this.config.stack.name, resource.perEnvironment ? this.environment : '' );
+            }
         }
 
-        for(let flow of flows) {
+        for(let flow of this.flows) {
             if (flow.length === 0) continue;
 
             const firstStep = flow[0];
-            let inputStream = sourceStreams.get(firstStep.meta.source!) as aws.kinesis.Stream;
+            let inputStream = this.sourceStreams.get(firstStep.meta.source!) as aws.kinesis.Stream;
             if (!inputStream) throw new Error(`unable to find input stream ${firstStep.meta.source!}`)
 
             for (let step of flow) {
@@ -67,7 +88,7 @@ export default class AwsFlowProcessor {
                 ])
 
                 const variables: { [key: string]: string } = {
-                    "STACK_NAME": config.stack.name || "unknown"
+                    "STACK_NAME": this.config.stack.name || "unknown"
                 };
 
                 for (let param of step.parameters) {
@@ -83,8 +104,8 @@ export default class AwsFlowProcessor {
                     name: lambdaName,
                     handler: "handler.handler",
                     role: role.arn,
-                    runtime: awsUtil.runtimeFromString("nodejs8.10"), //TODO: get runtime from module spec
-                    s3Bucket: buildBucket,
+                    runtime: AwsUtil.runtimeFromString("nodejs8.10"), //TODO: get runtime from module spec
+                    s3Bucket: this.buildBucket,
                     s3Key: `${step.module}/${step.meta.hash}`,
                     environment: { variables }
                 });
@@ -95,8 +116,8 @@ export default class AwsFlowProcessor {
                         eventSourceArn: inputStream.arn,
                         functionName: lambdaName,
                         enabled: true,
-                        batchSize: step.config.aws!.batchSize || config.stack.platform.aws!.defaultBatchSize || 1,
-                        startingPosition: step.config.aws!.startingPosition || config.stack.platform.aws!.defaultStartingPosition || "LATEST",
+                        batchSize: step.config.aws!.batchSize || this.config.stack.platform.aws!.defaultBatchSize || 1,
+                        startingPosition: step.config.aws!.startingPosition || this.config.stack.platform.aws!.defaultStartingPosition || "LATEST",
                     }
                 );
 
