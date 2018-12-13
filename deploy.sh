@@ -45,6 +45,7 @@ git config --global user.email "hello@projectfurnace.io"
 echo "Cloning state repo..."
 rm -rf /tmp/pulumi-prev-config
 git clone $STATE_REPO /tmp/pulumi-prev-config
+(cd /tmp/pulumi-prev-config; git checkout $(git show-ref --verify --quiet refs/heads/$STACK_ENV || echo '-b') $STACK_ENV)
 # create output log folder if it does not exist
 if [ ! -d /tmp/pulumi-prev-config/commit ]; then
   mkdir -p /tmp/pulumi-prev-config/commit;
@@ -95,7 +96,6 @@ if [ $? -eq 0 ]; then
       git remote rm origin
       git remote add origin $STATE_REPO
       # commit to github
-      git checkout $(git show-ref --verify --quiet refs/heads/$STACK_ENV || echo '-b') $STACK_ENV
       git add .
       git commit -m 'Update stack'
       if git push --set-upstream origin $STACK_ENV; then

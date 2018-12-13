@@ -5,14 +5,14 @@ import AwsValidator from "./Validation/AwsValidator";
 import AwsUtil from "./Util/AwsUtil";
 
 export default class AwsFlowProcessor {
-    sourceStreams: Map<string, aws.kinesis.Stream>;
+    sourceStreams: Map<string, Object>;
 
     constructor(private flows: Array<Array<ModuleSpec>>, private config: FurnaceConfig, private environment: string, private buildBucket: string) {
         const errors = AwsValidator.validate(config, flows);
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
 
         // create the source streams
-        this.sourceStreams = new Map<string, aws.kinesis.Stream>();
+        this.sourceStreams = new Map<string, Object>();
 
     }
 
@@ -20,6 +20,7 @@ export default class AwsFlowProcessor {
         for (let source of this.config.sources) {
             let sourceExists = false;
             let name = `${this.config.stack.name}-${source.name}`;
+            let ks = null;
 
             if (source.perEnvironment) {
                 // if its a source per environmet, they should never have been created before and we need to append the env
@@ -29,7 +30,7 @@ export default class AwsFlowProcessor {
 
                 try {
                     // check if the stream already exists. if it does not we will create it
-                    const ks = await aws.kinesis.getStream({ name: name });
+                    ks = await aws.kinesis.getStream({ name: name });
                     sourceExists = true;
                 } catch(e) {
                 }
@@ -44,12 +45,15 @@ export default class AwsFlowProcessor {
                             // TODO: add more initialisers
                         }
 
-                        this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
+                        ks = new aws.kinesis.Stream(name, streamOptions)
                         break;
                     default:
                         throw new Error(`unknown source type ${source.type}`);
                 }
             }
+
+            if( ks && ks.arn )
+                this.sourceStreams.set(name, { arn: ks.arn });
         }
         
         //if (!this.config.resources || !Array.isArray(this.config.resources)) this.config.resources = [];
