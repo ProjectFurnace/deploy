@@ -9,10 +9,11 @@ export type FurnaceConfig = {
     [key: string]: any // allows us to reference items by key
 }
 
-export type ModuleSpec = {
+export type FlowSpec = {
     name: string
-    module: string
-    runtime: string
+    module?: string
+    runtime?: string
+    resource?: string
     config: ModuleConfig
     parameters: Map<string, string>
     meta: {
@@ -20,9 +21,10 @@ export type ModuleSpec = {
         moduleHash?: string
         templateHash?: string
         source?: string
-        function?: string
+        identifier?: string
         output?: string
     }
+    type?: any
 }
 
 export type ModuleConfig = {
@@ -37,7 +39,7 @@ export type Source = {
     config: any
 }
 
-export type Tap = ModuleSpec & {
+export type Tap = FlowSpec & {
     source: string
 }
 
@@ -46,9 +48,17 @@ export type Pipeline = {
     modules: Array<PipelineModule>
 }
 
-export type PipelineModule = ModuleSpec
+export type PipelineModule = FlowSpec
 
-export type Sink = ModuleSpec
+export type Sink = FlowSpec & {
+    type?: SinkType
+    resource?: string
+}
+
+export enum SinkType {
+    Module="Module",
+    AwsFirehose="AwsFirehose"
+}
 
 export type Pipe = {
     source?: string

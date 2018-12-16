@@ -2,7 +2,7 @@ import * as yaml from "yamljs";
 import * as fsUtils from "@project-furnace/fsutils";
 import HashUtil from "../Util/HashUtil";
 import * as path from "path";
-import { FurnaceConfig, ModuleSpec, Pipeline, Tap, Stack } from "../Model/Config";
+import { FurnaceConfig, FlowSpec, Pipeline, Tap, Stack } from "../Model/Config";
 
 export default class ConfigUtil {
 
@@ -36,8 +36,8 @@ export default class ConfigUtil {
             switch (file) {
                 case "taps":
                 case "sinks":
-                    let specs: Array<ModuleSpec> = [];
-                    for (let item of configObject as Array<ModuleSpec>) {
+                    let specs: Array<FlowSpec> = [];
+                    for (let item of configObject as Array<FlowSpec>) {
                         specs.push(this.getModuleSpec(file, item, moduleHashes, templateHashes, platform, modulesPath, environment));
                     }
                     configObject = specs;
@@ -45,7 +45,7 @@ export default class ConfigUtil {
 
                 case "pipelines":
                     for (let item of configObject as Array<Pipeline>) {
-                        let pipelineSpecs: Array<ModuleSpec> = [];
+                        let pipelineSpecs: Array<FlowSpec> = [];
                         for (let m of item.modules) {
                             pipelineSpecs.push(this.getModuleSpec(file, m, moduleHashes, templateHashes, platform, modulesPath, environment));
                         }
@@ -80,53 +80,67 @@ export default class ConfigUtil {
 
         if (!platform) throw new Error("platform type is not set");
 
-        let spec: ModuleSpec = {
+        let spec: FlowSpec = {
             name: item.name,
             meta: {},
-            module: item.module || item.name,
             runtime: "",
             config: { },
-            parameters: new Map<string, string>()
+            parameters: new Map<string, string>(),
+            type: item.type
         }
 
-        const moduleSpecFile = path.join(modulesPath, spec.module, "module.yaml");
-        const configSpecFile = path.join(modulesPath, spec.module, "config.yaml");
+        let isModule = true;
 
-        let moduleSpec: any = yaml.load(moduleSpecFile);
-        let moduleConfigSpec: any = yaml.load(configSpecFile);
+        if (file === "sinks") {
+            if (item.type && item.type !== "Module") isModule = false;
+        }
 
-        if (!moduleSpec.runtime) throw new Error(`module ${item.module} has no runtime specified`)
-        else spec.runtime = moduleSpec.runtime;
+        if (isModule) {
 
-        if (moduleConfigSpec["config-groups"]) {
-            for(let group in moduleConfigSpec["config-groups"]) {
-                const paramList = moduleConfigSpec["config-groups"][group];
-                for (let key in paramList) {
-                    const param = paramList[key];
+            spec.module = item.module || item.name;
 
-                    const value = item.config[key];
-                    if (!value && param.mandatory && !param.default) throw new Error(`module ${spec.module} has mandatory parameter ${key} which is not set`);
+            const moduleSpecFile = path.join(modulesPath, spec.module!, "module.yaml");
+            const configSpecFile = path.join(modulesPath, spec.module!, "config.yaml");
 
-                    spec.parameters.set(key, value || param.default);
+            let moduleSpec: any = yaml.load(moduleSpecFile);
+            let moduleConfigSpec: any = yaml.load(configSpecFile);
+
+            if (!moduleSpec.runtime) throw new Error(`module ${item.module} has no runtime specified`)
+            else spec.runtime = moduleSpec.runtime;
+
+            if (moduleConfigSpec["config-groups"]) {
+                for(let group in moduleConfigSpec["config-groups"]) {
+                    const paramList = moduleConfigSpec["config-groups"][group];
+                    for (let key in paramList) {
+                        const param = paramList[key];
+
+                        const value = item.config[key];
+                        if (!value && param.mandatory && !param.default) throw new Error(`module ${spec.module} has mandatory parameter ${key} which is not set`);
+
+                        spec.parameters.set(key, value || param.default);
+                    }
                 }
             }
+
+            const moduleHash = modules.get(spec.module!);
+            if (!moduleHash) throw new Error(`unable to get hash for module ${spec.module}`);
+    
+            const template = `${platform}-${spec.runtime}`;
+            const templateHash = templates.get(template);
+            if (!templateHash) throw new Error(`unable to get hash for template ${template}`);
+    
+            spec.meta.moduleHash = moduleHash;
+            spec.meta.templateHash = templateHash;
+            spec.meta.hash = HashUtil.combineHashes(moduleHash, templateHash);
+        } else {
+            // not a module
+            spec.resource = item.resource;
         }
 
         const platformConfigs = ["aws"];
         for (let p of platformConfigs) {
             if (item[p]) spec.config[p] = item[p];
         }
-
-        const moduleHash = modules.get(spec.module);
-        if (!moduleHash) throw new Error(`unable to get hash for module ${spec.module}`);
-
-        const template = `${platform}-${spec.runtime}`;
-        const templateHash = templates.get(template);
-        if (!templateHash) throw new Error(`unable to get hash for template ${template}`);
-
-        spec.meta.moduleHash = moduleHash;
-        spec.meta.templateHash = templateHash;
-        spec.meta.hash = HashUtil.combineHashes(moduleHash, templateHash);
         
         if (file !== "sinks") {
             spec.meta.output = `${spec.name}-${environment}-out`;

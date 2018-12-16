@@ -1,16 +1,16 @@
-import { FurnaceConfig, ModuleSpec, Tap } from "./Model/Config";
+import { FurnaceConfig, FlowSpec, Tap, Sink, SourceType, SinkType } from "./Model/Config";
 
 export default class FlowGenerator {
 
-    static getFlows(config: FurnaceConfig, environment: string): Array<Array<ModuleSpec>> {
+    static getFlows(config: FurnaceConfig, environment: string): Array<Array<FlowSpec>> {
 
-        let flows: Array<Array<ModuleSpec>> = [];
+        let flows: Array<Array<FlowSpec>> = [];
 
         const stackName = config.stack.name;
 
         for (let pipe of config.pipes) {
 
-            let flow: Array<ModuleSpec> = [];
+            let flow: Array<FlowSpec> = [];
 
             if (pipe.tap) {
                 if (!pipe.pipeline) throw new Error("tap pipe must reference a pipeline");
@@ -24,7 +24,7 @@ export default class FlowGenerator {
                 let tapSource = `${stackName}-${source.config.stream || source.name}-${environment}`;
 
                 tap.meta.source = tapSource;
-                tap.meta.function = `${stackName}-${tap.name}-${environment}`;
+                tap.meta.identifier = `${stackName}-${tap.name}-${environment}`;
                 tap.meta.output = `${stackName}-${tap.meta.output}`;
 
                 const pipeline = config.pipelines.find(pipeline => pipeline.name === pipe.pipeline);
@@ -36,19 +36,24 @@ export default class FlowGenerator {
                     const mod = pipeline.modules[m];
                     
                     mod.meta.source = (m === 0 ? `${stackName}-${tap.name}` : `${stackName}-${pipeline.modules[m -1].name}-${environment}-out`);
-                    mod.meta.function = `${stackName}-${mod.name}-${environment}`;
+                    mod.meta.identifier = `${stackName}-${mod.name}-${environment}`;
                     mod.meta.output = `${stackName}-${mod.meta.output}`;
 
                     flow.push(mod);
                 }
 
                 //TODO: support multiple outputs, currently only sinks supported
-                const outputPipe = config.pipes.find(pipe => (pipe.pipeline === pipeline.name) && pipe.sink != undefined);
-                if (outputPipe) {
+                const outputPipes = config.pipes.filter(pipe => (pipe.pipeline === pipeline.name) && pipe.sink != undefined);
+                
+                for (let outputPipe of outputPipes) {
                     if (outputPipe.sink) {
-                        const output = config.sinks.find(sink => sink.name === outputPipe.sink) as ModuleSpec;
+                        const output = config.sinks.find(sink => sink.name === outputPipe.sink) as Sink;
+                        console.log("got output", output);
                         output.meta.source = `${stackName}-${pipeline.modules[pipeline.modules.length -1].name}-${environment}-out`;
-                        output.meta.function = `${stackName}-${output.name}-${environment}`;
+                        
+                        if (!output.type) output.type = SinkType.Module; // default to module
+                        output.meta.identifier = `${stackName}-${output.name}-${environment}`;
+                        
                         flow.push(output)
                     } else {
                         throw new Error(`unsupported output for pipeline ${pipe.pipeline}`);

@@ -1,5 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
+import { Resource } from "../Model/Config";
 
 export default class awsUtil {
     static createSimpleIamRole(name: string, action: string, service: string, effect: string) {
@@ -46,18 +47,50 @@ export default class awsUtil {
         }
     }
 
-    static createResource(name: string, type: string, config: any, stackName: string, environment?: string) {
-        let resourceName = `${stackName}-${name}`;
-        if( environment )
-            resourceName += `-${environment}`;
+    static createResource(resourceName: string, type: string, config: any): pulumi.Output<string> {
 
         switch (type) {
             case "elasticsearch":
                 config.domainName = resourceName;
-                new aws.elasticsearch.Domain(resourceName, config);
-                break;
+                return new aws.elasticsearch.Domain(resourceName, config).arn;
             default:
                 throw new Error(`unknown resource type ${type}`)
         }
+
+    }
+
+    static createFirehose(resourceName: string, resourceArn: pulumi.Output<string> | undefined, config: any, source: aws.kinesis.Stream): aws.kinesis.FirehoseDeliveryStream {
+
+        if (config.elasticsearchConfiguration) {
+            if (!resourceArn) throw new Error(`elasticsearch firehose expects a resource to be specified`);
+            
+            config.elasticsearchConfiguration.roleArn = ""
+            config.elasticsearchConfiguration.domainArn = resourceArn
+
+        } else if (config.extendedS3Configuration) {
+            
+        } else if (config.redshiftConfiguration) {
+            
+        } else if (config.splunkConfiguration) {
+            
+        }
+
+        let parameters: aws.kinesis.FirehoseDeliveryStreamArgs = {
+            name: resourceName,
+            kinesisSourceConfiguration: {
+                kinesisStreamArn: source.arn,
+                roleArn: "",
+
+            },
+            destination: config.destination,
+            elasticsearchConfiguration: config.elasticsearchConfiguration,
+            extendedS3Configuration: config.extendedS3Configuration,
+            redshiftConfiguration: config.redshiftConfiguration,
+            splunkConfiguration: config.splunkConfiguration
+        }
+
+        const firehose = new aws.kinesis.FirehoseDeliveryStream(resourceName, parameters);
+
+        return firehose;
     }
 }

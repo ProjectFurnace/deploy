@@ -4,5 +4,5 @@
 - pipeline: enrichment
   sink: elasticsearch
 
-# - pipeline: enrichment
-#   sink: s3
+- pipeline: enrichment
+  sink: firehose

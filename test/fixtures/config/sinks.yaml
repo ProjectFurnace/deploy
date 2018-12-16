@@ -2,6 +2,14 @@
   config:
     server: https://search-furnace-6vw266ix5rozsupnduhwy755mu.eu-west-1.es.amazonaws.com
 
+- name: firehose
+  type: AwsFirehose
+  aws:
+    destination: elasticsearch
+    elasticsearchConfiguration:
+        indexName: test
+
+
 # - name: s3
 #   aws:
 #     firehose: s3
