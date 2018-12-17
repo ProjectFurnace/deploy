@@ -95,6 +95,11 @@ export default class awsUtil {
             }
         ];
 
+        console.log('resourceName', resourceName);
+        console.log('createdResource', createdResource);
+        console.log('source',source);
+        console.log('policyDefs', policyDefs);
+
         if (config.elasticsearchConfiguration) {
             if (!createdResource) throw new Error(`elasticsearch firehose expects a resource to be specified`);
 
