@@ -86,7 +86,8 @@ export default class ConfigUtil {
             runtime: "",
             config: { },
             parameters: new Map<string, string>(),
-            type: item.type
+            type: item.type,
+            component: ""
         }
 
         let isModule = true;
