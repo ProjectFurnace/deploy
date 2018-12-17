@@ -1,5 +1,5 @@
 import AwsFlowProcessor from "./AwsFlowProcessor";
-import { FurnaceConfig, ModuleSpec } from "./Model/Config"
+import { FurnaceConfig } from "./Model/Config"
 import FlowGenerator from "../src/FlowGenerator";
 
 export default class Processor {

@@ -22,7 +22,7 @@ export default class awsUtil {
     }
 
     static createSimpleIamRolePolicy(name: string, roleId: pulumi.Output<string>, allows: Array<any>): aws.iam.RolePolicy {
-        return new aws.iam.RolePolicy(name, {
+        const def = {
             role: roleId,
             policy: JSON.stringify({
                 "Version": "2012-10-17",
@@ -35,7 +35,9 @@ export default class awsUtil {
                     }
                 ))
             })
-        });
+        };
+
+        return new aws.iam.RolePolicy(name, def);
     }
 
     static runtimeFromString(runtime: string): aws.lambda.Runtime {
@@ -61,10 +63,48 @@ export default class awsUtil {
 
     static createFirehose(resourceName: string, resourceArn: pulumi.Output<string> | undefined, config: any, source: aws.kinesis.Stream): aws.kinesis.FirehoseDeliveryStream {
 
+        const failureBucket = new aws.s3.Bucket(`${resourceName}-Bucket`, {});
+
+        const role = this.createSimpleIamRole(`${resourceName}-Role`, "sts:AssumeRole", "firehose.amazonaws.com", "Allow");
+        const policy = this.createSimpleIamRolePolicy(`${resourceName}-Policy`, role.id, [
+            { 
+                resource: "*",
+                actions: [
+                    "s3:AbortMultipartUpload",
+                    "s3:GetBucketLocation",
+                    "s3:GetObject",
+                    "s3:ListBucket",
+                    "s3:ListBucketMultipartUploads",
+                    "s3:PutObject"
+                  ]
+            },
+            { 
+                resource: "*",
+                actions: [
+                    "kinesis:DescribeStream",
+                    "kinesis:GetShardIterator",
+                    "kinesis:GetRecords"
+                ]
+            },
+            { 
+                resource: "*",
+                actions: [
+                    "es:DescribeElasticsearchDomain",
+                    "es:DescribeElasticsearchDomains",
+                    "es:DescribeElasticsearchDomainConfig",
+                    "es:ESHttpGet",
+                    "es:ESHttpPost",
+                    "es:ESHttpPut",
+                    "es:ESHttpHead",
+                    "es:ListDomainNames",
+                ]
+            }
+        ]);
+
         if (config.elasticsearchConfiguration) {
             if (!resourceArn) throw new Error(`elasticsearch firehose expects a resource to be specified`);
             
-            config.elasticsearchConfiguration.roleArn = ""
+            config.elasticsearchConfiguration.roleArn = role.arn
             config.elasticsearchConfiguration.domainArn = resourceArn
 
         } else if (config.extendedS3Configuration) {
@@ -79,10 +119,14 @@ export default class awsUtil {
             name: resourceName,
             kinesisSourceConfiguration: {
                 kinesisStreamArn: source.arn,
-                roleArn: "",
+                roleArn: role.arn,
 
             },
             destination: config.destination,
+            s3Configuration: {
+                bucketArn: failureBucket.arn,
+                roleArn: role.arn
+            },
             elasticsearchConfiguration: config.elasticsearchConfiguration,
             extendedS3Configuration: config.extendedS3Configuration,
             redshiftConfiguration: config.redshiftConfiguration,

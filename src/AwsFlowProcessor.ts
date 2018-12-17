@@ -23,9 +23,10 @@ export default class AwsFlowProcessor {
             
             switch (source.type) {
                 case SourceType.AwsKinesisStream:
-                    const streamOptions = {
+                    const streamOptions: aws.kinesis.StreamArgs = {
                         name,
-                        shardCount: 1
+                        shardCount: 1,
+
                         // TODO: add more initialisers
                     }  
                     this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
@@ -117,11 +118,12 @@ export default class AwsFlowProcessor {
                         if (!resource) throw new Error(`unable to find resource ${step.resource} specified in ${step.name}`);
 
                         pulumiResourceArn = resourceArns.get(resource.name);
+
                         if (!pulumiResourceArn) throw new Error(`unable to get active resource ${resource.name}`);
                     }
 
                     if (step.type === "AwsFirehose") {
-                        AwsUtil.createFirehose(resourceName, pulumiResourceArn, step.config, inputStream);
+                        AwsUtil.createFirehose(resourceName, pulumiResourceArn, step.config.aws, inputStream);
                     } else {
                         throw new Error(`unknown step type '${step.type}'`);
                     }

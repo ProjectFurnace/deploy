@@ -97,6 +97,7 @@ export default class ConfigUtil {
 
         if (isModule) {
 
+            spec.type = "Module";
             spec.module = item.module || item.name;
 
             const moduleSpecFile = path.join(modulesPath, spec.module!, "module.yaml");

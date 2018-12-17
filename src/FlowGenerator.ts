@@ -48,7 +48,8 @@ export default class FlowGenerator {
                 for (let outputPipe of outputPipes) {
                     if (outputPipe.sink) {
                         const output = config.sinks.find(sink => sink.name === outputPipe.sink) as Sink;
-                        console.log("got output", output);
+                        if (!output) throw new Error(`unable to find sink ${outputPipe.sink} specified in pipe`)
+                        
                         output.meta.source = `${stackName}-${pipeline.modules[pipeline.modules.length -1].name}-${environment}-out`;
                         
                         if (!output.type) output.type = SinkType.Module; // default to module
