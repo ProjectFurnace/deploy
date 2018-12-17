@@ -26,6 +26,11 @@ STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
 GIT_OWNER="$(echo $GIT_REMOTE | cut -d '/' -f4)"
 GIT_REPO="$(echo $GIT_REMOTE | cut -d '/' -f5 | cut -d '.' -f1 )"
 
+if [ -z "$STATE_REPO" ] || [ -z "$STACK_NAME" ]  || [ -z "$GIT_OWNER" ] || [ -z "$GIT_REPO" ] || [ -z "$STACK_REGION" ]; then
+  echo "Some essential variables are missing. Exiting..."
+  exit 1
+fi
+
 echo "Git and Stack info"
 echo "STATE REPO: $STATE_REPO"
 echo "STACK NAME: $STACK_NAME"
@@ -41,11 +46,21 @@ STATE_REPO="${STATE_REPO/:\/\//://$GIT_TOKEN@}"
 # initial git config
 git config --global user.email "hello@projectfurnace.io"
 
+PREV_PWD="$(pwd)"
+
 # clone state repo to folder prev-config
 echo "Cloning state repo..."
 rm -rf /tmp/pulumi-prev-config
 git clone $STATE_REPO /tmp/pulumi-prev-config
-(cd /tmp/pulumi-prev-config; git checkout $(git show-ref --verify --quiet refs/heads/$STACK_ENV || echo '-b') $STACK_ENV)
+# checkout branch and act depending on if it exists or not
+if git -C /tmp/pulumi-prev-config show-ref --verify --quiet refs/heads/$STACK_ENV; then
+  git -C /tmp/pulumi-prev-config  checkout $STACK_ENV
+else
+  git -C /tmp/pulumi-prev-config checkout -b $STACK_ENV
+  # make sure the folder is empty (for when we promote)
+  rm -rf /tmp/pulumi-prev-config/*
+fi
+
 # create output log folder if it does not exist
 if [ ! -d /tmp/pulumi-prev-config/commit ]; then
   mkdir -p /tmp/pulumi-prev-config/commit;
@@ -56,6 +71,11 @@ AWS_CREDS=$(curl -s "http://169.254.170.2$AWS_CONTAINER_CREDENTIALS_RELATIVE_URI
 
 AWS_ACCESS_KEY_ID="$(echo $AWS_CREDS | jq -r .AccessKeyId)"
 AWS_SECRET_ACCESS_KEY="$(echo $AWS_CREDS | jq -r .SecretAccessKey)"
+
+if [ -z "$AWS_ACCESS_KEY_ID" ] || [ -z "$AWS_SECRET_ACCESS_KEY" ]; then
+  echo "Failed to retrieve AWS credentials for task. Exiting..."
+  exit 1
+fi
 
 if [[ -n "$VAR1" && -n "$VAR2" ]]; then
   echo "Setting up AWS credentials for pulumi..."
@@ -86,25 +106,30 @@ if [ $? -eq 0 ]; then
   echo "Bringing up stack. This may take a while..."
   pulumi up -y |& tee /tmp/pulumi-prev-config/commit/$GIT_TAG.log
   if [ ${PIPESTATUS[0]} -eq 0 ]; then
-    echo "Stack successfully initiated! Saving pulumi checkpoint..."
-    # export current stack state
-    if pulumi stack export --file /tmp/pulumi-prev-config/config.checkpoint.json; then
-      # push new state to github
-      echo "Checkpoint succesfully saved. Commiting and pushing to github..."
-      cd /tmp/pulumi-prev-config
-      # delete old origin so we can add the token
-      git remote rm origin
-      git remote add origin $STATE_REPO
-      # commit to github
-      git add .
-      git commit -m 'Update stack'
-      if git push --set-upstream origin $STACK_ENV; then
-        echo "State successfully saved to git. Marking deployment as succesful."
-        curl -o /dev/null -d '{"state":"success","description":"Deployment finished successfully"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
-      fi
-    fi
+    echo "Stack successfully initiated!"
   else
     echo "Deployment failed"
     curl -o /dev/null -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
+  fi
+
+  echo "Proceeding to save pulumi checkpoint..."
+  # export current stack state
+  if pulumi stack export --file /tmp/pulumi-prev-config/config.checkpoint.json; then
+    # push new state to github
+    echo "Checkpoint succesfully saved..."
+  else
+    echo "Checkpoint saving failed..."
+  fi
+
+  cd /tmp/pulumi-prev-config
+  # delete old origin so we can add the token
+  git remote rm origin
+  git remote add origin $STATE_REPO
+  # commit to github
+  git add .
+  git commit -m 'Update stack'
+  if git push --set-upstream origin $STACK_ENV; then
+    echo "State successfully saved to git. Marking deployment as succesful."
+    curl -o /dev/null -d '{"state":"success","description":"Deployment finished successfully"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
   fi
 fi
