@@ -36,14 +36,14 @@ export default class AwsFlowProcessor {
             }
         }
 
-        let resourceArns = new Map<string, pulumi.Output<string>>();
+        let createdResources = new Map<string, any>();
 
         if (this.config.resources && Array.isArray(this.config.resources) ) {
             for (let resource of this.config.resources) {
                 let resourceName = `${this.config.stack.name}-${resource.name}-${this.environment}`;
 
-                const arn = AwsUtil.createResource(resourceName, resource.type, resource.config);
-                resourceArns.set(resource.name, arn);
+                const createdResource = AwsUtil.createResource(resourceName, resource.type, resource.config);
+                createdResources.set(resource.name, createdResource);
             }
         }
 
@@ -112,18 +112,18 @@ export default class AwsFlowProcessor {
                     );
                 } else {
 
-                    let pulumiResourceArn: pulumi.Output<string> | undefined;
+                    let createdResource: pulumi.Output<string> | undefined;
                     if (step.resource) {
                         const resource = this.config.resources.find(res => res.name === step.resource);
                         if (!resource) throw new Error(`unable to find resource ${step.resource} specified in ${step.name}`);
 
-                        pulumiResourceArn = resourceArns.get(resource.name);
+                        createdResource = createdResources.get(resource.name);
 
-                        if (!pulumiResourceArn) throw new Error(`unable to get active resource ${resource.name}`);
+                        if (!createdResource) throw new Error(`unable to get active resource ${resource.name}`);
                     }
 
                     if (step.type === "AwsFirehose") {
-                        AwsUtil.createFirehose(resourceName, pulumiResourceArn, step.config.aws, inputStream);
+                        AwsUtil.createFirehose(resourceName, createdResource, step.config.aws, inputStream);
                     } else {
                         throw new Error(`unknown step type '${step.type}'`);
                     }

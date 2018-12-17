@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { Resource } from "../Model/Config";
+import { FirehoseDeliveryStreamArgs } from "@pulumi/aws/kinesis";
 
 export default class awsUtil {
     static createSimpleIamRole(name: string, action: string, service: string, effect: string) {
@@ -49,24 +50,28 @@ export default class awsUtil {
         }
     }
 
-    static createResource(resourceName: string, type: string, config: any): pulumi.Output<string> {
+    static createResource(resourceName: string, type: string, config: any): any {
 
         switch (type) {
-            case "elasticsearch":
+            case "elasticsearch.Domain":
                 config.domainName = resourceName;
-                return new aws.elasticsearch.Domain(resourceName, config).arn;
+                return new aws.elasticsearch.Domain(resourceName, config)
+            case "redshift.Cluster":
+                const redshiftConfig: aws.redshift.ClusterArgs = config;
+                return new aws.redshift.Cluster(resourceName, redshiftConfig)
             default:
                 throw new Error(`unknown resource type ${type}`)
         }
 
     }
 
-    static createFirehose(resourceName: string, resourceArn: pulumi.Output<string> | undefined, config: any, source: aws.kinesis.Stream): aws.kinesis.FirehoseDeliveryStream {
+    static createFirehose(resourceName: string, createdResource: any | undefined, config: any, source: aws.kinesis.Stream): aws.kinesis.FirehoseDeliveryStream {
 
         const failureBucket = new aws.s3.Bucket(`${resourceName}-Bucket`, {});
 
         const role = this.createSimpleIamRole(`${resourceName}-Role`, "sts:AssumeRole", "firehose.amazonaws.com", "Allow");
-        const policy = this.createSimpleIamRolePolicy(`${resourceName}-Policy`, role.id, [
+
+        const policyDefs = [
             { 
                 resource: "*",
                 actions: [
@@ -85,8 +90,18 @@ export default class awsUtil {
                     "kinesis:GetShardIterator",
                     "kinesis:GetRecords"
                 ]
-            },
-            { 
+            }
+        ];
+
+        if (config.elasticsearchConfiguration) {
+            if (!createdResource) throw new Error(`elasticsearch firehose expects a resource to be specified`);
+
+            const esResource = createdResource as aws.elasticsearch.Domain;
+            
+            config.elasticsearchConfiguration.roleArn = role.arn
+            config.elasticsearchConfiguration.domainArn = esResource.arn;
+
+            policyDefs.push({ 
                 resource: "*",
                 actions: [
                     "es:DescribeElasticsearchDomain",
@@ -98,22 +113,26 @@ export default class awsUtil {
                     "es:ESHttpHead",
                     "es:ListDomainNames",
                 ]
-            }
-        ]);
-
-        if (config.elasticsearchConfiguration) {
-            if (!resourceArn) throw new Error(`elasticsearch firehose expects a resource to be specified`);
-            
-            config.elasticsearchConfiguration.roleArn = role.arn
-            config.elasticsearchConfiguration.domainArn = resourceArn
-
-        } else if (config.extendedS3Configuration) {
+            });
             
         } else if (config.redshiftConfiguration) {
+
+            const redshiftResource = createdResource as aws.redshift.Cluster;
+
+            const jdbcUrl = pulumi.all([ redshiftResource.endpoint, redshiftResource.databaseName ])
+                .apply(([ endpoint, databaseName]) => (
+                    `jdbc:redshift://${endpoint}/${databaseName}`
+                ))
+
+            config.redshiftConfiguration.clusterJdbcurl = jdbcUrl;
+
+        } else if (config.extendedS3Configuration) {
             
         } else if (config.splunkConfiguration) {
             
         }
+
+        const policy = this.createSimpleIamRolePolicy(`${resourceName}-Policy`, role.id, policyDefs);
 
         let parameters: aws.kinesis.FirehoseDeliveryStreamArgs = {
             name: resourceName,
