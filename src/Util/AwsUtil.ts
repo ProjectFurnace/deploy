@@ -125,6 +125,7 @@ export default class awsUtil {
                 ))
 
             config.redshiftConfiguration.clusterJdbcurl = jdbcUrl;
+            config.redshiftConfiguration.roleArn = role.arn
 
         } else if (config.extendedS3Configuration) {
             

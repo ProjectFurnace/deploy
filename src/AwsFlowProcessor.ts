@@ -58,7 +58,7 @@ export default class AwsFlowProcessor {
 
                 const resourceName = step.meta.identifier!
                     , outputStream = step.meta.output!
-                    , isLastStep = flow.indexOf(step) === flow.length -1
+                    , isSink = step.component === "sink"
                     ;
 
                 if (!step.config.aws) step.config.aws = {};
@@ -85,7 +85,7 @@ export default class AwsFlowProcessor {
                         variables[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1];
                     }
 
-                    if (!isLastStep) {
+                    if (!isSink) {
                         variables["STREAM_NAME"] = outputStream;
                         variables["PARTITION_KEY"] = step.config.aws!.partitionKey || "DEFAULT";
                     }
@@ -129,7 +129,7 @@ export default class AwsFlowProcessor {
                     }
                 }
 
-                if (!isLastStep) {
+                if (!isSink) {
                     // create kinesis stream
                     const kinesisConfig: aws.kinesis.StreamArgs = {
                         name: outputStream,

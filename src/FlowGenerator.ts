@@ -23,6 +23,7 @@ export default class FlowGenerator {
 
                 let tapSource = `${stackName}-${source.config.stream || source.name}-${environment}`;
 
+                tap.component = "tap";
                 tap.meta.source = tapSource;
                 tap.meta.identifier = `${stackName}-${tap.name}-${environment}`;
                 tap.meta.output = `${stackName}-${tap.meta.output}`;
@@ -35,6 +36,7 @@ export default class FlowGenerator {
                 for (let m = 0; m < pipeline.modules.length; m++) {
                     const mod = pipeline.modules[m];
                     
+                    mod.component = "pipeline";
                     mod.meta.source = (m === 0 ? `${stackName}-${tap.name}` : `${stackName}-${pipeline.modules[m -1].name}-${environment}-out`);
                     mod.meta.identifier = `${stackName}-${mod.name}-${environment}`;
                     mod.meta.output = `${stackName}-${mod.meta.output}`;
@@ -50,6 +52,7 @@ export default class FlowGenerator {
                         const output = config.sinks.find(sink => sink.name === outputPipe.sink) as Sink;
                         if (!output) throw new Error(`unable to find sink ${outputPipe.sink} specified in pipe`)
                         
+                        output.component = "sink";
                         output.meta.source = `${stackName}-${pipeline.modules[pipeline.modules.length -1].name}-${environment}-out`;
                         
                         if (!output.type) output.type = SinkType.Module; // default to module

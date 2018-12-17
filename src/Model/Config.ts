@@ -11,6 +11,7 @@ export type FurnaceConfig = {
 
 export type FlowSpec = {
     name: string
+    component: string
     module?: string
     runtime?: string
     resource?: string
