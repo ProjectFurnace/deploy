@@ -57,8 +57,10 @@ export default class awsUtil {
                 config.domainName = resourceName;
                 return new aws.elasticsearch.Domain(resourceName, config)
             case "redshift.Cluster":
-                const redshiftConfig: aws.redshift.ClusterArgs = config;
-                return new aws.redshift.Cluster(resourceName, redshiftConfig)
+                config.clusterIdentifier = resourceName;
+                config.masterPassword = "Abcdefg1"; // TODO: replace with secret
+
+                return new aws.redshift.Cluster(resourceName, config)
             default:
                 throw new Error(`unknown resource type ${type}`)
         }
@@ -121,11 +123,13 @@ export default class awsUtil {
 
             const jdbcUrl = pulumi.all([ redshiftResource.endpoint, redshiftResource.databaseName ])
                 .apply(([ endpoint, databaseName]) => (
-                    `jdbc:redshift://${endpoint}/${databaseName}`
+                    `jdbc:redshift://${endpoint}/${databaseName || "unknown"}`
                 ))
 
             config.redshiftConfiguration.clusterJdbcurl = jdbcUrl;
             config.redshiftConfiguration.roleArn = role.arn
+            config.redshiftConfiguration.username = redshiftResource.masterUsername;
+            config.redshiftConfiguration.password = redshiftResource.masterPassword;
 
         } else if (config.extendedS3Configuration) {
             
