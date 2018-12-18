@@ -67,38 +67,60 @@ export default class awsUtil {
 
     }
 
-    static createFirehose(resourceName: string, createdResource: any | undefined, config: any, source: aws.kinesis.Stream): aws.kinesis.FirehoseDeliveryStream {
+    static createFirehosePolicy(params: any[]) {
+        let [ kinesisArn, bucketName, elasticArn ] = params;
 
-        const failureBucket = new aws.s3.Bucket(`${resourceName}-Bucket`, {});
-
-        const role = this.createSimpleIamRole(`${resourceName}-Role`, "sts:AssumeRole", "firehose.amazonaws.com", "Allow");
-
-        const policyDefs = [
-            { 
-                resource: "*",
-                actions: [
-                    "s3:AbortMultipartUpload",
-                    "s3:GetBucketLocation",
-                    "s3:GetObject",
-                    "s3:ListBucket",
-                    "s3:ListBucketMultipartUploads",
-                    "s3:PutObject"
-                  ]
+        let policy = {
+            Version: "2012-10-17",
+            Statement: [
+            {
+              Effect: "Allow",
+              Action: [
+                "s3:AbortMultipartUpload",
+                "s3:GetBucketLocation",
+                "s3:GetObject",
+                "s3:ListBucket",
+                "s3:ListBucketMultipartUploads",
+                "s3:PutObject"
+              ],
+              Resource: [
+                  `arn:aws:s3:::${bucketName}/*` // policy refers to bucket name explicitly
+              ]
             },
             { 
-                resource: "*",
-                actions: [
+                Effect: "Allow",
+                Resource: [ kinesisArn ],
+                Action: [
                     "kinesis:DescribeStream",
                     "kinesis:GetShardIterator",
                     "kinesis:GetRecords"
                 ]
-            }
-        ];
+            }]
+        };
 
-        console.log('resourceName', resourceName);
-        console.log('createdResource', createdResource);
-        console.log('source',source);
-        console.log('policyDefs', policyDefs);
+        if( elasticArn ) {
+            policy.Statement.push({ 
+                Effect: "Allow",
+                Resource: [ elasticArn, elasticArn + "/*" ],
+                Action: [
+                    "es:DescribeElasticsearchDomain",
+                    "es:DescribeElasticsearchDomains",
+                    "es:DescribeElasticsearchDomainConfig",
+                    "es:ESHttpGet",
+                    "es:ESHttpPost",
+                    "es:ESHttpPut"
+                ]
+            });
+        }
+
+        return JSON.stringify(policy);
+    }
+
+    static async createFirehose(resourceName: string, createdResource: any | undefined, config: any, source: aws.kinesis.Stream): Promise<aws.kinesis.FirehoseDeliveryStream> {
+
+        const failureBucket = new aws.s3.Bucket(`${resourceName}-Bucket`, {});
+
+        const role = this.createSimpleIamRole(`${resourceName}-Role`, "sts:AssumeRole", "firehose.amazonaws.com", "Allow");
 
         if (config.elasticsearchConfiguration) {
             if (!createdResource) throw new Error(`elasticsearch firehose expects a resource to be specified`);
@@ -107,20 +129,6 @@ export default class awsUtil {
             
             config.elasticsearchConfiguration.roleArn = role.arn
             config.elasticsearchConfiguration.domainArn = esResource.arn;
-
-            policyDefs.push({ 
-                resource: "*",
-                actions: [
-                    "es:DescribeElasticsearchDomain",
-                    "es:DescribeElasticsearchDomains",
-                    "es:DescribeElasticsearchDomainConfig",
-                    "es:ESHttpGet",
-                    "es:ESHttpPost",
-                    "es:ESHttpPut",
-                    "es:ESHttpHead",
-                    "es:ListDomainNames",
-                ]
-            });
             
         } else if (config.redshiftConfiguration) {
 
@@ -142,7 +150,12 @@ export default class awsUtil {
             
         }
 
-        const policy = this.createSimpleIamRolePolicy(`${resourceName}-Policy`, role.id, policyDefs);
+        const def = {
+            role: role.id,
+            policy: pulumi.all([source.arn, failureBucket.bucket, (config.elasticsearchConfiguration ? config.elasticsearchConfiguration.domainArn : null)]).apply(this.createFirehosePolicy)
+        };
+
+        const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, {parent: role, dependsOn: [source]});
 
         let parameters: aws.kinesis.FirehoseDeliveryStreamArgs = {
             name: resourceName,
