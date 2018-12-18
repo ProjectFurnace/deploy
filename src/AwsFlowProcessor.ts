@@ -25,10 +25,12 @@ export default class AwsFlowProcessor {
                 case SourceType.AwsKinesisStream:
                     const streamOptions: aws.kinesis.StreamArgs = {
                         name,
-                        shardCount: 1,
+                        shardCount: source.config && source.config.shards ? source.config.shards : 1
+                    }
+                    // for retentionPeriod we either configure the value or leave it completely unset
+                    if( source.config && source.config.retentionPeriod )
+                        streamOptions.retentionPeriod = source.config.retentionPeriod;
 
-                        // TODO: add more initialisers
-                    }  
                     this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
                     break;
                 default:
@@ -47,6 +49,8 @@ export default class AwsFlowProcessor {
             }
         }
 
+        const iden = await aws.getCallerIdentity();
+
         for(let flow of this.flows) {
             if (flow.length === 0) continue;
 
@@ -64,15 +68,14 @@ export default class AwsFlowProcessor {
                 if (!step.config.aws) step.config.aws = {};
 
                 if (step.type === "Module") {
-
                     const role = AwsUtil.createSimpleIamRole(`${resourceName}-FunctionRole`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
                     const policy = AwsUtil.createSimpleIamRolePolicy(`${resourceName}-FunctionPolicy`, role.id, [
                         { 
-                            resource: "arn:aws:logs:*:*:*",
+                            resource: `arn:aws:logs:${aws.config.region}:${iden.accountId}:*`,
                             actions: [ "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents" ]
                         },
                         { 
-                            resource: "arn:aws:kinesis:*:*:*", //TODO: too open, make specific urn
+                            resource: [`arn:aws:kinesis:${aws.config.region}:${iden.accountId}:${step.meta.source}`, `arn:aws:kinesis:${aws.config.region}:${iden.accountId}:${outputStream}`],
                             actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords" ]
                         }
                     ])
@@ -133,7 +136,7 @@ export default class AwsFlowProcessor {
                     // create kinesis stream
                     const kinesisConfig: aws.kinesis.StreamArgs = {
                         name: outputStream,
-                        shardCount: step.config.aws && step.config.aws.shards ? step.config.aws.shards : 1
+                        shardCount: step.config && step.config.shards ? step.config.shards : 1
                     }
                     inputStream = new aws.kinesis.Stream(outputStream, kinesisConfig);
                 }
