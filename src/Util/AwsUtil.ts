@@ -50,7 +50,7 @@ export default class awsUtil {
         }
     }
 
-    static createResource(resourceName: string, type: string, config: any): any {
+    static createResource(resourceName: string, type: string, config: any, stackName: string, environment: string): any {
 
         switch (type) {
             case "elasticsearch.Domain":
@@ -58,7 +58,12 @@ export default class awsUtil {
                 return new aws.elasticsearch.Domain(resourceName, config)
             case "redshift.Cluster":
                 config.clusterIdentifier = resourceName;
-                config.masterPassword = "Abcdefg1"; // TODO: replace with secret
+
+                const secretName = `${stackName}-${config.masterPasswordSecret}-${environment}`;
+                const secret = null; //TODO: get secret
+                
+                if (!secret) throw new Error(`unable to find secret ${config.masterPasswordSecret} specified in resource ${resourceName}`);
+                config.masterPassword = secret;
 
                 return new aws.redshift.Cluster(resourceName, config)
             default:
