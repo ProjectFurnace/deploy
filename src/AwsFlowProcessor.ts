@@ -21,15 +21,17 @@ export default class AwsFlowProcessor {
             let sourceExists = false;
             let name = `${this.config.stack.name}-${source.name}-${this.environment}`;
             
+            const awsConfig = source.config.aws || {};
+
             switch (source.type) {
                 case SourceType.AwsKinesisStream:
-                    const streamOptions: aws.kinesis.StreamArgs = {
+                    const streamOptions = {
                         name,
-                        shardCount: source.config && source.config.shards ? source.config.shards : 1
+                        ...awsConfig
                     }
-                    // for retentionPeriod we either configure the value or leave it completely unset
-                    if( source.config && source.config.retentionPeriod )
-                        streamOptions.retentionPeriod = source.config.retentionPeriod;
+                   
+                    // set any required parameters if unset
+                    if (!streamOptions.shardCount) streamOptions.shardCount = 1;
 
                     this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
                     break;
