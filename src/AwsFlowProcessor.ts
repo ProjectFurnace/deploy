@@ -46,7 +46,7 @@ export default class AwsFlowProcessor {
             for (let resource of this.config.resources) {
                 let resourceName = `${this.config.stack.name}-${resource.name}-${this.environment}`;
 
-                const createdResource = AwsUtil.createResource(resourceName, resource.type, resource.config, this.config.stack.name, this.environment);
+                const createdResource = await AwsUtil.createResource(resourceName, resource.type, resource.config, this.config.stack.name, this.environment);
                 createdResources.set(resource.name, createdResource);
             }
         }

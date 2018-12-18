@@ -1,5 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
+import { SecretsManager } from "aws-sdk";
 import { Resource } from "../Model/Config";
 import { FirehoseDeliveryStreamArgs } from "@pulumi/aws/kinesis";
 
@@ -50,8 +51,16 @@ export default class awsUtil {
         }
     }
 
-    static createResource(resourceName: string, type: string, config: any, stackName: string, environment: string): any {
+    static getSecret(name: string) {
+        const params = {
+          SecretId: name,
+        };
+      
+        const sm = new SecretsManager();
+        return sm.getSecretValue(params).promise();
+      }
 
+    static async createResource(resourceName: string, type: string, config: any, stackName: string, environment: string): Promise<any> {
         switch (type) {
             case "elasticsearch.Domain":
                 config.domainName = resourceName;
@@ -59,17 +68,19 @@ export default class awsUtil {
             case "redshift.Cluster":
                 config.clusterIdentifier = resourceName;
 
-                const secretName = `${stackName}-${config.masterPasswordSecret}-${environment}`;
-                const secret = null; //TODO: get secret
-                
-                if (!secret) throw new Error(`unable to find secret ${config.masterPasswordSecret} specified in resource ${resourceName}`);
-                config.masterPassword = secret;
+                const secretName = `${stackName}/${config.masterPasswordSecret}-${environment}`;
+                try {
+                    const secret = await this.getSecret(secretName);
 
-                return new aws.redshift.Cluster(resourceName, config)
+                    config.masterPassword = secret.SecretString;
+
+                    return new aws.redshift.Cluster(resourceName, config)
+                } catch(e) {
+                    throw new Error(`unable to find secret ${config.masterPasswordSecret} specified in resource ${resourceName}`);
+                }
             default:
                 throw new Error(`unknown resource type ${type}`)
         }
-
     }
 
     static createFirehosePolicy(params: any[]) {
