@@ -77,7 +77,7 @@ export default class AwsFlowProcessor {
                             actions: [ "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents" ]
                         },
                         { 
-                            resource: [`arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${step.meta.source}`, `arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${outputStream}`],
+                            resource: [`arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${step.meta.source}`, `arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${step.meta.output}`],
                             actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"]
                         }
                     ])
