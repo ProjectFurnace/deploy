@@ -79,6 +79,10 @@ export default class AwsFlowProcessor {
                         { 
                             resource: [`arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${step.meta.source}`, `arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${outputStream}`],
                             actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords" ]
+                        },
+                        { 
+                            resource: ["*"],
+                            actions: ["kinesis:ListStreams" ]
                         }
                     ])
 
