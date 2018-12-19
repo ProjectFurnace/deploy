@@ -10,12 +10,12 @@ export default class ConfigUtil {
         const files = [ "stack", "sources", "taps", "pipelines", "sinks", "pipes", "resources" ];
 
         const config: FurnaceConfig = {
+            stack: <Stack>{},
             sources: [],
             taps: [],
             pipelines: [],
             pipes: [],
             sinks: [],
-            stack: <Stack>{},
             resources: []
         };
 
@@ -36,6 +36,7 @@ export default class ConfigUtil {
             switch (file) {
                 case "taps":
                 case "sinks":
+                case "sources":
                     let specs: Array<FlowSpec> = [];
                     for (let item of configObject as Array<FlowSpec>) {
                         specs.push(this.getModuleSpec(file, item, moduleHashes, templateHashes, platform, modulesPath, environment));
@@ -52,28 +53,14 @@ export default class ConfigUtil {
                         item.modules = pipelineSpecs;
                     }
                     break;
+                case "sources":
+                    break;
                 }
 
                 config[file] = configObject;
         }
 
         return config;
-    }
-
-    private static async getHashListFromDirectory(dir: string, subDir: string | null): Promise<Map<string, string>> {
-        let hashes = new Map<string, string>();
-        const list: string[] = fsUtils.listDirectory(dir);
-        for (let item of list) {
-            if (item.startsWith(".")) continue;
-            const p = subDir ? path.join(dir, item, subDir as string) : path.join(dir, item);
-            const hash = await this.getModuleHash(p);
-            hashes.set(item, hash);
-        }
-        return hashes;
-    }
-
-    private static async getModuleHash(dir: string): Promise<string> {
-        return await HashUtil.getDirectoryHash(dir);
     }
 
     private static getModuleSpec(file: string, item: any, modules: Map<string,string>, templates: Map<string,string>, platform: string, modulesPath: string, environment: string) {
@@ -92,7 +79,7 @@ export default class ConfigUtil {
 
         let isModule = true;
 
-        if (file === "sinks") {
+        if (file === "sinks" || file === "sources") {
             if (item.type && item.type !== "Module") isModule = false;
         }
 
@@ -154,6 +141,26 @@ export default class ConfigUtil {
             delete item.source;
         }
 
+        if (file === "sources") {
+            spec.component = "source";
+        }
+
         return spec;
+    }
+
+    private static async getHashListFromDirectory(dir: string, subDir: string | null): Promise<Map<string, string>> {
+        let hashes = new Map<string, string>();
+        const list: string[] = fsUtils.listDirectory(dir);
+        for (let item of list) {
+            if (item.startsWith(".")) continue;
+            const p = subDir ? path.join(dir, item, subDir as string) : path.join(dir, item);
+            const hash = await this.getModuleHash(p);
+            hashes.set(item, hash);
+        }
+        return hashes;
+    }
+
+    private static async getModuleHash(dir: string): Promise<string> {
+        return await HashUtil.getDirectoryHash(dir);
     }
 }

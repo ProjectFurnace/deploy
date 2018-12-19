@@ -8,10 +8,3 @@
     destination: elasticsearch
     elasticsearchConfiguration:
         indexName: test
-
-
-# - name: s3
-#   aws:
-#     firehose: s3
-#   config:
-#     bucket: test

@@ -8,6 +8,8 @@ export default class FlowGenerator {
 
         const stackName = config.stack.name;
 
+        //TODO: should process sources here also to be consistant
+
         for (let pipe of config.pipes) {
 
             let flow: Array<FlowSpec> = [];
