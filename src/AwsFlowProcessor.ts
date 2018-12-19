@@ -21,7 +21,7 @@ export default class AwsFlowProcessor {
             let sourceExists = false;
             let name = `${this.config.stack.name}-${source.name}-${this.environment}`;
             
-            const awsConfig = source.config.aws || {};
+            const awsConfig = ( source.config && source.config.aws ? source.config.aws : {} );
 
             switch (source.type) {
                 case SourceType.AwsKinesisStream:
@@ -67,6 +67,7 @@ export default class AwsFlowProcessor {
                     , isSink = step.component === "sink"
                     ;
 
+                if (!step.config) step.config = {};
                 if (!step.config.aws) step.config.aws = {};
 
                 if (step.type === "Module") {
