@@ -51,14 +51,18 @@ PREV_PWD="$(pwd)"
 # clone state repo to folder prev-config
 echo "Cloning state repo..."
 rm -rf /tmp/pulumi-prev-config
-git clone $STATE_REPO /tmp/pulumi-prev-config
-# checkout branch and act depending on if it exists or not
-if git -C /tmp/pulumi-prev-config show-ref --verify --quiet refs/heads/$STACK_ENV; then
-  git -C /tmp/pulumi-prev-config  checkout $STACK_ENV
+if git clone $STATE_REPO /tmp/pulumi-prev-config; then
+  # checkout branch and act depending on if it exists or not
+  if git -C /tmp/pulumi-prev-config show-ref --verify --quiet refs/heads/$STACK_ENV; then
+    git -C /tmp/pulumi-prev-config  checkout $STACK_ENV
+  else
+    git -C /tmp/pulumi-prev-config checkout -b $STACK_ENV
+    # make sure the folder is empty (for when we promote)
+    rm -rf /tmp/pulumi-prev-config/*
+  fi
 else
-  git -C /tmp/pulumi-prev-config checkout -b $STACK_ENV
-  # make sure the folder is empty (for when we promote)
-  rm -rf /tmp/pulumi-prev-config/*
+  echo "State repo does not exist. Exiting..."
+  exit 1
 fi
 
 # create output log folder if it does not exist
