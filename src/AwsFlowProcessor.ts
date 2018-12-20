@@ -71,8 +71,8 @@ export default class AwsFlowProcessor {
                 if (!step.config.aws) step.config.aws = {};
 
                 if (step.type === "Module") {
-                    const role = AwsUtil.createSimpleIamRole(`${resourceName}-FunctionRole`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
-                    const policy = AwsUtil.createSimpleIamRolePolicy(`${resourceName}-FunctionPolicy`, role.id, [
+                    const role = AwsUtil.createSimpleIamRole(`${resourceName}-role`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
+                    const policy = AwsUtil.createSimpleIamRolePolicy(`${resourceName}-policy`, role.id, [
                         { 
                             resource: `arn:aws:logs:${aws.config.region}:${iden.accountId}:*`,
                             actions: [ "logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents" ]
