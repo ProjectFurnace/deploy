@@ -3,7 +3,7 @@
   config:
     elasticsearchVersion: 6.3
     ebsOptions:
-      ebsEnabled: true,
-      volumeSize: 10,
+      ebsEnabled: true
+      volumeSize: 10
     clusterConfig:
       instanceType: t2.small.elasticsearch

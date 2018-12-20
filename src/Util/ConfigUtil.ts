@@ -92,21 +92,26 @@ export default class ConfigUtil {
             const configSpecFile = path.join(modulesPath, spec.module!, "config.yaml");
 
             let moduleSpec: any = yaml.load(moduleSpecFile);
-            let moduleConfigSpec: any = yaml.load(configSpecFile);
 
             if (!moduleSpec.runtime) throw new Error(`module ${item.module} has no runtime specified`)
             else spec.runtime = moduleSpec.runtime;
 
-            if (moduleConfigSpec["config-groups"]) {
-                for(let group in moduleConfigSpec["config-groups"]) {
-                    const paramList = moduleConfigSpec["config-groups"][group];
-                    for (let key in paramList) {
-                        const param = paramList[key];
+            if (fsUtils.exists(configSpecFile)) {
+                let moduleConfigSpec: any = yaml.load(configSpecFile);
 
-                        const value = item.config[key];
-                        if (!value && param.mandatory && !param.default) throw new Error(`module ${spec.module} has mandatory parameter ${key} which is not set`);
+                const configKeys = Object.keys(moduleConfigSpec);
 
-                        spec.parameters.set(key, value || param.default);
+                if (configKeys.includes("config-groups")) {
+                    for(let group in moduleConfigSpec["config-groups"]) {
+                        const paramList = moduleConfigSpec["config-groups"][group];
+                        for (let key in paramList) {
+                            const param = paramList[key];
+
+                            const value = item.config[key];
+                            if (!value && param.mandatory && !param.default) throw new Error(`module ${spec.module} has mandatory parameter ${key} which is not set`);
+
+                            spec.parameters.set(key, value || param.default);
+                        }
                     }
                 }
             }

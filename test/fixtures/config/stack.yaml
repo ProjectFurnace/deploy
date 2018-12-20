@@ -1,10 +1,6 @@
 name: test-stack
 platform:
-  type: aws
-  build:
-    bucket: furnace-artifacts
   aws:
-    region: eu-west-1
     defaultBatchSize: 10
 state:
   repo: https://github.com/ProjectFurnace/dev-stack-state
