@@ -56,7 +56,7 @@ export default class awsUtil {
           SecretId: name,
         };
       
-        const sm = new SecretsManager();
+        const sm = new SecretsManager({region: aws.config.region});
         return sm.getSecretValue(params).promise();
       }
 
@@ -68,7 +68,7 @@ export default class awsUtil {
             case "redshift.Cluster":
                 config.clusterIdentifier = resourceName;
 
-                const secretName = `${stackName}/${config.masterPasswordSecret}-${environment}`;
+                const secretName = `${process.env.FURNACE_INSTANCE}/${stackName}-${config.masterPasswordSecret}-${environment}`;
                 try {
                     const secret = await this.getSecret(secretName);
 
@@ -76,7 +76,7 @@ export default class awsUtil {
 
                     return new aws.redshift.Cluster(resourceName, config)
                 } catch(e) {
-                    throw new Error(`unable to find secret ${config.masterPasswordSecret} specified in resource ${resourceName}`);
+                    throw new Error(`unable to find secret ${secretName} specified in resource ${resourceName}`);
                 }
             default:
                 throw new Error(`unknown resource type ${type}`)
