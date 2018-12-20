@@ -56,7 +56,7 @@ export default class awsUtil {
           SecretId: name,
         };
       
-        const sm = new SecretsManager();
+        const sm = new SecretsManager({region: aws.config.region});
         return sm.getSecretValue(params).promise();
       }
 
