@@ -99,17 +99,19 @@ export default class ConfigUtil {
             if (fsUtils.exists(configSpecFile)) {
                 let moduleConfigSpec: any = yaml.load(configSpecFile);
 
-                const configKeys = Object.keys(moduleConfigSpec);
+                const configKeys = Object.keys(moduleConfigSpec || {})
+                    , itemConfig = item.config || {}
+                    ;
 
                 if (configKeys.includes("config-groups")) {
                     for(let group in moduleConfigSpec["config-groups"]) {
                         const paramList = moduleConfigSpec["config-groups"][group];
                         for (let key in paramList) {
-                            const param = paramList[key];
+                            const param = paramList[key]
+                                , value = itemConfig[key]
+                                ;
 
-                            const value = item.config[key];
                             if (!value && param.mandatory && !param.default) throw new Error(`module ${spec.module} has mandatory parameter ${key} which is not set`);
-
                             spec.parameters.set(key, value || param.default);
                         }
                     }
