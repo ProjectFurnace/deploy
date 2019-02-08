@@ -9,7 +9,7 @@ meta:
   name: Passthrough test module
   description: This module just passes data through it without any alteration
   keywords: [passthrough]
-  website: https://projectfurnace.github.io
+  website: https://furnace.org
 author:
   name: Furnace Collective
 license: MIT
