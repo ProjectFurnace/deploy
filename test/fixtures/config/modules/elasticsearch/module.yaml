@@ -9,7 +9,7 @@ meta:
   name: Elasticsearch Sink
   description: This module outputs data to an Elasticsearch index.
   keywords: [elastic,elasticsearch]
-  website: https://projectfurnace.github.io
+  website: https://furnace.org
 author:
   name: Furnace Collective
 license: MIT
