@@ -44,7 +44,7 @@ curl -o /dev/null -d '{"state":"in_progress","description":"Deployment started..
 STATE_REPO="${STATE_REPO/:\/\//://$GIT_TOKEN@}"
 
 # initial git config
-git config --global user.email "hello@projectfurnace.io"
+git config --global user.email "hello@furnace.org"
 
 PREV_PWD="$(pwd)"
 
