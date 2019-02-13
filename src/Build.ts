@@ -120,8 +120,12 @@ export default class Build {
         fsUtils.cp(codePath, buildPath);
 
         switch (runtime) {
-            case "nodejs8.10":
+            case 'nodejs8.10':
                 await this.buildNode(name, buildPath);
+                break;
+            
+            case 'python3.6':
+                await this.buildPython(name, buildPath);
                 break;
 
             default:
@@ -150,6 +154,26 @@ export default class Build {
 
             if (execResult.stderr) {
                 throw new Error(`npm install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
+            }
+            
+        } catch (err) {
+            throw new Error(`unable to build module ${name}: ${err}`)
+        }
+        
+    }
+
+    static async buildPython(name: string, buildPath: string) {
+
+        try
+        {
+            console.log(`building ${name} in ${buildPath}`);
+
+            // TODO: merge dependencies from template
+            const execResult = await this.execPromise("pip install -r requirements.txt --target .", 
+                { cwd: buildPath, env: process.env });
+
+            if (execResult.stderr) {
+                throw new Error(`pip install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
             }
             
         } catch (err) {

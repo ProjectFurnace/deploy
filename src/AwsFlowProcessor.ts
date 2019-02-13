@@ -100,7 +100,7 @@ export default class AwsFlowProcessor {
                         name: resourceName,
                         handler: "handler.handler",
                         role: role.arn,
-                        runtime: AwsUtil.runtimeFromString("nodejs8.10"), //TODO: get runtime from module spec
+                        runtime: AwsUtil.runtimeFromString(step.runtime ? step.runtime : 'nodejs8.10'),
                         s3Bucket: this.buildBucket,
                         s3Key: `${step.module}/${step.meta.hash}`,
                         environment: { variables }
