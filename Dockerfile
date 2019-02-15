@@ -13,7 +13,7 @@ RUN apt-get update && \
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
-RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.8
+RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.16.14
 
 RUN pip install awscli
 

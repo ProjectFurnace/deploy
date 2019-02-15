@@ -46,7 +46,7 @@ export default class awsUtil {
         switch (runtime) {
             case 'nodejs8.10':
                 return aws.lambda.NodeJS8d10Runtime;
-            case 'python3.7':
+            case 'python3.6':
                 return aws.lambda.Python3d6Runtime;
             default:
                 throw new Error(`unsupported runtime ${runtime}`);
