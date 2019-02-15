@@ -12,10 +12,10 @@
     "ts-jest": "^23.10.4"
   },
   "dependencies": {
-    "@project-furnace/fsutils": "^0.1.5",
-    "@project-furnace/gitutils": "^0.1.1",
-    "@project-furnace/s3utils": "^0.1.1",
-    "@project-furnace/ziputils": "^0.1.1",
+    "@project-furnace/fsutils": "^0.1.6",
+    "@project-furnace/gitutils": "^0.1.4",
+    "@project-furnace/s3utils": "^0.1.6",
+    "@project-furnace/ziputils": "^0.1.4",
     "@pulumi/aws": "^0.16.2",
     "@pulumi/pulumi": "latest",
     "@types/tmp": "0.0.33",
