@@ -62,10 +62,11 @@ export default class awsUtil {
 
     static async createResource(resourceName: string, type: string, config: any, stackName: string, environment: string): Promise<any> {
         switch (type) {
-            case "elasticsearch.Domain":
+            case 'elasticsearch.Domain':
                 config.domainName = resourceName;
-                return new aws.elasticsearch.Domain(resourceName, config)
-            case "redshift.Cluster":
+                return new aws.elasticsearch.Domain(resourceName, config);
+            
+            case 'redshift.Cluster':
                 config.clusterIdentifier = resourceName;
 
                 const secretName = `${process.env.FURNACE_INSTANCE}/${stackName}-${config.masterPasswordSecret}-${environment}`;
@@ -74,10 +75,18 @@ export default class awsUtil {
 
                     config.masterPassword = secret.SecretString;
 
-                    return new aws.redshift.Cluster(resourceName, config)
+                    return new aws.redshift.Cluster(resourceName, config);
                 } catch(e) {
                     throw new Error(`unable to find secret ${secretName} specified in resource ${resourceName}`);
                 }
+
+            case 'dynamodb.Table':
+                return new aws.dynamodb.Table(resourceName, config);
+            
+            case 'elasticache.Cluster':
+                config.clusterId = resourceName;
+                return new aws.elasticache.Cluster(resourceName, config);
+
             default:
                 throw new Error(`unknown resource type ${type}`)
         }
