@@ -120,9 +120,10 @@ export default class ConfigUtil {
 
             const moduleHash = modules.get(spec.module!);
             if (!moduleHash) throw new Error(`unable to get hash for module ${spec.module}`);
-    
+            
             const template = `${platform}-${spec.runtime}`;
             const templateHash = templates.get(template);
+            
             if (!templateHash) throw new Error(`unable to get hash for template ${template}`);
     
             spec.meta.moduleHash = moduleHash;
