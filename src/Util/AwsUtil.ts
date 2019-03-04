@@ -81,6 +81,7 @@ export default class awsUtil {
                 }
 
             case 'dynamodb.Table':
+                config.name = resourceName;
                 return new aws.dynamodb.Table(resourceName, config);
             
             case 'elasticache.Cluster':
