@@ -1,4 +1,5 @@
 import { FurnaceConfig, FlowSpec, Tap, Sink, SourceType, SinkType } from "./Model/Config";
+import * as _ from 'lodash'
 
 export default class FlowGenerator {
 
@@ -51,21 +52,21 @@ export default class FlowGenerator {
                 
                 for (let outputPipe of outputPipes) {
                     if (outputPipe.sink) {
-                        const output = config.sinks.find(sink => sink.name === outputPipe.sink) as Sink;
+                        let output = _.cloneDeep(config.sinks.find(sink => sink.name === outputPipe.sink) as Sink);
                         if (!output) throw new Error(`unable to find sink ${outputPipe.sink} specified in pipe`)
                         
                         output.component = "sink";
                         output.meta.source = `${stackName}-${pipeline.modules[pipeline.modules.length -1].name}-${environment}-out`;
                         
                         if (!output.type) output.type = SinkType.Module; // default to module
-                        output.meta.identifier = `${stackName}-${output.name}-${environment}`;
+                        output.meta.identifier = `${stackName}-${outputPipe.pipeline}-${outputPipe.sink}-${environment}`;
                         
                         flow.push(output)
                     } else {
                         throw new Error(`unsupported output for pipeline ${pipe.pipeline}`);
                     }
                 }
-
+                console.log(flow);
                 flows.push(flow);
             }
         }

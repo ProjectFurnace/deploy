@@ -10,7 +10,7 @@ import Build from "./src/Build";
 import * as path from "path";
 
 (async () => {
-    const gitRemote = process.env.GIT_REMOTE
+      let gitRemote = process.env.GIT_REMOTE
         , gitTag = process.env.GIT_TAG
         , gitUsername = process.env.GIT_USERNAME
         , gitToken = process.env.GIT_TOKEN
@@ -20,28 +20,30 @@ import * as path from "path";
         , repoDir = process.env.REPO_DIR || "/tmp/stack/"
         , modulesDir = path.join(repoDir, "modules")
         , templateRepoRemote = "https://github.com/ProjectFurnace/function-templates"
-        , templateRepoDir = tmp.dirSync().name
+        , templateRepoDir = process.env.TEMPLATE_REPO_DIR || tmp.dirSync().name
+        , isLocal = process.env.FURNACE_LOCAL ? true : false
         ;
 
-    if (!gitRemote) throw new Error(`GIT_REMOTE not set`);
-    if (!gitTag) throw new Error(`GIT_TAG not set`);
-    // if (!gitUsername) throw new Error(`GIT_USERNAME not set`);
-    // if (!gitToken) throw new Error(`GIT_TOKEN not set`);
-    if (!platform) throw new Error(`PLATFORM not set`);
-    if (!environment) throw new Error(`unable to extract environment`);
+        if (!isLocal) {
+            if (!gitRemote) throw new Error(`GIT_REMOTE not set`);
+            if (!gitTag) throw new Error(`GIT_TAG not set`);
+            // if (!gitUsername) throw new Error(`GIT_USERNAME not set`);
+            // if (!gitToken) throw new Error(`GIT_TOKEN not set`);
+            if (!platform) throw new Error(`PLATFORM not set`);
+            if (!environment) throw new Error(`unable to extract environment`);
+            
+            if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
+            
+            //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
+            
+            await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
+        } else console.log("executing local mode...")
 
-    if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
-
-    //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
-
-    await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
-
-    const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, environment!, platform!);
-
-    Build.buildStack(repoDir, templateRepoDir, buildBucket!, platform!);
-
-    const processor = new Processor();
-    processor.process(furnaceConfig, environment!, buildBucket!);
-    
+        const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, environment!, platform!);
+        
+        Build.buildStack(repoDir, templateRepoDir, buildBucket!, platform!);
+        
+        const processor = new Processor();
+        processor.process(furnaceConfig, environment!, buildBucket!);
 })();
 
