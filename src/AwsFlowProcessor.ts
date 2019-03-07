@@ -80,11 +80,16 @@ export default class AwsFlowProcessor {
                         { 
                             resource: [`arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${step.meta.source}`, `arn:aws:kinesis:${aws.config.region}:${iden.accountId}:stream/${step.meta.output}`],
                             actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"]
+                        },
+                        { 
+                            resource: [`arn:aws:ssm:${aws.config.region}:${iden.accountId}:parameter/${this.config.stack.name}/${this.environment}/${resourceName}`],
+                            actions: ["ssm:GetParametersByPath"]
                         }
                     ])
 
                     const variables: { [key: string]: string } = {
-                        "STACK_NAME": this.config.stack.name || "unknown"
+                        "STACK_NAME": this.config.stack.name || "unknown",
+                        "STACK_ENV": this.environment || "unknown"
                     };
 
                     for (let param of step.parameters) {
@@ -116,6 +121,8 @@ export default class AwsFlowProcessor {
                             startingPosition: step.config.aws!.startingPosition || this.config.stack.platform.aws!.defaultStartingPosition || "LATEST",
                         }
                     );
+
+                    this.processIOParameters(step, lambda, createdResources);
                 } else {
 
                     let createdResource: pulumi.Output<string> | undefined;
@@ -133,6 +140,8 @@ export default class AwsFlowProcessor {
                     } else {
                         throw new Error(`unknown step type '${step.type}'`);
                     }
+
+                    this.processIOParameters(step, createdResource, createdResources);
                 }
 
                 if (!isSink) {
@@ -143,6 +152,25 @@ export default class AwsFlowProcessor {
                     }
                     inputStream = new aws.kinesis.Stream(outputStream, kinesisConfig);
                 }
+            }
+        }
+    }
+
+    processIOParameters(step: FlowSpec, resource: any, createdResources: Map<string,any>) {
+        // check if the step has any outputs defined and if so, store them in SSM parameter store
+        if (step.inputs) {
+            for( let input of step.inputs ) {
+                const resourceName = input.substring(0, input.indexOf('.'));
+                const resourcePath = input.substring(input.indexOf('.')+1);
+                const createdResource = createdResources.get(resourceName);
+
+                if (!createdResource) throw new Error(`Invalid reference in ${step.name} to ${input}`);
+
+                const secret = new aws.ssm.Parameter(`/${this.config.stack.name}/${this.environment}/${step.name}/${input}`, {
+                    name: `/${this.config.stack.name}/${this.environment}/${step.name}/${input}`,
+                    type: 'SecureString',
+                    value: createdResource[resourcePath],
+                });
             }
         }
     }
