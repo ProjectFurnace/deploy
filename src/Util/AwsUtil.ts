@@ -5,7 +5,7 @@ import { Resource } from "../Model/Config";
 import { FirehoseDeliveryStreamArgs } from "@pulumi/aws/kinesis";
 
 export default class awsUtil {
-    static createSimpleIamRole(name: string, action: string, service: string, effect: string) {
+    static createSimpleIamRole(name: string, action: string, service: string, effect: string): aws.iam.Role {
         return new aws.iam.Role(name, {
             assumeRolePolicy: JSON.stringify({
                 "Version": "2012-10-17",

@@ -82,14 +82,15 @@ export default class AwsFlowProcessor {
                             actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"]
                         },
                         { 
-                            resource: [`arn:aws:ssm:${aws.config.region}:${iden.accountId}:parameter/${this.config.stack.name}/${this.environment}/${resourceName}`],
+                            resource: [`arn:aws:ssm:${aws.config.region}:${iden.accountId}:parameter/${process.env.FURNACE_INSTANCE}/${resourceName}/*`],
                             actions: ["ssm:GetParametersByPath"]
                         }
                     ])
 
                     const variables: { [key: string]: string } = {
                         "STACK_NAME": this.config.stack.name || "unknown",
-                        "STACK_ENV": this.environment || "unknown"
+                        "STACK_ENV": this.environment || "unknown",
+                        "FURNACE_INSTANCE": process.env.FURNACE_INSTANCE || "unknown"
                     };
 
                     for (let param of step.parameters) {
@@ -166,8 +167,8 @@ export default class AwsFlowProcessor {
 
                 if (!createdResource) throw new Error(`Invalid reference in ${step.name} to ${input}`);
 
-                const secret = new aws.ssm.Parameter(`/${this.config.stack.name}/${this.environment}/${step.name}/${input}`, {
-                    name: `/${this.config.stack.name}/${this.environment}/${step.name}/${input}`,
+                const secret = new aws.ssm.Parameter(`/${process.env.FURNACE_INSTANCE}/${this.config.stack.name}-${step.name}-${this.environment}/${input}`, {
+                    name: `/${process.env.FURNACE_INSTANCE}/${this.config.stack.name}-${step.name}-${this.environment}/${input}`,
                     type: 'SecureString',
                     value: createdResource[resourcePath],
                 });
