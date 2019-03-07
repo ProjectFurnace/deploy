@@ -28,6 +28,7 @@
     "simple-git": "^1.107.0",
     "spdx-license-ids": "^3.0.2",
     "tmp": "0.0.33",
+    "util.merge-packages": "0.0.15",
     "yamljs": "^0.3.0"
   },
   "jest": {
