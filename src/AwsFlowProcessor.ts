@@ -158,7 +158,7 @@ export default class AwsFlowProcessor {
     }
 
     processIOParameters(step: FlowSpec, resource: any, createdResources: Map<string,any>) {
-        // check if the step has any outputs defined and if so, store them in SSM parameter store
+        // check if the step has any inputs defined and if so, store them in SSM parameter store
         if (step.inputs) {
             for( let input of step.inputs ) {
                 const resourceName = input.substring(0, input.indexOf('.'));
