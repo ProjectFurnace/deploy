@@ -94,5 +94,4 @@ export type Resource = {
     name: string
     type: string
     config: any
-    outputs: Array<string>
 }
