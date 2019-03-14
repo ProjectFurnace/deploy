@@ -26,6 +26,8 @@ export type FlowSpec = {
         output?: string
     }
     type?: any
+    logging?: string
+    policies?: Array<string>
 }
 
 export type ModuleConfig = {
@@ -82,6 +84,7 @@ export type Stack = {
 export type StackAws = {
     defaultBatchSize?: number
     defaultStartingPosition?: string
+    defaultRoutingMechanism?: string
 }
 
 export enum SourceType {

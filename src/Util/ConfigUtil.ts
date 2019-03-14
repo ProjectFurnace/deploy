@@ -53,8 +53,6 @@ export default class ConfigUtil {
                         item.modules = pipelineSpecs;
                     }
                     break;
-                case "sources":
-                    break;
                 }
 
                 config[file] = configObject;
@@ -74,7 +72,9 @@ export default class ConfigUtil {
             config: { },
             parameters: new Map<string, string>(),
             type: item.type,
-            component: ""
+            component: "",
+            logging: item.logging,
+            policies: item.policies
         }
 
         let isModule = true;

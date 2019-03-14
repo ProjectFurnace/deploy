@@ -5,15 +5,14 @@ import AwsValidator from "./Validation/AwsValidator";
 import AwsUtil from "./Util/AwsUtil";
 
 export default class AwsFlowProcessor {
-    sourceStreams: Map<string, Object>;
+    sourceStreamArns: Map<string, pulumi.Output<string>>;
 
     constructor(private flows: Array<Array<FlowSpec>>, private config: FurnaceConfig, private environment: string, private buildBucket: string) {
         const errors = AwsValidator.validate(config, flows);
         if (errors.length > 0) throw new Error(JSON.stringify(errors));
 
         // create the source streams
-        this.sourceStreams = new Map<string, aws.kinesis.Stream>();
-
+        this.sourceStreamArns = new Map<string, pulumi.Output<string>>();
     }
 
     async run() {
@@ -29,11 +28,12 @@ export default class AwsFlowProcessor {
                         name,
                         ...awsConfig
                     }
-                   
                     // set any required parameters if unset
                     if (!streamOptions.shardCount) streamOptions.shardCount = 1;
+                    
+                    const sourceStream = new aws.kinesis.Stream(name, streamOptions);
 
-                    this.sourceStreams.set(name, new aws.kinesis.Stream(name, streamOptions));
+                    this.sourceStreamArns.set(name, sourceStream.arn);
                     break;
                 default:
                     throw new Error(`unknown source type ${source.type}`);
@@ -57,13 +57,13 @@ export default class AwsFlowProcessor {
             if (flow.length === 0) continue;
 
             const firstStep = flow[0];
-            let inputStream = this.sourceStreams.get(firstStep.meta.source!) as aws.kinesis.Stream;
-            if (!inputStream) throw new Error(`unable to find input stream ${firstStep.meta.source!}`)
+            let inputStreamArn = this.sourceStreamArns.get(firstStep.meta.source!);
+            if (!inputStreamArn) throw new Error(`unable to find input stream ${firstStep.meta.source!}`)
 
             for (let step of flow) {
 
                 const resourceName = step.meta.identifier!
-                    , outputStream = step.meta.output!
+                    , outputStreamName = step.meta.output!
                     , isSink = step.component === "sink"
                     ;
 
@@ -72,6 +72,7 @@ export default class AwsFlowProcessor {
 
                 if (step.type === "Module") {
                     const role = AwsUtil.createSimpleIamRole(`${resourceName}-role`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
+                    
                     const policy = AwsUtil.createSimpleIamRolePolicy(`${resourceName}-policy`, role.id, [
                         { 
                             resource: `arn:aws:logs:${aws.config.region}:${iden.accountId}:*`,
@@ -83,8 +84,18 @@ export default class AwsFlowProcessor {
                         }
                     ])
 
+                    if (step.policies) {
+                        for (let p of step.policies) {
+                            new aws.iam.RolePolicyAttachment(`${resourceName}-${p}`, {
+                                role,
+                                policyArn: `arn:aws:iam::aws:policy/${p}`
+                            })
+                        }
+                    }
+
                     const variables: { [key: string]: string } = {
-                        "STACK_NAME": this.config.stack.name || "unknown"
+                        "STACK_NAME": this.config.stack.name || "unknown",
+                        "STACK_ENV": this.environment || "unknown"
                     };
 
                     for (let param of step.parameters) {
@@ -92,9 +103,11 @@ export default class AwsFlowProcessor {
                     }
 
                     if (!isSink) {
-                        variables["STREAM_NAME"] = outputStream;
+                        variables["STREAM_NAME"] = outputStreamName;
                         variables["PARTITION_KEY"] = step.config.aws!.partitionKey || "DEFAULT";
                     }
+
+                    if (step.logging === "debug") variables["DEBUG"] = "1";
 
                     const lambda = new aws.lambda.Function(resourceName, {
                         name: resourceName,
@@ -109,7 +122,7 @@ export default class AwsFlowProcessor {
                     const sourceMapping = new aws.lambda.EventSourceMapping(
                         resourceName + "-source",
                         {
-                            eventSourceArn: inputStream.arn,
+                            eventSourceArn: inputStreamArn,
                             functionName: resourceName,
                             enabled: true,
                             batchSize: step.config.aws!.batchSize || this.config.stack.platform.aws!.defaultBatchSize || 1,
@@ -129,19 +142,17 @@ export default class AwsFlowProcessor {
                     }
 
                     if (step.type === "AwsFirehose") {
-                        AwsUtil.createFirehose(resourceName, createdResource, step.config.aws, inputStream);
+                        AwsUtil.createFirehose(resourceName, createdResource, step.config.aws, inputStreamArn);
                     } else {
                         throw new Error(`unknown step type '${step.type}'`);
                     }
                 }
 
                 if (!isSink) {
-                    // create kinesis stream
-                    const kinesisConfig: aws.kinesis.StreamArgs = {
-                        name: outputStream,
-                        shardCount: step.config && step.config.shards ? step.config.shards : 1
-                    }
-                    inputStream = new aws.kinesis.Stream(outputStream, kinesisConfig);
+                    let outputType = this.config.stack.platform.aws!.defaultRoutingMechanism || "KinesisStream";
+
+                    const routingResourceArn = AwsUtil.createRoutingResource(outputStreamName, outputType, step.config);
+                    inputStreamArn = routingResourceArn;
                 }
             }
         }

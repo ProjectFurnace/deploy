@@ -38,9 +38,28 @@ export default class awsUtil {
                 ))
             })
         };
-
         return new aws.iam.RolePolicy(name, def);
     }
+
+  static createRoutingResource(name: string, type: string, config: any): pulumi.Output<string> {
+    switch (type) {
+      
+      case "KinesisStream":
+        const kinesisConfig: aws.kinesis.StreamArgs = {
+          name,
+          shardCount: config && config.shards ? config.shards : 1
+        }
+        const stream = new aws.kinesis.Stream(name, kinesisConfig);
+        return stream.arn;
+
+      case "SQS":
+        const queue = new aws.sqs.Queue(name, config)
+        return queue.arn;
+
+      default:
+        throw new Error(`unknown routing resource type ${type} when creating routing resource for ${name}`)
+    }
+  }
 
     static runtimeFromString(runtime: string): aws.lambda.Runtime {
         switch (runtime) {
@@ -144,7 +163,7 @@ export default class awsUtil {
         return JSON.stringify(policy);
     }
 
-    static async createFirehose(resourceName: string, createdResource: any | undefined, config: any, source: aws.kinesis.Stream): Promise<aws.kinesis.FirehoseDeliveryStream> {
+    static async createFirehose(resourceName: string, createdResource: any | undefined, config: any, sourceArn: pulumi.Output<string>): Promise<aws.kinesis.FirehoseDeliveryStream> {
 
         const failureBucket = new aws.s3.Bucket(`${resourceName}-Bucket`, {});
 
@@ -180,15 +199,16 @@ export default class awsUtil {
 
         const def = {
             role: role.id,
-            policy: pulumi.all([source.arn, failureBucket.bucket, (config.elasticsearchConfiguration ? config.elasticsearchConfiguration.domainArn : null)]).apply(this.createFirehosePolicy)
+            policy: pulumi.all([sourceArn, failureBucket.bucket, (config.elasticsearchConfiguration ? config.elasticsearchConfiguration.domainArn : null)]).apply(this.createFirehosePolicy)
         };
 
-        const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, {parent: role, dependsOn: [source]});
+        // const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, {parent: role, dependsOn: [source]});
+        const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, { parent: role });
 
         let parameters: aws.kinesis.FirehoseDeliveryStreamArgs = {
             name: resourceName,
             kinesisSourceConfiguration: {
-                kinesisStreamArn: source.arn,
+                kinesisStreamArn: sourceArn,
                 roleArn: role.arn,
 
             },
@@ -204,7 +224,6 @@ export default class awsUtil {
         }
 
         const firehose = new aws.kinesis.FirehoseDeliveryStream(resourceName, parameters);
-
         return firehose;
     }
 }
