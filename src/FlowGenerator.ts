@@ -66,7 +66,6 @@ export default class FlowGenerator {
                         throw new Error(`unsupported output for pipeline ${pipe.pipeline}`);
                     }
                 }
-                console.log(flow);
                 flows.push(flow);
             }
         }

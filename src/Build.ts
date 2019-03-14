@@ -5,6 +5,7 @@ import * as path from "path";
 import * as yaml from "yamljs";
 import HashUtil from "./Util/HashUtil";
 import * as util from "util";
+import merge from "util.merge-packages";
 
 export default class Build {
 
@@ -116,11 +117,19 @@ export default class Build {
             , runtime = moduleDef.info.runtime
             ;
 
+        //TODO: We should check that there won't be any files from the module overwritten by the template and viceversa
         fsUtils.cp(templatePath, buildPath);
         fsUtils.cp(codePath, buildPath);
 
         switch (runtime) {
             case 'nodejs8.10':
+                //in case we have 2 package.json files we need to merge them. if it's only one or none, nothing to worry about
+                if(fsUtils.exists(path.join(templatePath, '/package.json')) && fsUtils.exists(path.join(codePath, '/package.json'))) {
+                    var dst = fsUtils.readFile(path.join(codePath, '/package.json'));
+                    var src = fsUtils.readFile(path.join(templatePath, '/package.json'));
+
+                    fsUtils.writeFile(path.join(buildPath, '/package.json'), merge(dst, src))
+                }
                 await this.buildNode(name, buildPath);
                 break;
             

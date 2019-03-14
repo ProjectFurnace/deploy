@@ -70,6 +70,7 @@ export default class ConfigUtil {
             meta: {},
             runtime: "",
             config: { },
+            inputs: [],
             parameters: new Map<string, string>(),
             type: item.type,
             component: "",
@@ -81,6 +82,10 @@ export default class ConfigUtil {
 
         if (file === "sinks" || file === "sources") {
             if (item.type && item.type !== "Module") isModule = false;
+        }
+
+        if (item.inputs) {
+            spec.inputs = item.inputs;
         }
 
         if (isModule) {

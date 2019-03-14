@@ -17,6 +17,7 @@ export type FlowSpec = {
     resource?: string
     config: ModuleConfig
     parameters: Map<string, string>
+    inputs: Array<string>
     meta: {
         hash?: string
         moduleHash?: string
