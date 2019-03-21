@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { SecretsManager } from "aws-sdk";
-import { Resource } from "../Model/Config";
+
 import { FirehoseDeliveryStreamArgs } from "@pulumi/aws/kinesis";
 
 export default class awsUtil {
@@ -41,26 +41,6 @@ export default class awsUtil {
         return new aws.iam.RolePolicy(name, def);
     }
 
-  static createRoutingResource(name: string, type: string, config: any): pulumi.Output<string> {
-    switch (type) {
-      
-      case "KinesisStream":
-        const kinesisConfig: aws.kinesis.StreamArgs = {
-          name,
-          shardCount: config && config.shards ? config.shards : 1
-        }
-        const stream = new aws.kinesis.Stream(name, kinesisConfig);
-        return stream.arn;
-
-      case "SQS":
-        const queue = new aws.sqs.Queue(name, config)
-        return queue.arn;
-
-      default:
-        throw new Error(`unknown routing resource type ${type} when creating routing resource for ${name}`)
-    }
-  }
-
     static runtimeFromString(runtime: string): aws.lambda.Runtime {
         switch (runtime) {
             case 'nodejs8.10':
@@ -79,39 +59,6 @@ export default class awsUtil {
       
         const sm = new SecretsManager({region: aws.config.region});
         return sm.getSecretValue(params).promise();
-      }
-
-    static async createResource(resourceName: string, type: string, config: any, stackName: string, environment: string): Promise<any> {
-        switch (type) {
-            case 'elasticsearch.Domain':
-                config.domainName = resourceName;
-                return new aws.elasticsearch.Domain(resourceName, config);
-            
-            case 'redshift.Cluster':
-                config.clusterIdentifier = resourceName;
-
-                const secretName = `${process.env.FURNACE_INSTANCE}/${stackName}-${config.masterPasswordSecret}-${environment}`;
-                try {
-                    const secret = await this.getSecret(secretName);
-
-                    config.masterPassword = secret.SecretString;
-
-                    return new aws.redshift.Cluster(resourceName, config);
-                } catch(e) {
-                    throw new Error(`unable to find secret ${secretName} specified in resource ${resourceName}`);
-                }
-
-            case 'dynamodb.Table':
-                config.name = resourceName;
-                return new aws.dynamodb.Table(resourceName, config);
-            
-            case 'elasticache.Cluster':
-                config.clusterId = resourceName;
-                return new aws.elasticache.Cluster(resourceName, config);
-
-            default:
-                throw new Error(`unknown resource type ${type}`)
-        }
     }
 
     static createFirehosePolicy(params: any[]) {

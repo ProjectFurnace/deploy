@@ -1,12 +1,12 @@
 {
   "name": "typescript",
   "scripts": {
-    "test": "jest",
-    "test:watch": "jest --watch"
+    "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {
     "@types/jest": "^23.3.9",
     "@types/node": "latest",
+    "dotenv": "^7.0.0",
     "jest": "^23.6.0",
     "jest-config": "^23.6.0",
     "ts-jest": "^23.10.4"
@@ -17,16 +17,14 @@
     "@project-furnace/s3utils": "^0.1.6",
     "@project-furnace/ziputils": "^0.1.4",
     "@pulumi/aws": "^0.17.1",
-    "@pulumi/pulumi": "^0.16.16",
+    "@pulumi/pulumi": "^0.17.1",
     "@types/lodash": "^4.14.120",
     "@types/tmp": "0.0.33",
     "@types/yamljs": "^0.2.30",
     "bignumber.js": "^8.0.1",
     "folder-hash": "^2.1.2",
     "lodash": "^4.17.11",
-    "scan.js": "^1.0.1",
     "simple-git": "^1.107.0",
-    "spdx-license-ids": "^3.0.2",
     "tmp": "0.0.33",
     "util.merge-packages": "0.0.15",
     "yamljs": "^0.3.0"
@@ -40,7 +38,8 @@
     "moduleFileExtensions": [
       "ts",
       "tsx",
-      "js"
+      "js",
+      "json"
     ],
     "coveragePathIgnorePatterns": [
       "/node_modules/",
