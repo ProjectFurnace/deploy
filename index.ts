@@ -1,5 +1,6 @@
 import * as gitUtils from "@project-furnace/gitutils";
 import * as pulumi from "@pulumi/pulumi";
+import * as aws from "@pulumi/aws";
 import * as tmp from "tmp";
 import * as fsUtils from "@project-furnace/fsutils";
 import Build from "./src/Build";
@@ -57,7 +58,8 @@ import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
         switch (platformType) {
             case "aws":
                 const awsFlowProcessor = new AwsFlowProcessor(flows, config.stack, environment!, buildBucket!);
-                const resources = await awsFlowProcessor.process();
+                const identity = await aws.getCallerIdentity();
+                const resources = await awsFlowProcessor.process(identity);
                 // dumpResources(resources);
                 break;
             default:

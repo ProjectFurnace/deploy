@@ -16,21 +16,36 @@ describe('AwsFlowProcessor', () => {
       }
     }
 
-    const spec: BuildSpec = {
-      name: "",
-      component: "",
-      config: {},
+    const spec: BuildSpec = { 
+      name: 'flowlogs-tap',
+      config: { aws: { shards: 1 } },
       inputs: [],
-      type: "",
-      componentType: "",
+      parameters: new Map<string,string>(),
+      componentType: 'Module',
+      component: 'tap',
+      logging: undefined,
+      policies: undefined,
+      module: 'aws-vpcfl',
+      meta:
+      { source: 'test-stack-flowlogs-test',
+        identifier: 'test-stack-flowlogs-tap-test',
+        output: 'test-stack-flowlogs-tap-test-out'
+      },
       moduleSpec: {
         runtime: "nodejs8.10"
-      },
-      parameters: new Map<string, string>()
-    }
+      }
+  }
 
     const p = new AwsFlowProcessor([spec], stack, "test", "testBucket");
-    const resources = await p.process();
+    
+    const identity: aws.GetCallerIdentityResult = {
+      accountId: "accountId",
+      arn: "arn",
+      id: "id",
+      userId: "userId"
+    }
+
+    const resources = await p.process(identity);
 
     resources.forEach(resource => expect(resource).toHaveProperty('__pulumiCustomResource'));
 

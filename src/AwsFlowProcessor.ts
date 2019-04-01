@@ -23,8 +23,7 @@ export default class AwsFlowProcessor implements IFlowProcessor {
     // this.sourceStreamArns = new Map<string, pulumi.Output<string>>();
   }
 
-  async process(): Promise<Array<RegisteredResource>> {
-    const identity = await aws.getCallerIdentity();
+  async process(identity: aws.GetCallerIdentityResult): Promise<Array<RegisteredResource>> {
 
     const routingResources = this.flows
       .filter(flow => !["sink", "resource"].includes(flow.component))
@@ -188,11 +187,12 @@ export default class AwsFlowProcessor implements IFlowProcessor {
 
   createRoutingComponent(component: BuildSpec): RegisteredResource {
 
-    const defaultRoutingMechanism = this.stackConfig.platform.aws!.defaultRoutingMechanism || "aws.kinesis.Stream"
-      , defaultRoutingShards = this.stackConfig.platform.aws!.defaultRoutingShards || 1
-      ;
+    const awsConfig = this.stackConfig.platform.aws || {}
+        , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
+        , defaultRoutingShards = awsConfig.defaultRoutingShards || 1
+        ;
 
-    let name = component.meta!.output!
+    let name = component.meta && component.meta!.output!
       , mechanism = defaultRoutingMechanism
       , config: any = {}
       ;
@@ -203,7 +203,7 @@ export default class AwsFlowProcessor implements IFlowProcessor {
       config = component.config.aws || {}
     }
 
-    if (!name) throw new Error(`unable to get name for routing resource for component ${component.name}`);
+    if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
 
     if (mechanism === "aws.kinesis.Stream") {
       if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
