@@ -1,5 +1,5 @@
 - name: elasticsearch
-  type: elasticsearch
+  type: aws.elasticsearch.Domain
   config:
     elasticsearchVersion: 6.3
     ebsOptions:

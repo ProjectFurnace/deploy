@@ -1,4 +1,4 @@
-name: test-stack
+name: scratch
 platform:
   aws:
     defaultBatchSize: 10

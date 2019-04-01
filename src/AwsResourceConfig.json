@@ -1,0 +1,7 @@
+{
+  "nameProperties": {
+    "aws.elasticsearch.Domain": "domainName",
+    "aws.elasticache.Cluster": "clusterId",
+    "aws.redshift.Cluster": "clusterIdentifier"
+  }
+}

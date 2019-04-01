@@ -1,4 +1,4 @@
-- name: flowlogs
+- name: flowlogs-tap
   module: aws-vpcfl
   source: flowlogs
   aws:

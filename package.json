@@ -1,14 +1,17 @@
 {
   "name": "typescript",
   "scripts": {
+    "dev": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi preview",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {
     "@types/jest": "^23.3.9",
     "@types/node": "latest",
+    "@types/sinon": "^7.0.11",
     "dotenv": "^7.0.0",
     "jest": "^23.6.0",
     "jest-config": "^23.6.0",
+    "sinon": "^7.3.1",
     "ts-jest": "^23.10.4"
   },
   "dependencies": {

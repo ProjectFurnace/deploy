@@ -3,95 +3,124 @@ import * as aws from "@pulumi/aws";
 import AwsValidator from "./Validation/AwsValidator";
 import AwsUtil from "./Util/AwsUtil";
 import IFlowProcessor from "./IFlowProcessor";
-import { Source, BuildSpec, SourceType, FurnaceConfig, Stack } from "@project-furnace/stack-processor/src/Model";
+import { Source, BuildSpec, SourceType, Stack } from "@project-furnace/stack-processor/src/Model";
+import { RegisteredResource } from "./Types";
+import AwsResourceFactory from "./AwsResourceFactory";
+import { config } from "aws-sdk";
 
 export default class AwsFlowProcessor implements IFlowProcessor {
   // sourceStreamArns: Map<string, pulumi.Output<string>>;
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string) {
+    if (!flows) throw new Error("flows must be set");
+    if (!stackConfig) throw new Error("stackConfig must be set");
+    if (!environment) throw new Error("environment must be set");
+    if (!buildBucket) throw new Error("buildBucket must be set");
+
     // const errors = AwsValidator.validate(config, flows);
     // if (errors.length > 0) throw new Error(JSON.stringify(errors));
 
     // this.sourceStreamArns = new Map<string, pulumi.Output<string>>();
   }
 
-  async process(): Promise<Array<pulumi.CustomResource>> {
+  async process(): Promise<Array<RegisteredResource>> {
     const identity = await aws.getCallerIdentity();
 
-    const sources = this.flows.filter(flow => flow.component === "source")
-      , resources = this.flows.filter(flow => flow.component === "resource")
-      ;
-
-    const sourceResources = this.flows
-      .filter(flow => flow.component === "source")
-      .map(flow => this.createSourceComponent(flow as Source));
-
     const routingResources = this.flows
-      .filter(flow => flow.meta)
+      .filter(flow => !["sink", "resource"].includes(flow.component))
       .map(flow => this.createRoutingComponent(flow));
 
     const resourceResources = this.flows
       .filter(flow => flow.component === "resource")
       .map(flow => this.createResourceComponent(flow));
 
-    // const moduleResources = this.flows
-    //   .filter(flow => flow.type === "Module")
-    //   .map(flow => {
-
-    //     return this.createModuleResource(flow, routingResources.find(o => o) ,identity.accountId);
-    //   });    
+    const moduleResources = this.flows
+      .filter(flow => flow.componentType === "Module")
+      .map(flow => {
+        const routingResource = routingResources.find(r => r.name === flow.meta!.source)
+        if (!routingResource) throw new Error(`unable to find routing resource ${flow.meta!.source} in flow ${flow.name}`);
+        return this.createModuleResource(flow, routingResource ,identity.accountId);
+      });   
 
     return [ 
-      ...sourceResources,
       ...routingResources,
-      ...resourceResources
+      ...resourceResources,
+      ...([] as Array<RegisteredResource>).concat(...moduleResources) // flatten the moduleResources
     ]
 
   }
 
-  // getEventSourceArn(name: string, sources: Array<pulumi.CustomResource>): pulumi.Output<string> {
+  createModuleResource(component: BuildSpec, inputResource: RegisteredResource, accountId: string): Array<RegisteredResource> {
     
-  //   // const source = sources.find(o => o.)
-  //   // return this.flows[0];
-  // }
-
-  createModuleResource(component: BuildSpec, routingResource: pulumi.Resource, accountId: string): Array<pulumi.CustomResource> {
-
     const stackName = this.stackConfig.name;
     const { identifier } = component.meta!;
+    const awsConfig = component.config.aws || {};
 
-    const resources: Array<pulumi.CustomResource> = [];
-    
+    const resources: Array<RegisteredResource> = [];
+
     const defaultBatchSize = this.stackConfig.platform.aws!.defaultBatchSize || 1
         , defaultStartingPosition = this.stackConfig.platform.aws!.defaultStartingPosition || "LATEST"
         ;
 
-    const role = AwsUtil.createSimpleIamRole(`${identifier}-role`, "sts:AssumeRole", "lambda.amazonaws.com", "Allow");
-    resources.push(role);
+    if (!component.moduleSpec || !component.moduleSpec.runtime) throw new Error(`module component ${component.name} has no runtime set`);
+    
+    const functionRoleResource = this.register(`${identifier}-role`, aws.iam.Role, {
+      assumeRolePolicy: JSON.stringify({
+          "Version": "2012-10-17",
+          "Statement": [
+              {
+                  "Action": "sts:AssumeRole",
+                  "Principal": {
+                      "Service": "lambda.amazonaws.com",
+                  },
+                  "Effect":  "Allow",
+                  "Sid": "",
+              },
+          ],
+      })
+    });
 
-    resources.push(AwsUtil.createSimpleIamRolePolicy(`${identifier}-policy`, role.id, [
-      {
-        resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`,
-        actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-      },
-      {
-        resource: [`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.source}`, `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`],
-        actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"]
-      },
-      {
-        resource: [`arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`],
-        actions: ["ssm:GetParametersByPath"]
-      }
-    ]));
+    resources.push(functionRoleResource);
 
-    if (component.policies) {
-      for (let p of component.policies) {
-        new aws.iam.RolePolicyAttachment(`${identifier}-${p}`, {
-          role,
-          policyArn: `arn:aws:iam::aws:policy/${p}`
-        })
-      }
-    }
+    // resources.push(this.register(`${identifier}-policy`, aws.iam.RolePolicy, {
+    //   assumeRolePolicy: JSON.stringify({
+    //       "Version": "2012-10-17",
+    //       "Statement": [
+    //           {
+    //               "Action": "sts:AssumeRole",
+    //               "Principal": {
+    //                   "Service": "lambda.amazonaws.com",
+    //               },
+    //               "Effect":  "Allow",
+    //               "Sid": "",
+    //           },
+    //       ],
+    //   })
+    // }));
+
+    // resources.push(AwsUtil.createSimpleIamRolePolicy(, role.id, [
+    //   {
+    //     resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`,
+    //     actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
+    //   },
+    //   {
+    //     resource: [`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.source}`, `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`],
+    //     actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"]
+    //   },
+    //   {
+    //     resource: [`arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`],
+    //     actions: ["ssm:GetParametersByPath"]
+    //   }
+    // ]));
+
+    // if (component.policies) {
+    //   for (let p of component.policies) {
+    //     new aws.iam.RolePolicyAttachment(`${identifier}-${p}`, {
+    //       role,
+    //       policyArn: `arn:aws:iam::aws:policy/${p}`
+    //     })
+    //   }
+    // }
 
     const variables: { [key: string]: string } = {
       "STACK_NAME": stackName || "unknown",
@@ -104,113 +133,101 @@ export default class AwsFlowProcessor implements IFlowProcessor {
     }
 
     if (component.component !== "sink") {
-      variables["STREAM_NAME"] = component.meta!.output;
-      variables["PARTITION_KEY"] = component.config.aws!.partitionKey || "DEFAULT";
+      variables["STREAM_NAME"] = component.meta!.output!;
+      variables["PARTITION_KEY"] = (awsConfig.partitionKey) || "DEFAULT";
     }
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
 
-    resources.push(new aws.lambda.Function(identifier, {
+    resources.push(this.register(identifier, aws.lambda.Function, {
       name: identifier,
       handler: "handler.handler",
-      role: role.arn,
-      runtime: AwsUtil.runtimeFromString(component.moduleSpec.runtime ? component.moduleSpec.runtime : 'nodejs8.10'),
+      role: (functionRoleResource.resource as aws.iam.Role).arn,
+      runtime: AwsUtil.runtimeFromString(component.moduleSpec.runtime ? component.moduleSpec.runtime : "nodejs8.10"),
       s3Bucket: this.buildBucket,
       s3Key: `${component.module}/${component.buildSpec!.hash}`,
       environment: { variables }
     }));
 
-    // resources.push(new aws.lambda.EventSourceMapping(
-    //   identifier + "-source",
-    //   {
-    //     eventSourceArn: inputStreamArn,
-    //     functionName: identifier,
-    //     enabled: true,
-    //     batchSize: component.config.aws!.batchSize || defaultBatchSize,
-    //     startingPosition: component.config.aws!.startingPosition || defaultStartingPosition,
-    //   }
-    // ));
+    resources.push(this.register(identifier + "-source", aws.lambda.EventSourceMapping, {
+        eventSourceArn: (inputResource.resource as any).arn,
+        functionName: identifier,
+        enabled: true,
+        batchSize: awsConfig.batchSize || defaultBatchSize,
+        startingPosition: awsConfig.startingPosition || defaultStartingPosition,
+      }
+    ));
 
     // this.processIOParameters(flow, lambda, createdResources);
     return resources;
   }
 
-  createResourceComponent(component: BuildSpec): pulumi.CustomResource {
+  createResourceComponent(component: BuildSpec): RegisteredResource {
 
-    const { name, type, config } = component;
-    const stackName = this.stackConfig.name;
+    const name = component.meta!.identifier
+      , stackName = this.stackConfig.name
+      , { type, config } = component
+      ;
 
+      // TODO: can we wrap secrets into a generic mechanism
     switch (type) {
-      case 'elasticsearch.Domain':
-        config.domainName = name;
-        return new aws.elasticsearch.Domain(name, config as aws.elasticsearch.DomainArgs);
-
-      case 'redshift.Cluster':
-        config.clusterIdentifier = name;
-
+      case 'aws.redshift.Cluster':
         const secretName = `${process.env.FURNACE_INSTANCE}/${stackName}-${config.masterPasswordSecret}-${this.environment}`;
+        
         try {
           // const secret = await AwsUtil.getSecret(secretName);
           // config.masterPassword = secret.SecretString;
-
-          return new aws.redshift.Cluster(name, config as aws.redshift.ClusterArgs);
         } catch (e) {
           throw new Error(`unable to find secret ${secretName} specified in resource ${name}`);
         }
+    }
 
-      case 'dynamodb.Table':
-        config.name = name;
-        return new aws.dynamodb.Table(name, config as aws.dynamodb.TableArgs);
+    const [resource, finalConfig] = AwsResourceFactory.getResource(name, type!, config);
+    return this.register(name, resource, finalConfig);
+  }
 
-      case 'elasticache.Cluster':
-        config.clusterId = name;
-        return new aws.elasticache.Cluster(name, config as aws.elasticache.ClusterArgs);
+  createRoutingComponent(component: BuildSpec): RegisteredResource {
 
-      default:
-        throw new Error(`unknown resource type ${type}`)
+    const defaultRoutingMechanism = this.stackConfig.platform.aws!.defaultRoutingMechanism || "aws.kinesis.Stream"
+      , defaultRoutingShards = this.stackConfig.platform.aws!.defaultRoutingShards || 1
+      ;
+
+    let name = component.meta!.output!
+      , mechanism = defaultRoutingMechanism
+      , config: any = {}
+      ;
+
+    if (component.component === "source") {
+      name = component.meta!.identifier;
+      mechanism = component.type || defaultRoutingMechanism;
+      config = component.config.aws || {}
+    }
+
+    if (!name) throw new Error(`unable to get name for routing resource for component ${component.name}`);
+
+    if (mechanism === "aws.kinesis.Stream") {
+      if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
+    }
+
+    const [resource, finalConfig] = AwsResourceFactory.getResource(name, mechanism, config);
+    return this.register(name, resource, finalConfig);
+  }
+
+  register(name: string, resource: any, config: any): RegisteredResource {
+
+    try {
+
+      const instance = new resource(name, config) as pulumi.CustomResource;
+      return {
+        name,
+        type: instance.constructor.name,
+        resource: instance
+      }
+    } catch (err) {
+      throw new Error(`unable to create resource ${name}: ${err}`);
     }
   }
 
-  createRoutingComponent(component: BuildSpec): pulumi.CustomResource {
-
-    const mechanism = this.stackConfig.platform.aws!.defaultRoutingMechanism || "KinesisStream";
-    const { name, config } = component;
-
-    switch (mechanism) {
-      case "KinesisStream":
-        const kinesisConfig: aws.kinesis.StreamArgs = {
-          name,
-          shardCount: config && config.shards ? config.shards : 1
-        }
-        return new aws.kinesis.Stream(name, kinesisConfig);
-
-      case "SQS":
-        return new aws.sqs.Queue(name, {}) // TODO: add SQS config
-
-      default:
-        throw new Error(`unknown routing resource mechanism ${mechanism} when creating routing resource for ${name}`);
-    }
-  }
-
-  createSourceComponent(source: Source): pulumi.CustomResource {
-
-    const awsConfig = (source.config && source.config.aws ? source.config.aws : {});
-
-    switch (source.type) {
-      case SourceType.AwsKinesisStream:
-        const streamOptions = {
-          source: source.meta!.identifier,
-          ...awsConfig
-        }
-
-        if (!streamOptions.shardCount) streamOptions.shardCount = 1;
-
-        return new aws.kinesis.Stream(source.meta!.identifier, streamOptions);
-
-      default:
-        throw new Error(`unknown source type ${source.type}`);
-    }
-  }
 }
 
 // async run2() {
