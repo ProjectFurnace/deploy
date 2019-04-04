@@ -2,28 +2,31 @@ import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import AwsValidator from "./Validation/AwsValidator";
 import AwsUtil from "./Util/AwsUtil";
-import IFlowProcessor from "./IFlowProcessor";
+import { PlatformProcessor } from "./IPlatformProcessor";
 import { Source, BuildSpec, SourceType, Stack } from "@project-furnace/stack-processor/src/Model";
 import { RegisteredResource } from "./Types";
 import AwsResourceFactory from "./AwsResourceFactory";
-import { config } from "aws-sdk";
+import ModuleBuilderBase from "./ModuleBuilderBase";
 
-export default class AwsFlowProcessor implements IFlowProcessor {
-  // sourceStreamArns: Map<string, pulumi.Output<string>>;
+export default class AwsProcessor implements PlatformProcessor {
 
-  constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string) {
-    if (!flows) throw new Error("flows must be set");
-    if (!stackConfig) throw new Error("stackConfig must be set");
-    if (!environment) throw new Error("environment must be set");
-    if (!buildBucket) throw new Error("buildBucket must be set");
+  constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
+    this.validate();
+  }
+
+  validate() {
+    if (!this.flows) throw new Error("flows must be set");
+    if (!this.stackConfig) throw new Error("stackConfig must be set");
+    if (!this.environment) throw new Error("environment must be set");
+    if (!this.buildBucket) throw new Error("buildBucket must be set");
 
     // const errors = AwsValidator.validate(config, flows);
     // if (errors.length > 0) throw new Error(JSON.stringify(errors));
-
-    // this.sourceStreamArns = new Map<string, pulumi.Output<string>>();
   }
 
-  async process(identity: aws.GetCallerIdentityResult): Promise<Array<RegisteredResource>> {
+  async process(): Promise<Array<RegisteredResource>> {
+
+    const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
 
     const routingResources = this.flows
       .filter(flow => !["sink", "resource"].includes(flow.component))
@@ -44,7 +47,7 @@ export default class AwsFlowProcessor implements IFlowProcessor {
     return [ 
       ...routingResources,
       ...resourceResources,
-      ...([] as Array<RegisteredResource>).concat(...moduleResources) // flatten the moduleResources
+      ...([] as RegisteredResource[]).concat(...moduleResources) // flatten the moduleResources
     ]
 
   }
