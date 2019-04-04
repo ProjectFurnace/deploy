@@ -1,15 +1,13 @@
 import * as gitUtils from "@project-furnace/gitutils";
 import * as pulumi from "@pulumi/pulumi";
-import * as aws from "@pulumi/aws";
 import * as tmp from "tmp";
 import * as fsUtils from "@project-furnace/fsutils";
-import Build from "./src/Build";
 import * as path from "path";
 import { Processor as StackProcessor } from "@project-furnace/stack-processor";
-import AwsFlowProcessor from "./src/AwsFlowProcessor";
 import { RegisteredResource } from "./src/Types";
 import * as _ from "lodash";
 import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
+import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
 
 (async () => {
       let gitRemote = process.env.GIT_REMOTE
@@ -55,16 +53,18 @@ import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 
         console.log(`deploying stack '${config.stack.name}' in env '${environment}' for platform '${platform}'`)
 
-        switch (platformType) {
-            case "aws":
-                const awsFlowProcessor = new AwsFlowProcessor(flows, config.stack, environment!, buildBucket!);
-                const identity = await aws.getCallerIdentity();
-                const resources = await awsFlowProcessor.process(identity);
-                // dumpResources(resources);
-                break;
-            default:
-                throw new Error("unknown stack platform type");
-        }
+        const platformProcessor = PlatformProcessorFactory.getProcessor(
+            platform, 
+            flows, 
+            config.stack, 
+            environment, 
+            buildBucket, 
+            repoDir, 
+            templateRepoDir
+            );
+
+        const resources = await platformProcessor.process();
+        dumpResources(resources);
 })();
 
 function dumpFlows(flows: BuildSpec[]) {

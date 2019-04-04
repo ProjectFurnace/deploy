@@ -1,0 +1,1 @@
+{"disabled":false,"bindings":[{"authLevel":"anonymous","type":"eventHubTrigger","direction":"in","name":"eh1testMessage","eventHubName":"eh1test","connection":"inputEventHubConnectionAppSeting"},{"type":"eventHub","direction":"out","name":"eh2testMessage","eventHubName":"eh2test","connection":"outputEventHubConnectionAppSeting"}]}
