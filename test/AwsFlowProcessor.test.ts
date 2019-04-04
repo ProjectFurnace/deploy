@@ -3,10 +3,12 @@ import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import * as mocks from "./mocks/pulumi";
+import * as awsMocks from "./mocks/aws";
 
 describe('AwsFlowProcessor', () => {
   it('should work', async () => {
     mocks.stubCustomResource();
+    awsMocks.stubKinesisStream();
 
     const stack: Stack = {
       name: "test-stack",
