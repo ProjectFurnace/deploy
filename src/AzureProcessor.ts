@@ -27,15 +27,16 @@ export default class AzureProcessor implements PlatformProcessor {
     // if (errors.length > 0) throw new Error(JSON.stringify(errors));
   }
 
-  preProcess() {
+  async preProcess(): Promise<Array<RegisteredResource>> {
+
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
 
-    const resourceGroupResource = this.register(`${stackName}-rg`, "azure.core.ResourceGroup", { location: "WestUS" })
+    const resourceGroupResource = this.register(`${stackName}RG`, "azure.core.ResourceGroup", { location: "WestUS" })
     resources.push(resourceGroupResource);
     this.resourceGroup = resourceGroupResource.resource as azure.core.ResourceGroup;
 
-    const eventHubNamespaceResource = this.register(`${stackName}-ns`, "azure.eventhub.EventHubNamespace", {
+    const eventHubNamespaceResource = this.register(`${stackName}NS`, "azure.eventhub.EventHubNamespace", {
       capacity: 1,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -47,7 +48,7 @@ export default class AzureProcessor implements PlatformProcessor {
     this.eventHubNamespace = eventHubNamespaceResource.resource as azure.eventhub.EventHubNamespace;
 
     // create the storage account
-    const storageAccountResource = this.register(`${stackName}-sa`, "azure.storage.Account", {
+    const storageAccountResource = this.register(`${stackName}sa`, "azure.storage.Account", {
       resourceGroupName: this.resourceGroup.name,
       location: this.resourceGroup.location,
       accountKind: "StorageV2",
@@ -58,7 +59,7 @@ export default class AzureProcessor implements PlatformProcessor {
     this.storageAccount = storageAccountResource.resource as azure.storage.Account;
 
     // Create a storage container
-    const storageContainerResource = this.register(`${stackName}-c`, "azure.storage.Container", {
+    const storageContainerResource = this.register(`${stackName}c`, "azure.storage.Container", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       containerAccessType: "private",
@@ -67,7 +68,7 @@ export default class AzureProcessor implements PlatformProcessor {
     this.storageContainer = storageContainerResource.resource as azure.storage.Container;
 
     // Create an App Service Plan
-    const appServicePlanResource = this.register(`${stackName}-plan`, "azure.appservice.Plan", {
+    const appServicePlanResource = this.register(`${stackName}Plan`, "azure.appservice.Plan", {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       sku: {
@@ -170,7 +171,6 @@ export default class AzureProcessor implements PlatformProcessor {
 
     // Generates an address for the function source
     const codeBlobUrl = this.signedBlobReadUrl(blob, this.storageAccount, this.storageContainer);
-    console.log("this.appservicePlan", this.appservicePlan);
 
     // Create an App Service Function
     resources.push(this.register(identifier, "azure.appservice.FunctionApp", {

@@ -17,7 +17,8 @@ export default class AzureResourceFactory {
       "azure.storage.Account": azure.storage.Account,
       "azure.storage.Container": azure.storage.Container,
       "azure.appservice.FunctionApp": azure.appservice.FunctionApp,
-      "azure.appservice.Plan": azure.appservice.Plan
+      "azure.appservice.Plan": azure.appservice.Plan,
+      "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule
     }
 
     const provider = providers[type];

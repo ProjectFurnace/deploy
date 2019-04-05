@@ -24,6 +24,10 @@ export default class AwsProcessor implements PlatformProcessor {
     // if (errors.length > 0) throw new Error(JSON.stringify(errors));
   }
 
+  async preProcess(): Promise<Array<RegisteredResource>> {
+    return [];
+  }
+
   async process(): Promise<Array<RegisteredResource>> {
 
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;

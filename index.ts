@@ -46,14 +46,12 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
             , flows = await processor.getFlowsWithBuildSpec(environment!, platform)
             ;
 
-        dumpFlows(flows);
+        // dumpFlows(flows);
         // Build.buildStack(repoDir, templateRepoDir, buildBucket!, platform!);
-
-        const platformType = "aws"; //this.config.stack!.platform!.type
 
         console.log(`deploying stack '${config.stack.name}' in env '${environment}' for platform '${platform}'`)
 
-        const platformProcessor = PlatformProcessorFactory.getProcessor(
+        const platformProcessor = await PlatformProcessorFactory.getProcessor(
             platform, 
             flows, 
             config.stack, 
@@ -63,8 +61,10 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
             templateRepoDir
             );
 
+        await platformProcessor.preProcess();
+
         const resources = await platformProcessor.process();
-        dumpResources(resources);
+        // dumpResources(resources);
 })();
 
 function dumpFlows(flows: BuildSpec[]) {

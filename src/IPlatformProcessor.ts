@@ -8,4 +8,5 @@ export interface PlatformProcessorConstructor {
 
 export interface PlatformProcessor {
   process(): Promise<Array<RegisteredResource>>
+  preProcess(): Promise<Array<RegisteredResource>>
 }

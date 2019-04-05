@@ -50,10 +50,10 @@ describe('AzureProcessor', () => {
   });
 
   describe.skip('preProcess', () => {
-    it('should return correct initial resources', () => {
+    it('should return correct initial resources', async () => {
 
       const p = new AzureProcessor([], stack, "test", "testBucket", {}, null);
-      const resources = p.preProcess();
+      const resources = await p.preProcess();
 
       expect(Array.isArray(resources)).toBeTruthy();
       const nameTypes = resources.map(resource => ({
@@ -73,13 +73,27 @@ describe('AzureProcessor', () => {
     });
   })
 
-  describe('createModuleResource', () => {
+  describe.skip('createRoutingComponent', () => {
     it('should return correct resources', async () => {
 
       const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
       const p = new AzureProcessor([], stack, "test", "testBucket", {}, builder);
       
-      p.preProcess();
+      await p.preProcess();
+
+      const resources = await p.createRoutingComponent(spec);
+      expect(resources).toHaveLength(2);
+
+    });
+  })
+
+  describe.skip('createModuleResource', () => {
+    it('should return correct resources', async () => {
+
+      const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
+      const p = new AzureProcessor([], stack, "test", "testBucket", {}, builder);
+      
+      await p.preProcess();
 
       const resources = await p.createModuleResource(spec);
       expect(resources).toHaveLength(2);
