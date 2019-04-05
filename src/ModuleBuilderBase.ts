@@ -8,8 +8,9 @@ import merge from "util.merge-packages";
 export default abstract class ModuleBuilder {
 
   buildPath: string;
+  modules: string[];
 
-  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string) { }
+  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string) { this.modules = [] }
 
   async initialize() {
     if (!this.buildPath) this.buildPath = await fsUtils.createTempDirectory();
@@ -20,73 +21,104 @@ export default abstract class ModuleBuilder {
   }
 
   async processModule(buildSpec: BuildSpec) {
-    const moduleName = buildSpec.module!
-        , moduleDir = path.join(this.repoDir, "modules", moduleName)
-        , moduleInfoPath = path.join(moduleDir, "module.yaml")
-        , moduleConfigPath = path.join(moduleDir, "config.yaml")
+
+    const def = this.getModuleDef(buildSpec);
+
+    if (this.modules.includes(def.name)) {
+      console.log(`module ${def.name} already build, skipping`);
+      return def;
+    }
+
+    await this.preProcess(def);
+    await this.buildModule(def);
+    await this.postBuild(def);
+    await this.packageModule(def);
+    await this.postProcess(def);
+
+    this.modules.push(def.name);
+
+    return def;
+  }
+
+  async postProcess(def: any) {
+    // fsUtils.rimraf(def.buildPath);
+  }
+
+  async preProcess(def: any) {
+    //TODO: We should check that there won't be any files from the module overwritten by the template and viceversa
+    fsUtils.cp(def.templatePath, def.buildPath);
+    fsUtils.cp(def.codePath, def.buildPath);
+  }
+
+
+  async postBuild(def: any) {
+
+  }
+
+  getModuleDef(buildSpec: BuildSpec): any {
+
+    const name = buildSpec.module!
+        , moduleRoot = path.join(this.repoDir, "modules", name)
+        , infoPath = path.join(moduleRoot, "module.yaml")
+        , configPath = path.join(moduleRoot, "config.yaml")
         ;
 
-    if (!fsUtils.stat(moduleDir).isDirectory()) throw new Error(`unable to find module directory at ${moduleDir}`);
-    if (!fsUtils.exists(moduleInfoPath)) throw new Error(`unable to find module definition at ${moduleInfoPath}`);
+    if (!fsUtils.stat(moduleRoot).isDirectory()) throw new Error(`unable to find module directory at ${moduleRoot}`);
+    if (!fsUtils.exists(infoPath)) throw new Error(`unable to find module definition at ${infoPath}`);
 
-    let moduleDef: any = {
-      name: moduleName,
-      hash: null,
-      changed: false,
-      built: false,
+    const info = yaml.load(infoPath);;
+
+    const { identifier, source, output } = buildSpec.meta!
+
+    let def = {
+      name,
+      runtime: info.runtime,
+      moduleRoot,
+      infoPath,
+      configPath,
+      info,
+      templatePath: `${this.templateRepoDir}/${this.platform}-${info.runtime}`,
+      codePath: `${moduleRoot}/src`,
+      buildPath: path.join(this.buildPath, name),
+      buildArtifact: "",
+      identifier,
+      source,
+      output
     };
 
-    const moduleInfo = yaml.load(moduleInfoPath);
+    def.buildArtifact = def.buildPath + ".zip"
 
-    const templatePath = `${this.templateRepoDir}/${this.platform}-${moduleInfo.runtime}`
-      , codePath = `${moduleDir}/src`
-      , moduleBuildPath = path.join(this.buildPath, moduleDef.name)
-      ;
-
-    await this.prepareModule(buildSpec, templatePath, moduleBuildPath, codePath);
-
-    const buildArtifact = await this.buildModule(moduleName, moduleInfo.runtime, codePath, templatePath, moduleBuildPath);
-
-    return {
-      ...moduleDef,
-      buildArtifact
-    }
+    return def;
+  
   }
 
-  async prepareModule(buildSpec: BuildSpec, templatePath: string, moduleBuildPath: string, codePath: string) {
-    //TODO: We should check that there won't be any files from the module overwritten by the template and viceversa
-    fsUtils.cp(templatePath, moduleBuildPath);
-    fsUtils.cp(codePath, moduleBuildPath);
-  }
-
-  async buildModule(name: string, runtime: string, codePath: string, templatePath: string, moduleBuildPath: string) {
-
-    const buildArtifactPath = moduleBuildPath + ".zip"
+  async buildModule(def: any) {
 
     // moduleDef: any, codePath: string, templatePath: string, buildPath: string
-    switch (runtime) {
+    switch (def.runtime) {
       case 'nodejs8.10':
         //in case we have 2 package.json files we need to merge them. if it's only one or none, nothing to worry about
-        if (fsUtils.exists(path.join(templatePath, 'package.json')) && fsUtils.exists(path.join(codePath, '/package.json'))) {
-          var dst = fsUtils.readFile(path.join(codePath, 'package.json'));
-          var src = fsUtils.readFile(path.join(templatePath, 'package.json'));
+        if (fsUtils.exists(path.join(def.templatePath, 'package.json')) && fsUtils.exists(path.join(def.codePath, 'package.json'))) {
+          var dst = fsUtils.readFile(path.join(def.codePath, 'package.json'));
+          var src = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
 
-          fsUtils.writeFile(path.join(moduleBuildPath, 'package.json'), merge(dst, src))
+          fsUtils.writeFile(path.join(def.buildPath, 'package.json'), merge(dst, src));
         }
-        await this.buildNode(name, moduleBuildPath);
+        await this.buildNode(def.name, def.buildPath);
         break;
 
       case 'python3.6':
-        await this.buildPython(name, moduleBuildPath);
+        await this.buildPython(def.name, def.buildPath);
         break;
 
       default:
-        throw new Error(`unsupported runtime ${runtime} for module ${name}`);
+        throw new Error(`unsupported runtime ${def.runtime} for module ${def.name}`);
     }
 
-    await zipUtils.compress(moduleBuildPath, buildArtifactPath);
+  }
 
-    return buildArtifactPath;
+  async packageModule(def: any) {
+    await zipUtils.compress(def.buildPath, def.buildArtifact);
   }
 
   async buildNode(name: string, buildPath: string) {

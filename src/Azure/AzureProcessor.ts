@@ -2,11 +2,11 @@ import * as pulumi from "@pulumi/pulumi";
 import * as azure from "@pulumi/azure";
 import * as azurestorage from "azure-storage";
 import * as fs from 'fs';
-import { PlatformProcessor } from "./IPlatformProcessor";
-import { RegisteredResource } from "./Types";
+import { PlatformProcessor } from "../IPlatformProcessor";
+import { RegisteredResource } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import AzureResourceFactory from "./AzureResourceFactory";
-import ModuleBuilderBase from "./ModuleBuilderBase";
+import ModuleBuilderBase from "../ModuleBuilderBase";
 
 export default class AzureProcessor implements PlatformProcessor {
 

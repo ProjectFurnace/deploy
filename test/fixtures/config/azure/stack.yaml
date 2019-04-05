@@ -1,0 +1,10 @@
+name: fscratch
+platform:
+  azure:
+    defaultParam: unknown
+state:
+  repo: test
+environments:
+  - dev
+  - staging
+  - production

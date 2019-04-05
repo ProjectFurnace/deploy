@@ -1,12 +1,12 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import AwsValidator from "./Validation/AwsValidator";
-import AwsUtil from "./Util/AwsUtil";
-import { PlatformProcessor } from "./IPlatformProcessor";
+import AwsValidator from "../Validation/AwsValidator";
+import AwsUtil from "../Util/AwsUtil";
+import { PlatformProcessor } from "../IPlatformProcessor";
 import { Source, BuildSpec, SourceType, Stack } from "@project-furnace/stack-processor/src/Model";
-import { RegisteredResource } from "./Types";
+import { RegisteredResource } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
-import ModuleBuilderBase from "./ModuleBuilderBase";
+import ModuleBuilderBase from "../ModuleBuilderBase";
 
 export default class AwsProcessor implements PlatformProcessor {
 

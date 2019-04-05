@@ -1,8 +1,8 @@
-import AwsProcessor from "./AwsProcessor";
-import AwsModuleBuilder from "./AwsModuleBuilder";
+import AwsProcessor from "./Aws/AwsProcessor";
+import AwsModuleBuilder from "./Aws/AwsModuleBuilder";
 
-import AzureProcessor from "./AzureProcessor";
-import AzureModuleBuilder from "./AzureModuleBuilder";
+import AzureProcessor from "./Azure/AzureProcessor";
+import AzureModuleBuilder from "./Azure/AzureModuleBuilder";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import { PlatformProcessor } from "./IPlatformProcessor";
 

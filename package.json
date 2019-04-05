@@ -1,8 +1,8 @@
 {
   "name": "typescript",
   "scripts": {
-    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi preview",
-    "dev_azure": "FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config/aws TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi preview",
+    "dev_azure": "FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config/azure TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {
@@ -27,9 +27,11 @@
     "@pulumi/aws": "^0.17.1",
     "@pulumi/azure": "^0.17.3",
     "@pulumi/pulumi": "^0.17.1",
+    "@types/fs-extra": "^5.0.5",
     "azure-storage": "^2.10.2",
     "bignumber.js": "^8.0.1",
     "folder-hash": "^2.1.2",
+    "fs-extra": "^7.0.1",
     "lodash": "^4.17.11",
     "md5-file": "^4.0.0",
     "simple-git": "^1.107.0",

@@ -1,4 +1,4 @@
-import ModuleBuilderBase from "./ModuleBuilderBase";
+import ModuleBuilderBase from "../ModuleBuilderBase";
 
 export default class AwsModuleBuilder extends ModuleBuilderBase {
   uploadArtifcat(): Promise<void> {
