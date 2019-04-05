@@ -158,12 +158,12 @@ export default class AzureProcessor implements PlatformProcessor {
     const { identifier } = component.meta!;
 
     // Zip the code in the repo and store on container
-    const blobResource = this.register(`${identifier}-blob`, "azure.storage.ZipBlob", {
+    const blobResource = this.register(`${identifier}-blob2`, "azure.storage.ZipBlob", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       storageContainerName: this.storageContainer.name,
       type: "block",
-      content: new pulumi.asset.FileArchive(buildDef.buildArtifact)
+      content: new pulumi.asset.FileArchive(buildDef.buildPath)
     } as azure.storage.ZipBlobArgs);
 
     resources.push(blobResource);

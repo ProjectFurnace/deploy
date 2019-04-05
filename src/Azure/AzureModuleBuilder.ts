@@ -2,11 +2,11 @@ import * as fsUtils from "@project-furnace/fsutils";
 import * as fs from "fs-extra";
 import * as path from "path";
 import ModuleBuilderBase from "../ModuleBuilderBase";
-import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
+import { execPromise } from "../Util/ProcessUtil";
 
 export default class AzureModuleBuilder extends ModuleBuilderBase {
 
-  async preProcessModule(def: any) {
+  async preProcess(def: any) {
     super.preProcess(def);
 
     const functionDefPath = path.join(def.buildPath, "function.json")
@@ -65,6 +65,8 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
 </Project>
 `
     );
+
+    await execPromise("func extensions install", { cwd: def.buildPath, env: process.env });
   }
 
   async uploadArtifcat(): Promise<void> {

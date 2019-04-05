@@ -4,6 +4,7 @@ import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import * as yaml from "yamljs";
 import * as zipUtils from "@project-furnace/ziputils";
 import merge from "util.merge-packages";
+import { execPromise } from "./Util/ProcessUtil";
 
 export default abstract class ModuleBuilder {
 
@@ -131,9 +132,8 @@ export default abstract class ModuleBuilder {
         }
 
         console.log(`building ${name} in ${buildPath}`);
-
-        // TODO: merge dependencies from template
-        const execResult = await this.execPromise("npm install --production", 
+        
+        const execResult = await execPromise("npm install --production", 
             { cwd: buildPath, env: process.env });
 
         if (execResult.stderr) {
@@ -154,7 +154,7 @@ export default abstract class ModuleBuilder {
 
         if( fsUtils.exists(path.join(buildPath, 'requirements.txt')) ) {
             console.log('installing dependencies...')
-            const execResult = await this.execPromise("pip install -r requirements.txt -t .", 
+            const execResult = await execPromise("pip install -r requirements.txt -t .", 
                 { cwd: buildPath, env: process.env });
 
             if (execResult.stderr) {
@@ -172,19 +172,7 @@ export default abstract class ModuleBuilder {
 
 abstract async uploadArtifcat(): Promise<void>;
 
-execPromise(command: string, options: any): any {
-    const exec = require("child_process").exec;
 
-    return new Promise((resolve, reject) => {
-        exec(command, options, (error: any, stdout: any, stderr: any) => {
-            if (error) {
-                reject(error);
-                return;
-            }
-            resolve(stdout);
-        });
-    });
-}
 
 validateModuleMetadata(moduleDef: any) {
     let errors = [];
