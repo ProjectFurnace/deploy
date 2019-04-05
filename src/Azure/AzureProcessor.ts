@@ -181,9 +181,9 @@ export default class AzureProcessor implements PlatformProcessor {
       storageConnectionString: this.storageAccount.primaryConnectionString,
       version: '~2',
       appSettings: {
-        'WEBSITE_RUN_FROM_ZIP': codeBlobUrl,
         'FUNCTIONS_WORKER_RUNTIME': "node",
-        'WEBSITE_RUN_FROM_PACKAGE': '1',
+        'WEBSITE_RUN_FROM_PACKAGE': codeBlobUrl,
+        'WEBSITE_NODE_DEFAULT_VERSION': "8.11.1"
         // 'FUNCTIONS_EXTENSION_VERSION': ""
       }
     } as azure.appservice.FunctionAppArgs));

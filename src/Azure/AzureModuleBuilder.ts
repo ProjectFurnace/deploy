@@ -21,17 +21,16 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
 
     const bindings = [
       {
-        authLevel: 'anonymous',
         type: 'eventHubTrigger',
         direction: 'in',
-        name: `${source}-msg`,
+        name:'eventInput',
         eventHubName: source,
         connection: 'inputEventHubConnectionAppSeting'
       },
       {
         type: 'eventHub',
         direction: 'out',
-        name: `${output}-msg`,
+        name: '$return',
         eventHubName: output,
         connection: 'outputEventHubConnectionAppSeting'
       }
