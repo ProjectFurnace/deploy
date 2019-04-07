@@ -1,4 +1,4 @@
-import AzureModuleBuilder from "../src/AzureModuleBuilder";
+import AzureModuleBuilder from "../../src/Azure/AzureModuleBuilder";
 import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import * as md5file from "md5-file";
 

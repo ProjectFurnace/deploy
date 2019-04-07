@@ -1,10 +1,10 @@
-import AzureProcessor from "../src/Azure/AzureProcessor";
-import AzureModuleBuilder from "../src/Azure/AzureModuleBuilder";
+import AzureProcessor from "../../src/Azure/AzureProcessor";
+import AzureModuleBuilder from "../../src/Azure/AzureModuleBuilder";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import * as pulumi from "@pulumi/pulumi";
 import * as azure from "@pulumi/azure";
-import * as mocks from "./mocks/pulumi";
-import { RegisteredResource } from "../src/Types";
+import * as mocks from "../mocks/pulumi";
+import { RegisteredResource } from "../../src/Types";
 
 beforeAll(() => {
   mocks.stubCustomResource();

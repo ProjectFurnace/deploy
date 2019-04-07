@@ -23,7 +23,9 @@ export function stubCustomResource() {
     // 
     // Properties are different as per resource for example an S3 bucket will have the 
     // property of this.bucket
+    this.id = Math.floor(Math.random() * 100);
     this.bucket = name;
+    this.storageConnectionString = 'test';
     
     return this;
   })
