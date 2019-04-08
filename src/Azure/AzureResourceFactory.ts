@@ -18,7 +18,8 @@ export default class AzureResourceFactory {
       "azure.storage.Container": azure.storage.Container,
       "azure.appservice.FunctionApp": azure.appservice.FunctionApp,
       "azure.appservice.Plan": azure.appservice.Plan,
-      "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule
+      "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule,
+      "azure.cosmosdb.Account": azure.cosmosdb.Account
     }
 
     const provider = providers[type];
@@ -35,5 +36,4 @@ export default class AzureResourceFactory {
 
     return newConfig;
   }
-
 }

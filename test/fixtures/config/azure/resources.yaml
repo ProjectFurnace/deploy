@@ -1,0 +1,13 @@
+- name: cosmosdb2
+  type: azure.cosmosdb.Account
+  config:
+    kind: GlobalDocumentDB
+    consistencyPolicy: 
+      consistencyLevel: BoundedStaleness
+      maxIntervalInSeconds: 10
+      maxStalenessPrefix: 200
+    offerType: Standard
+    enableAutomaticFailover: false
+    geoLocations:
+      - location: WestUS
+        failoverPriority: 0

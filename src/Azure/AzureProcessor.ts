@@ -85,21 +85,29 @@ export default class AzureProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
     const routingResources = this.flows
-      .filter(flow => !["sink", "resource"].includes(flow.component))
-      .map(flow => this.createRoutingComponent(flow));
+      .filter(component => !["sink", "resource"].includes(component.component))
+      .map(component => this.createRoutingComponent(component));
 
     const flatRoutingResources = [...([] as RegisteredResource[]).concat(...routingResources)]
 
-    // const resourceResources = this.flows
-    //   .filter(flow => flow.component === "resource")
-    //   .map(flow => this.createResourceComponent(flow));
+    const resourceResources = this.flows
+      .filter(component => component.component === "resource")
+      .map(component => this.register(component.meta!.identifier, component.type!, component.config));
 
     const moduleResources = await this.flows
       .filter(flow => flow.componentType === "Module")
       .map(async flow => {
-        const routingResource = flatRoutingResources.find(r => r.name === flow.meta!.source)
-        if (!routingResource) throw new Error(`unable to find routing resource ${flow.meta!.source} in flow ${flow.name}`);
-        return await this.createModuleResource(flow);
+        
+        const inputResource = flatRoutingResources.find(r => r.name === flow.meta!.source + "-rule");
+        if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${flow.meta!.source} in flow ${flow.name}`);
+
+        const outputResource = flatRoutingResources.find(r => r.name === flow.meta!.output + "-rule");
+        if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Outpul ${flow.meta!.output} in flow ${flow.name}`);
+
+        const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+        const outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+
+        return await this.createModuleResource(flow, inputRule, outputRule);
       });  
 
     return [
@@ -109,17 +117,20 @@ export default class AzureProcessor implements PlatformProcessor {
 
   }
 
+  getRoutingComponentName(component: BuildSpec): string {
+    if (component.component === "source") {
+      return component.meta!.identifier;
+    } else {
+      return component.meta! && component.meta!.output!
+    }
+  }
+
   createRoutingComponent(component: BuildSpec): RegisteredResource[] {
 
-    let name = component.meta && component.meta!.output!
+    let name = this.getRoutingComponentName(component)
       , mechanism = "azure.eventhub.EventHub"
-      , config: any = {}
+      , config: any = component && component.config && component.config.azure || {}
       ;
-
-    if (component.component === "source") {
-      name = component.meta!.identifier;
-      config = component.config.azure || {}
-    }
 
     config = Object.assign({}, config, {
       messageRetention: 1,
@@ -149,7 +160,7 @@ export default class AzureProcessor implements PlatformProcessor {
 
   }
 
-  async createModuleResource(component: BuildSpec) {
+  async createModuleResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule) {
     const resources: RegisteredResource[] = [];
 
     await this.moduleBuilder!.initialize();
@@ -158,7 +169,7 @@ export default class AzureProcessor implements PlatformProcessor {
     const { identifier } = component.meta!;
 
     // Zip the code in the repo and store on container
-    const blobResource = this.register(`${identifier}-blob2`, "azure.storage.ZipBlob", {
+    const blobResource = this.register(`${identifier}-blob5`, "azure.storage.ZipBlob", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       storageContainerName: this.storageContainer.name,
@@ -183,8 +194,13 @@ export default class AzureProcessor implements PlatformProcessor {
       appSettings: {
         'FUNCTIONS_WORKER_RUNTIME': "node",
         'WEBSITE_RUN_FROM_PACKAGE': codeBlobUrl,
-        'WEBSITE_NODE_DEFAULT_VERSION': "8.11.1"
+        'WEBSITE_NODE_DEFAULT_VERSION': "8.11.1",
+        'inputEventHubConnectionAppSeting': inputRule.primaryConnectionString,
+        'outputEventHubConnectionAppSeting': outputRule.primaryConnectionString
         // 'FUNCTIONS_EXTENSION_VERSION': ""
+      },
+      siteConfig: {
+        alwaysOn: true
       }
     } as azure.appservice.FunctionAppArgs));
 
@@ -230,8 +246,14 @@ export default class AzureProcessor implements PlatformProcessor {
 
     try {
 
-      const [resource, finalConfig] = AzureResourceFactory.getResource(name, type, config);
-      const instance = new resource(name, finalConfig) as pulumi.CustomResource;
+      const [resource, newConfig] = AzureResourceFactory.getResource(name, type, config);
+
+      if (this.resourceGroup) {
+        newConfig.resourceGroupName = this.resourceGroup.name;
+        newConfig.location = this.resourceGroup.location;
+      }
+
+      const instance = new resource(name, newConfig) as pulumi.CustomResource;
 
       return {
         name,
@@ -251,7 +273,7 @@ export default class AzureProcessor implements PlatformProcessor {
   //
   // Create a dedicated Azure Resource Group for ARM
   // const armResourceGroup = new azure.core.ResourceGroup("armResourceGroup", {
-  //   location: "WestUS",
+  //   location: "WestUS", 
   // });
 
   // Create an ARM template deployment using an ordinary JSON ARM template. This could be read from disk, of course.
@@ -374,27 +396,6 @@ export default class AzureProcessor implements PlatformProcessor {
 
 
   // }
-
-
-
-  // CosmosDB
-  //
-  // Create a SQL-flavored instance of CosmosDB.
-  /*const cosmosDB = new azure.cosmosdb.Account("cosmosDb", {
-      kind: "GlobalDocumentDB",
-      resourceGroupName: resourceGroup.name,
-      location: resourceGroup.location,
-      consistencyPolicy: {
-          consistencyLevel: "BoundedStaleness",
-          maxIntervalInSeconds: 10,
-          maxStalenessPrefix: 200
-      },
-      offerType: "Standard",
-      enableAutomaticFailover: false,
-      geoLocations: [
-          { location: resourceGroup.location, failoverPriority: 0 }
-      ]
-  });*/
 
 
 
