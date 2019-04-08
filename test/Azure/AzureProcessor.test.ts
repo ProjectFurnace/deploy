@@ -40,12 +40,13 @@ const spec: BuildSpec = {
 }
 
 describe('AzureProcessor', () => {
-  it.skip('createRoutingComponent', async () => {
+  it('createRoutingComponent', async () => {
 
     const p = new AzureProcessor([spec], stack, "test", "testBucket", {}, null);
+    await p.preProcess();
     const resources = await p.process();
 
-    console.log(resources);
+    expect(resources.length).toBe(2);
 
   });
 
@@ -73,7 +74,7 @@ describe('AzureProcessor', () => {
     });
   })
 
-  describe.skip('createRoutingComponent', () => {
+  describe('createRoutingComponent', () => {
     it('should return correct resources', async () => {
 
       const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
@@ -87,8 +88,8 @@ describe('AzureProcessor', () => {
     });
   })
 
-  describe.skip('createModuleResource', () => {
-    it('should return correct resources', async () => {
+  describe('createModuleResource', () => {
+    it.skip('should return correct resources', async () => {
 
       const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
       const p = new AzureProcessor([], stack, "test", "testBucket", {}, builder);
