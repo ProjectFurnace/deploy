@@ -84,36 +84,37 @@ export default class AzureProcessor implements PlatformProcessor {
 
   async process(): Promise<Array<RegisteredResource>> {
 
-    const routingResources = this.flows
-      .filter(component => !["sink", "resource"].includes(component.component))
-      .map(component => this.createRoutingComponent(component));
+    // const routingResources = this.flows
+    //   .filter(component => !["sink", "resource"].includes(component.component))
+    //   .map(component => this.createRoutingComponent(component));
 
-    const flatRoutingResources = [...([] as RegisteredResource[]).concat(...routingResources)]
+    // const flatRoutingResources = [...([] as RegisteredResource[]).concat(...routingResources)]
 
     const resourceResources = this.flows
       .filter(component => component.component === "resource")
       .map(component => this.register(component.meta!.identifier, component.type!, component.config));
 
-    const moduleResources = await this.flows
-      .filter(flow => flow.componentType === "Module")
-      .map(async flow => {
+    // const moduleResources = await this.flows
+    //   .filter(flow => flow.componentType === "Module")
+    //   .map(async flow => {
         
-        const inputResource = flatRoutingResources.find(r => r.name === flow.meta!.source + "-rule");
-        if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${flow.meta!.source} in flow ${flow.name}`);
+    //     const inputResource = flatRoutingResources.find(r => r.name === flow.meta!.source + "-rule");
+    //     if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${flow.meta!.source} in flow ${flow.name}`);
 
-        const outputResource = flatRoutingResources.find(r => r.name === flow.meta!.output + "-rule");
-        if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Outpul ${flow.meta!.output} in flow ${flow.name}`);
+    //     const outputResource = flatRoutingResources.find(r => r.name === flow.meta!.output + "-rule");
+    //     if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Outpul ${flow.meta!.output} in flow ${flow.name}`);
 
-        const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
-        const outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+    //     const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+    //     const outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
-        return await this.createModuleResource(flow, inputRule, outputRule);
-      });  
+    //     return await this.createModuleResource(flow, inputRule, outputRule);
+    //   });  
 
-    return [
-      // ...resources,
-      ...([] as RegisteredResource[]).concat(...routingResources) // flatten the routingResources
-    ];
+    // return [
+    //   // ...resources,
+    //   ...([] as RegisteredResource[]).concat(...routingResources) // flatten the routingResources
+    // ];
+    return [];
 
   }
 
@@ -159,6 +160,8 @@ export default class AzureProcessor implements PlatformProcessor {
     ];
 
   }
+
+  
 
   async createModuleResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule) {
     const resources: RegisteredResource[] = [];
@@ -253,6 +256,12 @@ export default class AzureProcessor implements PlatformProcessor {
         newConfig.location = this.resourceGroup.location;
       }
 
+      if (type === "azure.core.TemplateDeployment") {
+        // console.log("azure.core.TemplateDeployment", config);
+        // const t = JSON.parse(newConfig.templateBody);
+        // console.log("templateBody", t);
+      }
+
       const instance = new resource(name, newConfig) as pulumi.CustomResource;
 
       return {
@@ -273,7 +282,7 @@ export default class AzureProcessor implements PlatformProcessor {
   //
   // Create a dedicated Azure Resource Group for ARM
   // const armResourceGroup = new azure.core.ResourceGroup("armResourceGroup", {
-  //   location: "WestUS", 
+  //   location: "WestUS",
   // });
 
   // Create an ARM template deployment using an ordinary JSON ARM template. This could be read from disk, of course.
@@ -396,6 +405,27 @@ export default class AzureProcessor implements PlatformProcessor {
 
 
   // }
+
+
+
+  // CosmosDB
+  //
+  // Create a SQL-flavored instance of CosmosDB.
+  /*const cosmosDB = new azure.cosmosdb.Account("cosmosDb", {
+      kind: "GlobalDocumentDB",
+      resourceGroupName: resourceGroup.name,
+      location: resourceGroup.location,
+      consistencyPolicy: {
+          consistencyLevel: "BoundedStaleness",
+          maxIntervalInSeconds: 10,
+          maxStalenessPrefix: 200
+      },
+      offerType: "Standard",
+      enableAutomaticFailover: false,
+      geoLocations: [
+          { location: resourceGroup.location, failoverPriority: 0 }
+      ]
+  });*/
 
 
 

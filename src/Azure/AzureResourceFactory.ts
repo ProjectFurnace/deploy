@@ -19,7 +19,8 @@ export default class AzureResourceFactory {
       "azure.appservice.FunctionApp": azure.appservice.FunctionApp,
       "azure.appservice.Plan": azure.appservice.Plan,
       "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule,
-      "azure.cosmosdb.Account": azure.cosmosdb.Account
+      "azure.cosmosdb.Account": azure.cosmosdb.Account,
+      "azure.core.TemplateDeployment": azure.core.TemplateDeployment
     }
 
     const provider = providers[type];
