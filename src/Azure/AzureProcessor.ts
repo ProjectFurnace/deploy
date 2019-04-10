@@ -84,35 +84,36 @@ export default class AzureProcessor implements PlatformProcessor {
 
   async process(): Promise<Array<RegisteredResource>> {
 
-    const routingResources = this.flows
-      .filter(component => !["sink", "resource"].includes(component.component))
-      .map(component => this.createRoutingComponent(component));
-
-    const flatRoutingResources = [...([] as RegisteredResource[]).concat(...routingResources)]
+    const routingResources = this.flattenResourceArray(
+      this.flows
+        .filter(component => !["sink", "resource"].includes(component.component))
+        .map(component => this.createRoutingComponent(component))
+    );
 
     const resourceResources = this.flows
       .filter(component => component.component === "resource")
       .map(component => this.register(component.meta!.identifier, component.type!, component.config));
 
-    const moduleResources = await this.flows
-      .filter(flow => flow.componentType === "Module")
-      .map(async flow => {
-        
-        const inputResource = flatRoutingResources.find(r => r.name === flow.meta!.source + "-rule");
-        if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${flow.meta!.source} in flow ${flow.name}`);
+    const moduleResources: RegisteredResource[] = [];
+    const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
 
-        const outputResource = flatRoutingResources.find(r => r.name === flow.meta!.output + "-rule");
-        if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Outpul ${flow.meta!.output} in flow ${flow.name}`);
+    for (const component of moduleComponents) {
+      const inputResource = routingResources.find(r => r.name === component.meta!.source + "-rule");
+      if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.source} in flow ${component.name}`);
+      const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
-        const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
-        const outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+      const outputResource = routingResources.find(r => r.name === component.meta!.output + "-rule");
+      if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Outpul ${component.meta!.output} in flow ${component.name}`);
+      const outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
-        return await this.createModuleResource(flow, inputRule, outputRule);
-      });  
+      const resources = await this.createModuleResource(component, inputRule, outputRule);
+      resources.forEach(resource => moduleResources.push(resource));
+    }
 
     return [
-      // ...resources,
-      ...([] as RegisteredResource[]).concat(...routingResources) // flatten the routingResources
+      ...resourceResources,
+      ...moduleResources,
+      ...routingResources
     ];
 
   }
