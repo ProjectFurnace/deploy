@@ -132,7 +132,7 @@ export default abstract class ModuleBuilder {
         }
 
         console.log(`building ${name} in ${buildPath}`);
-        
+
         const execResult = await execPromise("npm install --production", 
             { cwd: buildPath, env: process.env });
 
@@ -170,9 +170,7 @@ export default abstract class ModuleBuilder {
     
 }
 
-abstract async uploadArtifcat(): Promise<void>;
-
-
+abstract async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any>;
 
 validateModuleMetadata(moduleDef: any) {
     let errors = [];

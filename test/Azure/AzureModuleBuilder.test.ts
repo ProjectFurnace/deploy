@@ -2,6 +2,13 @@ import AzureModuleBuilder from "../../src/Azure/AzureModuleBuilder";
 import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import * as md5file from "md5-file";
 
+let builder: AzureModuleBuilder;
+
+beforeEach(async () => {
+    builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
+    await builder.initialize();
+});
+
 describe.skip('processModule', () => {
   it('successfully processes module', async () => {
 
@@ -26,14 +33,18 @@ describe.skip('processModule', () => {
       }
     }
 
-    const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
-    await builder.initialize()
-
     const buildDef = await builder.processModule(spec);
 
     const fileHash = md5file.sync(buildDef.buildArtifact);
     // expect(fileHash).toBe("026a23357bd37012f67dcc0daefbbbab");
     console.log("build output", buildDef);
     // builder.cleanup();
+  });
+});
+
+describe('uploadArtifcat', () => {
+  it.only('should successfully upload file to azure container', async () => {
+    const result = await builder.uploadArtifcat("test", "test", "test/fixtures/config/azure/stack.yaml");
+    console.log(result);
   });
 });

@@ -91,10 +91,10 @@ describe('AzureProcessor', () => {
   describe('createModuleResource', () => {
     it.skip('should return correct resources', async () => {
 
-      const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
-      const p = new AzureProcessor([], stack, "test", "testBucket", {}, builder);
+      // const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
+      // const p = new AzureProcessor([], stack, "test", "testBucket", {}, builder);
       
-      await p.preProcess();
+      // await p.preProcess();
 
       // const resources = await p.createModuleResource(spec);
       // expect(resources).toHaveLength(2);

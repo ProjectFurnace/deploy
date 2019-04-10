@@ -53,8 +53,8 @@ export default class AzureProcessor implements PlatformProcessor {
       location: this.resourceGroup.location,
       accountKind: "StorageV2",
       accountTier: "Standard",
-      accountReplicationType: "LRS",
-    });
+      accountReplicationType: "LRS"
+    } as azure.storage.AccountArgs);
     resources.push(storageAccountResource);
     this.storageAccount = storageAccountResource.resource as azure.storage.Account;
 
@@ -115,6 +115,10 @@ export default class AzureProcessor implements PlatformProcessor {
       ...([] as RegisteredResource[]).concat(...routingResources) // flatten the routingResources
     ];
 
+  }
+
+  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
+    return [...([] as RegisteredResource[]).concat(...resources)];
   }
 
   getRoutingComponentName(component: BuildSpec): string {
@@ -251,12 +255,6 @@ export default class AzureProcessor implements PlatformProcessor {
       if (this.resourceGroup) {
         newConfig.resourceGroupName = this.resourceGroup.name;
         newConfig.location = this.resourceGroup.location;
-      }
-
-      if (type === "azure.core.TemplateDeployment") {
-        // console.log("azure.core.TemplateDeployment", config);
-        // const t = JSON.parse(newConfig.templateBody);
-        // console.log("templateBody", t);
       }
 
       const instance = new resource(name, newConfig) as pulumi.CustomResource;

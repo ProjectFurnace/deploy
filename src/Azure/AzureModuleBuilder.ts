@@ -3,6 +3,7 @@ import * as fs from "fs-extra";
 import * as path from "path";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import { execPromise } from "../Util/ProcessUtil";
+import * as storage from "azure-storage";
 
 export default class AzureModuleBuilder extends ModuleBuilderBase {
 
@@ -10,8 +11,8 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
     super.preProcess(def);
 
     const functionDefPath = path.join(def.buildPath, "function.json")
-        , { identifier, source, output } = def;
-        ;
+      , { identifier, source, output } = def;
+    ;
 
     if (!fsUtils.exists(functionDefPath)) throw new Error(`cannot find function.json for module ${identifier}`);
 
@@ -23,7 +24,7 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
       {
         type: 'eventHubTrigger',
         direction: 'in',
-        name:'eventInput',
+        name: 'eventInput',
         eventHubName: source,
         connection: 'inputEventHubConnectionAppSeting'
       },
@@ -42,14 +43,14 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
 
   async postBuild(def: any) {
     const fnDir = path.join(def.buildPath, "fn")
-        , tempDir = def.buildPath + "-tmp"
-        ;
+      , tempDir = def.buildPath + "-tmp"
+      ;
 
     fs.moveSync(def.buildPath, tempDir);
     fsUtils.mkdir(def.buildPath);
     fsUtils.mkdir(fnDir);
     fs.moveSync(tempDir, fnDir);
-    
+
     fsUtils.writeFile(path.join(def.buildPath, "host.json"), JSON.stringify({ version: "2.0" }));
     fsUtils.writeFile(path.join(def.buildPath, "extensions.csproj"), `
 <Project Sdk="Microsoft.NET.Sdk">
@@ -69,7 +70,15 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
     await execPromise("func extensions install", { cwd: def.buildPath, env: process.env });
   }
 
-  async uploadArtifcat(): Promise<void> {
-    
+  async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any> {
+    // return new Promise((resolve, reject) => {
+    //   const blobService = storage.createBlobService()
+    //   blobService.createBlockBlobFromLocalFile(bucketName, key, artifact, (error, result, response) => {
+    //     if (error) reject(error)
+    //     else resolve(result);
+    //   });
+    // });
   }
+
+
 }
