@@ -118,10 +118,6 @@ export default class AzureProcessor implements PlatformProcessor {
 
   }
 
-  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
-    return [...([] as RegisteredResource[]).concat(...resources)];
-  }
-
   getRoutingComponentName(component: BuildSpec): string {
     if (component.component === "source") {
       return component.meta!.identifier;
@@ -173,13 +169,16 @@ export default class AzureProcessor implements PlatformProcessor {
 
     const { identifier } = component.meta!;
 
+    const blobName = `${component.module!}/${component.buildSpec!.hash}`
+
     // Zip the code in the repo and store on container
-    const blobResource = this.register(`${identifier}-blob5`, "azure.storage.ZipBlob", {
+    const blobResource = this.register(blobName, "azure.storage.ZipBlob", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       storageContainerName: this.storageContainer.name,
       type: "block",
-      content: new pulumi.asset.FileArchive(buildDef.buildPath)
+      content: new pulumi.asset.FileArchive(buildDef.buildPath),
+
     } as azure.storage.ZipBlobArgs);
 
     resources.push(blobResource);
@@ -194,7 +193,7 @@ export default class AzureProcessor implements PlatformProcessor {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       enabled: true,
-      storageConnectionString: this.storageAccount.primaryConnectionString,
+      storageConnectionString: this.storageAccount.primaryConnectionString,   
       version: '~2',
       appSettings: {
         'FUNCTIONS_WORKER_RUNTIME': "node",
@@ -245,6 +244,10 @@ export default class AzureProcessor implements PlatformProcessor {
       return blobService.getUrl(containerName, blobName, signature);
     });
 
+  }
+
+  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
+    return [...([] as RegisteredResource[]).concat(...resources)];
   }
 
   register(name: string, type: string, config: any): RegisteredResource {

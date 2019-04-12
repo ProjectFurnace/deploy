@@ -26,7 +26,7 @@ export default abstract class ModuleBuilder {
     const def = this.getModuleDef(buildSpec);
 
     if (this.modules.includes(def.name)) {
-      console.log(`module ${def.name} already build, skipping`);
+      console.log(`module ${def.name} already built, skipping`);
       return def;
     }
 

@@ -40,7 +40,7 @@ const spec: BuildSpec = {
 }
 
 describe('AzureProcessor', () => {
-  it('createRoutingComponent', async () => {
+  it.skip('process', async () => {
 
     const p = new AzureProcessor([spec], stack, "test", "testBucket", {}, null);
     await p.preProcess();
@@ -77,8 +77,29 @@ describe('AzureProcessor', () => {
   describe('createRoutingComponent', () => {
     it('should return correct resources', async () => {
 
+      const source: BuildSpec = {
+        name: 'asource',
+        config: { },
+        inputs: [],
+        parameters: new Map<string, string>(),
+        componentType: 'Resource',
+        component: 'source',
+        logging: undefined,
+        policies: undefined,
+        module: undefined,
+        meta:
+        {
+          identifier: 'test-stack-asource',
+          source: undefined,
+          output: undefined
+        },
+        moduleSpec: {
+          runtime: "nodejs8.10"
+        }
+      }
+
       const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
-      const p = new AzureProcessor([], stack, "test", "testBucket", {}, builder);
+      const p = new AzureProcessor([source], stack, "test", "testBucket", {}, builder);
       
       await p.preProcess();
 

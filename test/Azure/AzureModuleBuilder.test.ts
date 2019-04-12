@@ -43,7 +43,7 @@ describe.skip('processModule', () => {
 });
 
 describe('uploadArtifcat', () => {
-  it.only('should successfully upload file to azure container', async () => {
+  it.skip('should successfully upload file to azure container', async () => {
     const result = await builder.uploadArtifcat("test", "test", "test/fixtures/config/azure/stack.yaml");
     console.log(result);
   });

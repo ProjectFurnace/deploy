@@ -72,7 +72,8 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
 
   async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any> {
     // return new Promise((resolve, reject) => {
-    //   const blobService = storage.createBlobService()
+      // storage.createBlobServiceWithTokenCredential()
+      // const blobService = storage.createBlobService()
     //   blobService.createBlockBlobFromLocalFile(bucketName, key, artifact, (error, result, response) => {
     //     if (error) reject(error)
     //     else resolve(result);
