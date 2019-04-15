@@ -11,7 +11,7 @@ export default abstract class ModuleBuilder {
   buildPath: string;
   modules: string[];
 
-  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string) { this.modules = [] }
+  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string, initConfig: any) { this.modules = [] }
 
   async initialize() {
     if (!this.buildPath) this.buildPath = await fsUtils.createTempDirectory();

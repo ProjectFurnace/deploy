@@ -5,7 +5,7 @@ import * as md5file from "md5-file";
 let builder: AzureModuleBuilder;
 
 beforeEach(async () => {
-    builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
+    builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure", { storageConnectionString: "abc" });
     await builder.initialize();
 });
 
@@ -42,9 +42,22 @@ describe.skip('processModule', () => {
   });
 });
 
+describe.skip('artifactExists', () => {
+  it('should successfully return false for non existing artifact', async () => {
+    const result = await builder.artifactExists("fscratchc", "test");
+    expect(result).toBeFalsy();
+  });
+
+  it('should successfully return true for existing artifact', async () => {
+    const result = await builder.artifactExists("fscratchc", "fscratch-mytap-test-blob");
+    expect(result).toBeTruthy();
+  });
+});
+
 describe('uploadArtifcat', () => {
-  it.skip('should successfully upload file to azure container', async () => {
-    const result = await builder.uploadArtifcat("test", "test", "test/fixtures/config/azure/stack.yaml");
+  it('should successfully upload file to azure container', async () => {
+    const result = await builder.uploadArtifcat("fscratchc", "azurebuilder-upload-test", "test/fixtures/config/azure/stack.yaml");
     console.log(result);
   });
 });
+

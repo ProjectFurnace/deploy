@@ -2,7 +2,7 @@
   "name": "typescript",
   "scripts": {
     "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config/aws TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi preview",
-    "dev_azure": "FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config/azure TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_azure": "FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=fscratchc REPO_DIR=./test/fixtures/config/azure TEMPLATE_REPO_DIR=./test/fixtures/templates STORAGE_CONNECTION_STRING=abc pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {

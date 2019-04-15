@@ -171,21 +171,23 @@ export default class AzureProcessor implements PlatformProcessor {
 
     const blobName = `${component.module!}/${component.buildSpec!.hash}`
 
-    // Zip the code in the repo and store on container
-    const blobResource = this.register(blobName, "azure.storage.ZipBlob", {
-      resourceGroupName: this.resourceGroup.name,
-      storageAccountName: this.storageAccount.name,
-      storageContainerName: this.storageContainer.name,
-      type: "block",
-      content: new pulumi.asset.FileArchive(buildDef.buildPath),
+    await this.moduleBuilder!.uploadArtifcat(this.buildBucket, blobName, buildDef.buildArtifact)
 
-    } as azure.storage.ZipBlobArgs);
+    // // Zip the code in the repo and store on container
+    // const blobResource = this.register(blobName, "azure.storage.ZipBlob", {
+    //   resourceGroupName: this.resourceGroup.name,
+    //   storageAccountName: this.storageAccount.name,
+    //   storageContainerName: this.storageContainer.name,
+    //   type: "block",
+    //   content: new pulumi.asset.FileArchive(buildDef.buildPath),
 
-    resources.push(blobResource);
-    const blob = blobResource.resource as azure.storage.ZipBlob;
+    // } as azure.storage.ZipBlobArgs);
+
+    // resources.push(blobResource);
+    // const blob = blobResource.resource as azure.storage.ZipBlob;
 
     // Generates an address for the function source
-    const codeBlobUrl = this.signedBlobReadUrl(blob, this.storageAccount, this.storageContainer);
+    const codeBlobUrl = this.signedBlobReadUrl(blobName, this.storageAccount, this.storageContainer);
 
     // Create an App Service Function
     resources.push(this.register(identifier, "azure.appservice.FunctionApp", {
@@ -214,7 +216,7 @@ export default class AzureProcessor implements PlatformProcessor {
 
   // Given an Azure blob, create a SAS URL that can read it.
   signedBlobReadUrl(
-    blob: azure.storage.Blob | azure.storage.ZipBlob,
+    blobName: string,
     account: azure.storage.Account,
     container: azure.storage.Container)
     : pulumi.Output<string> {
@@ -226,9 +228,8 @@ export default class AzureProcessor implements PlatformProcessor {
 
     return pulumi.all([
       account.primaryConnectionString,
-      container.name,
-      blob.name,
-    ]).apply(([connectionString, containerName, blobName]) => {
+      container.name
+    ]).apply(([connectionString, containerName]) => {
       let blobService = new azurestorage.BlobService(connectionString);
       let signature = blobService.generateSharedAccessSignature(
         containerName,

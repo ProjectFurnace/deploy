@@ -7,6 +7,18 @@ import * as storage from "azure-storage";
 
 export default class AzureModuleBuilder extends ModuleBuilderBase {
 
+  blobService: storage.BlobService;
+
+  constructor(repoDir: string, templateRepoDir: string, bucket: string, platform: string, initConfig: any) {
+    super(repoDir, templateRepoDir, bucket, platform, initConfig);
+
+    const connectionString = initConfig.storageConnectionString;
+
+    if (!connectionString) throw new Error(`AzureModuleBuilder must be initialised with storageConnectionString set in config`);
+
+    this.blobService = storage.createBlobService(connectionString);
+  }
+
   async preProcess(def: any) {
     super.preProcess(def);
 
@@ -71,15 +83,28 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
   }
 
   async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any> {
-    // return new Promise((resolve, reject) => {
-      // storage.createBlobServiceWithTokenCredential()
-      // const blobService = storage.createBlobService()
-    //   blobService.createBlockBlobFromLocalFile(bucketName, key, artifact, (error, result, response) => {
-    //     if (error) reject(error)
-    //     else resolve(result);
-    //   });
-    // });
+
+    const artifactExists = await this.artifactExists(bucketName, key);
+
+    if (artifactExists) {
+      console.log(`artifact with ${key} exists, skipping upload...`);
+      return Promise.resolve();
+    } else {
+      return new Promise((resolve, reject) => {
+        this.blobService.createBlockBlobFromLocalFile(bucketName, key, artifact, (error, result, response) => {
+          if (error) reject(error)
+          else resolve(result);
+        });
+      });
+    }
   }
 
-
+  async artifactExists(bucketName: string, key: string): Promise<boolean> {
+    return new Promise((resolve, reject) => {
+      this.blobService.doesBlobExist(bucketName, key, (err, result) => {
+        if (err) resolve(false);
+        else resolve(result.exists);
+      });
+    });
+  }
 }
