@@ -4,7 +4,7 @@ export type ResourceConfig = {
   name: string
   type: string
   scope: string
-  dependsOn: any[]
+  propertiesWithVars: any[]
   config: any
 }
 

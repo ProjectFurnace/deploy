@@ -266,13 +266,13 @@ export default class AzureProcessor implements PlatformProcessor {
   }
 
   configure(name: string, type: string, config: any, scope: string): ResourceConfig {
-    const dependsOn = VarUtil.findDependencies(config, scope);
+    const propertiesWithVars = VarUtil.process(config, scope);
 
     return {
       name,
       type,
       scope,
-      dependsOn,
+      propertiesWithVars,
       config
     }
   }
@@ -287,20 +287,26 @@ export default class AzureProcessor implements PlatformProcessor {
       }
 
       const dependencies = [];
-      if (config.dependsOn.length > 0) {
-        for( const dependency of config.dependsOn ) {
-          const dependencyName = `${this.stackConfig.name}-${dependency.resource}-${this.environment}`;
-          const resource = this.findResourceOrConfigByName(dependencyName, registeredResources);
-          if (resource) {
-            dependencies.push(resource.resource);
-            //_.set(newConfig, dependency.property, _.get(resource.resource, dependency.bindTo, dependency.default));
-            _.set(newConfig, dependency.property, pulumi.concat(dependency.prefix, _.get(resource.resource, dependency.bindTo, dependency.default), dependency.sufix));
-          } else {
-            throw new Error(`Dependency declared by ${config.name} on resource ${dependency.resource} failed: resource not found`);
+      if (Array.isArray(config.propertiesWithVars) && config.propertiesWithVars.length > 0) {
+        for (const propertyWithVars of config.propertiesWithVars) {
+          const toConcat = [];
+          for (const fragment of propertyWithVars.varParts) {
+            if( VarUtil.isObject(fragment) ) {
+              const dependencyName = `${this.stackConfig.name}-${fragment.resource}-${this.environment}`;
+              const resource = this.findResourceOrConfigByName(dependencyName, registeredResources);
+              if(!resource) {
+                throw new Error(`Dependency resource: ${fragment.resource} not found`);
+              } else {
+                dependencies.push(resource.resource);
+                toConcat.push(_.get(resource.resource, fragment.bindTo, fragment.default));
+              }
+            } else {
+              toConcat.push(fragment);
+            }
           }
+          _.set(newConfig, propertyWithVars.property, pulumi.concat(...toConcat));
         }
       }
-
       const instance = new provider(config.name, newConfig, {dependesOn: dependencies}) as pulumi.CustomResource;
 
       return {
@@ -324,15 +330,19 @@ export default class AzureProcessor implements PlatformProcessor {
     let registeredResources:RegisteredResource[] = existingResources;
     for( const config of configs ) {
       // check if we have dependencies fot this item
-      if( config.dependsOn.length > 0 ) {
+      if( Array.isArray( config.propertiesWithVars.length ) ) {
         // if we do, create an array with all resources this item depends on
         const dependencies = [];
-        for( const confDependency of config.dependsOn ) {
+        for( const propertyWithVars of config.propertiesWithVars ) {
           // check if the dependency is same as the one that called us and if so, throw and error as we
           // have a circular dependency issue
-          if( callingResource && confDependency.name == callingResource )
-            throw new Error(`Circular dependency error: ${callingResource} and ${confDependency.name} depend each on the other`);
-          dependencies.push(confDependency.resource);
+          for( const fragment of propertyWithVars.varParts ) {
+            if( VarUtil.isObject(fragment) ) {
+              if( callingResource && fragment.resource == callingResource )
+                throw new Error(`Circular dependency error: ${callingResource} and ${fragment.resource} depend each on the other`);
+              dependencies.push(fragment.resource);
+            }
+          }
         }
         // check if all those dependencies are already registered
         const pendingRegistrationResources = [];

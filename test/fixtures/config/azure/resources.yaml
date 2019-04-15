@@ -10,6 +10,11 @@
     tags:
       env2: abc-${rg1.tags.environment}-cde
 
+- name: rg3
+  type: azure.core.ResourceGroup
+  config:
+    tags:
+      env2: abc-${rg1.tags.environment}-${resource:rg2.tags.env2}-cde
 
 # - name: cosmosdb2
 #   type: azure.cosmosdb.Account
