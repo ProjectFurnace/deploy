@@ -1,128 +1,141 @@
-- name: cosmosdb2
-  type: azure.cosmosdb.Account
+- name: rg1
+  type: azure.core.ResourceGroup
   config:
-    kind: GlobalDocumentDB
-    consistencyPolicy: 
-      consistencyLevel: BoundedStaleness
-      maxIntervalInSeconds: 10
-      maxStalenessPrefix: 200
-    offerType: Standard
-    enableAutomaticFailover: false
-    geoLocations:
-      - location: WestUS
-        failoverPriority: 0
+    tags:
+      environment: GoodTag
 
-- name: analytics
-  type: azure.core.TemplateDeployment
+- name: rg2
+  type: azure.core.ResourceGroup
   config:
-    templateBody: |
-      {
-        "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
-        "contentVersion": "1.0.0.0",
-        "parameters": {
-          "eventHubNamespaceName": {
-            "type": "string"
-          },
-          "eventHubName": {
-            "type": "string"
-          },
-          "eventHubAuthorizationRuleName": {
-            "type": "string"
-          },
-          "eventHubAuthorizationRuleKey": {
-            "type": "string"
-          },
-          "cosmosDBId": {
-            "type": "string"
-          },
-          "cosmosDBPrimaryMasterKey": {
-            "type": "string"
-          }
-        },
-        "variables": {
-          "location": "[resourceGroup().location]",
-          "databaseName": "databaseName",
-          "collectionName": "collectionName",
-          "documentId": "documentID"
-        },
-        "resources": [
-          {
-            "type": "Microsoft.StreamAnalytics/streamingjobs",
-            "name": "eh-to-db",
-            "apiVersion": "2016-03-01",
-            "location": "[variables('location')]",
-            "properties": {
-              "sku": {
-                "name": "Standard"
-              },
-              "eventsOutOfOrderPolicy": "Adjust",
-              "outputErrorPolicy": "Stop",
-              "eventsOutOfOrderMaxDelayInSeconds": 0,
-              "eventsLateArrivalMaxDelayInSeconds": 5,
-              "dataLocale": "en-US",
-              "compatibilityLevel": "1.0"
-            },
-            "dependsOn": []
-          },
-          {
-            "type": "Microsoft.StreamAnalytics/streamingjobs/inputs",
-            "name": "eh-to-db/input-from-event-hub",
-            "apiVersion": "2016-03-01",
-            "properties": {
-              "type": "Stream",
-              "datasource": {
-                "type": "Microsoft.ServiceBus/EventHub",
-                "properties": {
-                  "eventHubName": "[parameters('eventHubName')]",
-                  "serviceBusNamespace": "[parameters('eventHubNamespaceName')]",
-                  "sharedAccessPolicyName": "[parameters('eventHubAuthorizationRuleName')]",
-                  "sharedAccessPolicyKey": "[parameters('eventHubAuthorizationRuleKey')]"
-                }
-              },
-              "compression": {
-                "type": "None"
-              },
-              "serialization": {
-                "type": "Json",
-                "properties": {
-                  "encoding": "UTF8"
-                }
-              },
-              "etag": "d35bfe5b-0fbb-4e29-9e4c-e34aa309c4e9"
-            },
-            "dependsOn": [
-              "[resourceId('Microsoft.StreamAnalytics/streamingjobs', 'eh-to-db')]"
-            ]
-          },
-          {
-            "type": "Microsoft.StreamAnalytics/streamingjobs/outputs",
-            "name": "eh-to-db/output-to-cosmosdb",
-            "apiVersion": "2016-03-01",
-            "properties": {
-              "datasource": {
-                "type": "Microsoft.Storage/DocumentDB",
-                "properties": {
-                  "accountId": "[parameters('cosmosDBId')]",
-                  "accountKey": "[parameters('cosmosDBPrimaryMasterKey')]",
-                  "database": "[variables('databaseName')]",
-                  "collectionNamePattern": "[variables('collectionName')]",
-                  "documentId": "[variables('documentId')]"
-                }
-              }
-            },
-            "dependsOn": [
-              "[resourceId('Microsoft.StreamAnalytics/streamingjobs', 'eh-to-db')]"
-            ]
-          }
-        ]
-      }
+    tags:
+      env2: abc-${rg1.tags.environment}-cde
 
-    parameters: 
-      cosmosDBId: cosmosdb2
-      cosmosDBPrimaryMasterKey: test
-      eventHubName: eventHub3
-      eventHubNamespaceName: fscratchNS
-      eventHubAuthorizationRuleName: eventHubAuthorizationRule3_name
-      eventHubAuthorizationRuleKey: eventHubAuthorizationRule3_primaryKey
-    deploymentMode: Incremental
+
+# - name: cosmosdb2
+#   type: azure.cosmosdb.Account
+#   config:
+#     kind: GlobalDocumentDB
+#     consistencyPolicy: 
+#       consistencyLevel: BoundedStaleness
+#       maxIntervalInSeconds: 10
+#       maxStalenessPrefix: 200
+#     offerType: Standard
+#     enableAutomaticFailover: false
+#     geoLocations:
+#       - location: WestUS
+#         failoverPriority: 0
+
+# - name: analytics
+#   type: azure.core.TemplateDeployment
+#   config:
+#     templateBody: |
+#       {
+#         "$schema": "https://schema.management.azure.com/schemas/2015-01-01/deploymentTemplate.json#",
+#         "contentVersion": "1.0.0.0",
+#         "parameters": {
+#           "eventHubNamespaceName": {
+#             "type": "string"
+#           },
+#           "eventHubName": {
+#             "type": "string"
+#           },
+#           "eventHubAuthorizationRuleName": {
+#             "type": "string"
+#           },
+#           "eventHubAuthorizationRuleKey": {
+#             "type": "string"
+#           },
+#           "cosmosDBId": {
+#             "type": "string"
+#           },
+#           "cosmosDBPrimaryMasterKey": {
+#             "type": "string"
+#           }
+#         },
+#         "variables": {
+#           "location": "[resourceGroup().location]",
+#           "databaseName": "databaseName",
+#           "collectionName": "collectionName",
+#           "documentId": "documentID"
+#         },
+#         "resources": [
+#           {
+#             "type": "Microsoft.StreamAnalytics/streamingjobs",
+#             "name": "eh-to-db",
+#             "apiVersion": "2016-03-01",
+#             "location": "[variables('location')]",
+#             "properties": {
+#               "sku": {
+#                 "name": "Standard"
+#               },
+#               "eventsOutOfOrderPolicy": "Adjust",
+#               "outputErrorPolicy": "Stop",
+#               "eventsOutOfOrderMaxDelayInSeconds": 0,
+#               "eventsLateArrivalMaxDelayInSeconds": 5,
+#               "dataLocale": "en-US",
+#               "compatibilityLevel": "1.0"
+#             },
+#             "dependsOn": []
+#           },
+#           {
+#             "type": "Microsoft.StreamAnalytics/streamingjobs/inputs",
+#             "name": "eh-to-db/input-from-event-hub",
+#             "apiVersion": "2016-03-01",
+#             "properties": {
+#               "type": "Stream",
+#               "datasource": {
+#                 "type": "Microsoft.ServiceBus/EventHub",
+#                 "properties": {
+#                   "eventHubName": "[parameters('eventHubName')]",
+#                   "serviceBusNamespace": "[parameters('eventHubNamespaceName')]",
+#                   "sharedAccessPolicyName": "[parameters('eventHubAuthorizationRuleName')]",
+#                   "sharedAccessPolicyKey": "[parameters('eventHubAuthorizationRuleKey')]"
+#                 }
+#               },
+#               "compression": {
+#                 "type": "None"
+#               },
+#               "serialization": {
+#                 "type": "Json",
+#                 "properties": {
+#                   "encoding": "UTF8"
+#                 }
+#               },
+#               "etag": "d35bfe5b-0fbb-4e29-9e4c-e34aa309c4e9"
+#             },
+#             "dependsOn": [
+#               "[resourceId('Microsoft.StreamAnalytics/streamingjobs', 'eh-to-db')]"
+#             ]
+#           },
+#           {
+#             "type": "Microsoft.StreamAnalytics/streamingjobs/outputs",
+#             "name": "eh-to-db/output-to-cosmosdb",
+#             "apiVersion": "2016-03-01",
+#             "properties": {
+#               "datasource": {
+#                 "type": "Microsoft.Storage/DocumentDB",
+#                 "properties": {
+#                   "accountId": "[parameters('cosmosDBId')]",
+#                   "accountKey": "[parameters('cosmosDBPrimaryMasterKey')]",
+#                   "database": "[variables('databaseName')]",
+#                   "collectionNamePattern": "[variables('collectionName')]",
+#                   "documentId": "[variables('documentId')]"
+#                 }
+#               }
+#             },
+#             "dependsOn": [
+#               "[resourceId('Microsoft.StreamAnalytics/streamingjobs', 'eh-to-db')]"
+#             ]
+#           }
+#         ]
+#       }
+
+#     parameters: 
+#       cosmosDBId: ${cosmosdb2.id}
+#       cosmosDBPrimaryMasterKey: test
+#       eventHubName: eventHub3
+#       eventHubNamespaceName: fscratchNS
+#       eventHubAuthorizationRuleName: eventHubAuthorizationRule3_name
+#       eventHubAuthorizationRuleKey: eventHubAuthorizationRule3_primaryKey
+#     deploymentMode: Incremental
       
