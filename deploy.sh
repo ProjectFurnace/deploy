@@ -11,6 +11,11 @@ GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name
 STORAGE_CONNECTION_STRING="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name StorageConnectionString |jq -r .value)"
 # GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name NpmToken |jq -r .value)"
 
+if [ -n "$STORAGE_CONNECTION_STRING" ]; then
+  echo "Setting GIT token env var..."
+  export STORAGE_CONNECTION_STRING="$STORAGE_CONNECTION_STRING"
+fi
+
 if [ -n "$GIT_TOKEN" ]; then
   echo "Setting GIT token env var..."
   export GIT_TOKEN="$GIT_TOKEN"
