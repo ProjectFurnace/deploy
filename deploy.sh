@@ -2,7 +2,7 @@
 
 # ARM_SUBSCRIPTION_ID=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2018-10-01" |jq -r .subscriptionId)
 
-ARM_SUBSCRIPTION_ID=$(az login --identity |jq .[0].id)
+ARM_SUBSCRIPTION_ID=$(az login --identity |jq -r .[0].id)
 
 echo "SUBSCRIPTION ID: $ARM_SUBSCRIPTION_ID"
 echo "VAULT NAME: $FURNACE_INSTANCE-vault"
