@@ -1,8 +1,8 @@
 #!/bin/bash
 
-ARM_SUBSCRIPTION_ID=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2018-10-01" |jq -r .subscriptionId)
+# ARM_SUBSCRIPTION_ID=$(curl -s -H Metadata:true "http://169.254.169.254/metadata/instance?api-version=2018-10-01" |jq -r .subscriptionId)
 
-az login --identity
+ARM_SUBSCRIPTION_ID=$(az login --identity |jq .[0].id)
 
 GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name GitToken |jq -r .value)"
 # GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name NpmToken |jq -r .value)"
