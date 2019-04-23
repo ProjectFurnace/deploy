@@ -5,6 +5,7 @@ import * as yaml from "yamljs";
 import * as zipUtils from "@project-furnace/ziputils";
 import merge from "util.merge-packages";
 import { execPromise } from "./Util/ProcessUtil";
+import * as randomstring from "randomstring";
 
 export default abstract class ModuleBuilder {
 
@@ -23,7 +24,7 @@ export default abstract class ModuleBuilder {
 
   async processModule(buildSpec: BuildSpec) {
 
-    const def = this.getModuleDef(buildSpec);
+    const def = await this.getModuleDef(buildSpec);
 
     if (this.modules.includes(def.name)) {
       console.log(`module ${def.name} already built, skipping`);
@@ -80,7 +81,7 @@ export default abstract class ModuleBuilder {
       info,
       templatePath: `${this.templateRepoDir}/${this.platform}-${info.runtime}`,
       codePath: `${moduleRoot}/src`,
-      buildPath: path.join(this.buildPath, name),
+      buildPath: path.join(this.buildPath, name, randomstring.generate(5)),
       buildArtifact: "",
       identifier,
       source,
