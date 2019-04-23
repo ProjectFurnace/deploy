@@ -22,6 +22,11 @@ fi
 
 # clone the code repo
 TMP_DIR="$(node /app/deploy.js)"
+if [ $? -ne 0 ]; then
+  echo "Cloning of code repo failed. Exiting..."
+  exit 1
+fi
+
 # get data from the stack.yaml file
 STATE_REPO="$(node /app/readyaml.js $TMP_DIR/stack.yaml state.repo)"
 STACK_NAME="$(node /app/readyaml.js $TMP_DIR/stack.yaml name)"
