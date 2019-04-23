@@ -4,6 +4,9 @@
 
 ARM_SUBSCRIPTION_ID=$(az login --identity |jq .[0].id)
 
+echo "SUBSCRIPTION ID: $ARM_SUBSCRIPTION_ID"
+echo "VAULT NAME: $FURNACE_INSTANCE-vault"
+
 GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name GitToken |jq -r .value)"
 # GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name NpmToken |jq -r .value)"
 
