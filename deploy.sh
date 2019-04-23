@@ -85,6 +85,8 @@ echo "Initializing stack $STACK_NAME-$STACK_ENV..."
 if pulumi stack init $STACK_NAME-$STACK_ENV; then
   echo "Setting provider to azure"
   pulumi config set cloud:provider azure
+  echo "Setting aws:region to $STACK_REGION"
+  pulumi config set --plaintext aws:region $STACK_REGION
   # check if we have a previous stack config
   if [ -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
     echo "Found previous stack state. Trying to import it..."
