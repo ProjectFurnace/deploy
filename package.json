@@ -3,7 +3,7 @@
   "scripts": {
     "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=test REPO_DIR=./test/fixtures/config/aws TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi preview",
     "dev_azure": "FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=fscratchc REPO_DIR=./test/fixtures/config/azure TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
-    "dev_gcp": "FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test BUILD_BUCKET=fscratchc REPO_DIR=./test/fixtures/config/gcp TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_gcp": "FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test GCLOUD_PROJECT=furnace-scratch BUILD_BUCKET=furnace-scratch REPO_DIR=./test/fixtures/config/gcp TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {
@@ -32,6 +32,7 @@
     "@pulumi/pulumi": "^0.17.1",
     "@types/fs-extra": "^5.0.5",
     "@types/randomstring": "^1.1.6",
+    "@google-cloud/storage": "^2.5.0",
     "azure-storage": "^2.10.2",
     "bignumber.js": "^8.0.1",
     "folder-hash": "^2.1.2",

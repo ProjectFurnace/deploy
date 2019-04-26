@@ -81,7 +81,7 @@ export default abstract class ModuleBuilder {
       info,
       templatePath: `${this.templateRepoDir}/${this.platform}-${info.runtime}`,
       codePath: `${moduleRoot}/src`,
-      buildPath: path.join(this.buildPath, name, randomstring.generate(5)),
+      buildPath: path.join(this.buildPath, name),
       buildArtifact: "",
       identifier,
       source,

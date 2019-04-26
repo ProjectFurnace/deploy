@@ -10,7 +10,14 @@ export default class GcpResourceFactory {
   private static getResourceProvider(type: string) {
 
     const providers: { [key: string]: any } = {
-      "gcp.storage.Bucket": gcp.storage.Bucket
+      "gcp.storage.Bucket": gcp.storage.Bucket,
+      "gcp.storage.BucketObject": gcp.storage.BucketObject,
+      "gcp.cloudfunctions.Function": gcp.cloudfunctions.Function,
+      "gcp.projects.Service": gcp.projects.Service,
+      "gcp.pubsub.Subscription": gcp.pubsub.Subscription,
+      "gcp.pubsub.Topic": gcp.pubsub.Topic,
+      "gcp.kms.KeyRing": gcp.kms.KeyRing,
+      "gcp.kms.CryptoKey": gcp.kms.CryptoKey
     }
 
     const provider = providers[type];

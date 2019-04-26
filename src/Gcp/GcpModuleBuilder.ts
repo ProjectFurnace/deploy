@@ -1,12 +1,16 @@
 import * as path from "path";
 import ModuleBuilderBase from "../ModuleBuilderBase";
-import { execPromise } from "../Util/ProcessUtil";
+const {Storage} = require('@google-cloud/storage');
 
 export default class GcpModuleBuilder extends ModuleBuilderBase {
+
+  storage: any;
 
   constructor(repoDir: string, templateRepoDir: string, bucket: string, platform: string, initConfig: any) {
     super(repoDir, templateRepoDir, bucket, platform, initConfig);
 
+    // Instantiate a storage client
+    this.storage = new Storage();
   }
 
   async preProcess(def: any) {
@@ -27,14 +31,21 @@ export default class GcpModuleBuilder extends ModuleBuilderBase {
       return Promise.resolve();
     } else {
       return new Promise((resolve, reject) => {
-        // upload to bucket
+        this.storage.bucket(bucketName).upload(artifact, {destination: key}, (error:any, file:any, result:any) => {
+          if (error) reject(error)
+          else resolve(result);
+        });
       });
     }
   }
 
   async artifactExists(bucketName: string, key: string): Promise<boolean> {
-    return new Promise((resolve, reject) => {
-      // check exists
-    });
+    // check exists
+    const [files] = await this.storage.bucket(bucketName).getFiles();
+    if (files.indexOf(key) > -1) {
+      return true;
+    } else {
+      return false;
+    }
   }
 }
