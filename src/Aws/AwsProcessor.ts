@@ -33,100 +33,115 @@ export default class AwsProcessor implements PlatformProcessor {
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
 
     const routingResources = this.flows
-      .filter(flow => !["sink", "resource"].includes(flow.component))
+      .filter(flow => !["sink", "resource", "connector"].includes(flow.component))
       .map(flow => this.createRoutingComponent(flow));
 
     const resourceResources = this.flows
       .filter(flow => flow.component === "resource")
       .map(flow => this.createResourceComponent(flow));
 
-    const moduleResources = this.flows
-      .filter(flow => flow.componentType === "Module")
-      .map(flow => {
-        const routingResource = routingResources.find(r => r.name === flow.meta!.source)
-        if (!routingResource) throw new Error(`unable to find routing resource ${flow.meta!.source} in flow ${flow.name}`);
-        return this.createModuleResource(flow, routingResource ,identity.accountId);
-      });   
+    const nativeResources = this.flows
+      .filter(flow => flow.componentType === "NativeResource")
+      .map(flow => this.createNativeResourceComponent(flow));
 
-    return [ 
+    const moduleResources: RegisteredResource[] = [];
+    const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
+
+    for (const component of moduleComponents) {
+
+      const routingResource = routingResources.find(r => r.name === component.meta!.source)
+      if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
+
+      const resources = await this.createModuleResource(component, routingResource, identity.accountId);
+      resources.forEach(resource => moduleResources.push(resource));
+    }
+
+    return [
       ...routingResources,
       ...resourceResources,
+      ...nativeResources,
       ...([] as RegisteredResource[]).concat(...moduleResources) // flatten the moduleResources
     ]
-
   }
 
-  createModuleResource(component: BuildSpec, inputResource: RegisteredResource, accountId: string): Array<RegisteredResource> {
-    
-    const stackName = this.stackConfig.name;
-    const { identifier } = component.meta!;
-    const awsConfig = component.config.aws || {};
+  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
+    return [...([] as RegisteredResource[]).concat(...resources)];
+  }
+
+  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource, accountId: string): Promise<Array<RegisteredResource>> {
+
+    const stackName = this.stackConfig.name
+      , { identifier } = component.meta!
+      , { componentType } = component
+      , awsConfig = component.config.aws || {}
+      , platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
 
     const resources: Array<RegisteredResource> = [];
 
-    const defaultBatchSize = this.stackConfig.platform.aws!.defaultBatchSize || 1
-        , defaultStartingPosition = this.stackConfig.platform.aws!.defaultStartingPosition || "LATEST"
-        ;
+    const defaultBatchSize = platformConfig.defaultBatchSize || 1
+      , defaultStartingPosition = platformConfig.defaultStartingPosition || "LATEST"
+      ;
 
     if (!component.moduleSpec || !component.moduleSpec.runtime) throw new Error(`module component ${component.name} has no runtime set`);
-    
-    const functionRoleResource = this.register(`${identifier}-role`, aws.iam.Role, {
+
+    await this.moduleBuilder!.initialize();
+    const buildDef = await this.moduleBuilder!.processModule(component);
+
+    const s3Key = `${component.module!}/${component.buildSpec!.hash}`
+    await this.moduleBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
+
+    const functionRoleResource = this.register(`${identifier}-role`, componentType, "aws.iam.Role", {
       assumeRolePolicy: JSON.stringify({
-          "Version": "2012-10-17",
-          "Statement": [
-              {
-                  "Action": "sts:AssumeRole",
-                  "Principal": {
-                      "Service": "lambda.amazonaws.com",
-                  },
-                  "Effect":  "Allow",
-                  "Sid": "",
-              },
-          ],
+        "Version": "2012-10-17",
+        "Statement": [
+          {
+            "Action": "sts:AssumeRole",
+            "Principal": {
+              "Service": "lambda.amazonaws.com",
+            },
+            "Effect": "Allow",
+            "Sid": "",
+          },
+        ],
       })
     });
 
     resources.push(functionRoleResource);
+    const role = (functionRoleResource.resource as aws.iam.Role);
 
-    // resources.push(this.register(`${identifier}-policy`, aws.iam.RolePolicy, {
-    //   assumeRolePolicy: JSON.stringify({
-    //       "Version": "2012-10-17",
-    //       "Statement": [
-    //           {
-    //               "Action": "sts:AssumeRole",
-    //               "Principal": {
-    //                   "Service": "lambda.amazonaws.com",
-    //               },
-    //               "Effect":  "Allow",
-    //               "Sid": "",
-    //           },
-    //       ],
-    //   })
-    // }));
+    const rolePolicyDef: aws.iam.RolePolicyArgs = {
+      role: role.id,
+      policy: {
+        Version: "2012-10-17",
+        Statement: [
+          { 
+            Effect: "Allow", 
+            Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], 
+            Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`  
+          },
+          { 
+            Effect: "Allow", 
+            Action: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"],
+            Resource: [`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.source}`, `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`]
+          },
+          {
+            Effect: "Allow",
+            Action: ["ssm:GetParametersByPath"],
+            Resource: [`arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`]
+          }
+        ]
+      }
+    };
+    resources.push(this.register(`${identifier}-policy`, componentType, "aws.iam.RolePolicy", rolePolicyDef));
 
-    // resources.push(AwsUtil.createSimpleIamRolePolicy(, role.id, [
-    //   {
-    //     resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`,
-    //     actions: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"]
-    //   },
-    //   {
-    //     resource: [`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.source}`, `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`],
-    //     actions: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"]
-    //   },
-    //   {
-    //     resource: [`arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`],
-    //     actions: ["ssm:GetParametersByPath"]
-    //   }
-    // ]));
-
-    // if (component.policies) {
-    //   for (let p of component.policies) {
-    //     new aws.iam.RolePolicyAttachment(`${identifier}-${p}`, {
-    //       role,
-    //       policyArn: `arn:aws:iam::aws:policy/${p}`
-    //     })
-    //   }
-    // }
+    if (component.policies) {
+      for (let p of component.policies) {
+        resources.push(this.register(`${identifier}-${p}`, componentType, "aws.iam.RolePolicyAttachment", {
+          role,
+          policyArn: `arn:aws:iam::aws:policy/${p}`
+        } as aws.iam.RolePolicyAttachmentArgs))
+      }
+    }
 
     const variables: { [key: string]: string } = {
       "STACK_NAME": stackName || "unknown",
@@ -145,23 +160,23 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
 
-    resources.push(this.register(identifier, aws.lambda.Function, {
+    resources.push(this.register(identifier, componentType, "aws.lambda.Function", {
       name: identifier,
       handler: "handler.handler",
       role: (functionRoleResource.resource as aws.iam.Role).arn,
       runtime: AwsUtil.runtimeFromString(component.moduleSpec.runtime ? component.moduleSpec.runtime : "nodejs8.10"),
       s3Bucket: this.buildBucket,
-      s3Key: `${component.module}/${component.buildSpec!.hash}`,
+      s3Key,
       environment: { variables }
     }));
 
-    resources.push(this.register(identifier + "-source", aws.lambda.EventSourceMapping, {
-        eventSourceArn: (inputResource.resource as any).arn,
-        functionName: identifier,
-        enabled: true,
-        batchSize: awsConfig.batchSize || defaultBatchSize,
-        startingPosition: awsConfig.startingPosition || defaultStartingPosition,
-      }
+    resources.push(this.register(identifier + "-source", componentType, "aws.lambda.EventSourceMapping", {
+      eventSourceArn: (inputResource.resource as any).arn,
+      functionName: identifier,
+      enabled: true,
+      batchSize: awsConfig.batchSize || defaultBatchSize,
+      startingPosition: awsConfig.startingPosition || defaultStartingPosition,
+    }
     ));
 
     // this.processIOParameters(flow, lambda, createdResources);
@@ -172,14 +187,14 @@ export default class AwsProcessor implements PlatformProcessor {
 
     const name = component.meta!.identifier
       , stackName = this.stackConfig.name
-      , { type, config } = component
+      , { type, config, componentType } = component
       ;
 
-      // TODO: can we wrap secrets into a generic mechanism
+    // TODO: can we wrap secrets into a generic mechanism
     switch (type) {
       case 'aws.redshift.Cluster':
         const secretName = `${process.env.FURNACE_INSTANCE}/${stackName}-${config.masterPasswordSecret}-${this.environment}`;
-        
+
         try {
           // const secret = await AwsUtil.getSecret(secretName);
           // config.masterPassword = secret.SecretString;
@@ -188,16 +203,24 @@ export default class AwsProcessor implements PlatformProcessor {
         }
     }
 
-    const [resource, finalConfig] = AwsResourceFactory.getResource(name, type!, config);
-    return this.register(name, resource, finalConfig);
+    return this.register(name, componentType, type!, config);
+  }
+
+  createNativeResourceComponent(component: BuildSpec): RegisteredResource {
+    const name = component.meta!.identifier
+      , { type, config, componentType } = component
+      ;
+
+
+    return this.register(name, componentType, type!, config);
   }
 
   createRoutingComponent(component: BuildSpec): RegisteredResource {
 
-    const awsConfig = this.stackConfig.platform.aws || {}
-        , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
-        , defaultRoutingShards = awsConfig.defaultRoutingShards || 1
-        ;
+    const awsConfig = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
+      , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
+      , defaultRoutingShards = awsConfig.defaultRoutingShards || 1
+      ;
 
     let name = component.meta && component.meta!.output!
       , mechanism = defaultRoutingMechanism
@@ -207,7 +230,7 @@ export default class AwsProcessor implements PlatformProcessor {
     if (component.component === "source") {
       name = component.meta!.identifier;
       mechanism = component.type || defaultRoutingMechanism;
-      config = component.config.aws || {}
+      config = (component.config && component.config.aws) || {}
     }
 
     if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
@@ -216,25 +239,48 @@ export default class AwsProcessor implements PlatformProcessor {
       if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
     }
 
-    const [resource, finalConfig] = AwsResourceFactory.getResource(name, mechanism, config);
-    return this.register(name, resource, finalConfig);
+    return this.register(name, "Resource", mechanism, config);
   }
 
-  register(name: string, resource: any, config: any): RegisteredResource {
+  register(name: string, componentType: string, type: string, config: any): RegisteredResource {
 
     try {
+      let resource, newConfig;
 
-      const instance = new resource(name, config) as pulumi.CustomResource;
+      switch (componentType) {
+        case "NativeResource":
+          [resource, newConfig] = AwsResourceFactory.getNativeResource(name, type, config);
+          break;
+        default:
+          [resource, newConfig] = AwsResourceFactory.getResource(name, type, config);
+      }
+
+      const instance = new resource(name, newConfig) as pulumi.CustomResource;
+
       return {
         name,
-        type: instance.constructor.name,
+        type,
         resource: instance
       }
     } catch (err) {
-      throw new Error(`unable to create resource ${name}: ${err}`);
+      throw new Error(`unable to create resource ${name} of type ${type}: ${err}`);
     }
   }
 
+  // register(name: string, resource: any, config: any): RegisteredResource {
+
+  //   try {
+
+  //     const instance = new resource(name, config) as pulumi.CustomResource;
+  //     return {
+  //       name,
+  //       type: instance.constructor.name,
+  //       resource: instance
+  //     }
+  //   } catch (err) {
+  //     throw new Error(`unable to create resource ${name}: ${err}`);
+  //   }
+  // }
 }
 
 // processIOParameters(step: Model.FlowSpec, resource: any, createdResources: Map<string, any>) {

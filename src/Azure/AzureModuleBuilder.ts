@@ -38,14 +38,14 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
         direction: 'in',
         name: 'eventInput',
         eventHubName: source,
-        connection: 'inputEventHubConnectionAppSeting'
+        connection: 'inputEventHubConnectionAppSetting'
       },
       {
         type: 'eventHub',
         direction: 'out',
         name: '$return',
         eventHubName: output,
-        connection: 'outputEventHubConnectionAppSeting'
+        connection: 'outputEventHubConnectionAppSetting'
       }
     ]
 
