@@ -24,10 +24,11 @@ export default class GcpProcessor implements PlatformProcessor {
   async preProcess(): Promise<Array<RegisteredResource>> {
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
+    const { project } = this.initialConfig;
 
     // Create a function service. Is it better to do this from the CLI?
     const cloudfunctionsServiceResource = this.register(`${stackName}FS`, "gcp.projects.Service", {
-      project: stackName,
+      project,
       service: "cloudfunctions.googleapis.com",
     });
     resources.push(cloudfunctionsServiceResource);

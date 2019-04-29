@@ -30,15 +30,9 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
         if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
 
         if (!isLocal) {
-            if (!gitRemote) throw new Error(`GIT_REMOTE not set`);
-            if (!gitTag) throw new Error(`GIT_TAG not set`);
-            // if (!gitUsername) throw new Error(`GIT_USERNAME not set`);
-            // if (!gitToken) throw new Error(`GIT_TOKEN not set`);
-
-            //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
-            
+            console.log("pulling templates...")
             await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
-        } else console.log("executing local mode...")
+        } else console.log("executing local mode...");
 
         const processor = new StackProcessor(repoDir, templateRepoDir);
 
