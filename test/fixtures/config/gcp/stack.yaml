@@ -1,4 +1,4 @@
-name: furnace-scratch
+name: fscratch
 platform:
   azure:
     defaultParam: unknown
