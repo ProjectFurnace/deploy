@@ -3,10 +3,12 @@ import * as azure from "@pulumi/azure";
 import * as azurestorage from "azure-storage";
 import * as fs from 'fs';
 import { PlatformProcessor } from "../IPlatformProcessor";
-import { RegisteredResource } from "../Types";
+import { RegisteredResource, ResourceConfig } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import AzureResourceFactory from "./AzureResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
+import VarUtil from "../Util/VarUtil";
+import * as _ from "lodash";
 
 export default class AzureProcessor implements PlatformProcessor {
 
@@ -32,11 +34,12 @@ export default class AzureProcessor implements PlatformProcessor {
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
 
-    const resourceGroupResource = this.register(`${stackName}RG`, "azure.core.ResourceGroup", { location: "WestUS" })
+    const resourceGroupConfig = this.configure(`${stackName}RG`, "azure.core.ResourceGroup", { location: "WestUS" }, 'resource');
+    const resourceGroupResource = this.register(resourceGroupConfig)
     resources.push(resourceGroupResource);
     this.resourceGroup = resourceGroupResource.resource as azure.core.ResourceGroup;
 
-    const eventHubNamespaceResource = this.register(`${stackName}NS`, "azure.eventhub.EventHubNamespace", {
+    const eventHubNamespaceConfig = this.configure(`${stackName}NS`, "azure.eventhub.EventHubNamespace", {
       capacity: 1,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -44,38 +47,44 @@ export default class AzureProcessor implements PlatformProcessor {
       tags: {
         environment: 'Production',
       },
-    });
+    }, 'resource');
+    const eventHubNamespaceResource = this.register(eventHubNamespaceConfig);
+    //TODO: Should we push the event hub also here? Discuss with Danny
+    //resources.push(instantiatedeventHubNamespace);
     this.eventHubNamespace = eventHubNamespaceResource.resource as azure.eventhub.EventHubNamespace;
 
     // create the storage account
-    const storageAccountResource = this.register(`${stackName}sa`, "azure.storage.Account", {
+    const storageAccountConfig = this.configure(`${stackName}sa`, "azure.storage.Account", {
       resourceGroupName: this.resourceGroup.name,
       location: this.resourceGroup.location,
       accountKind: "StorageV2",
       accountTier: "Standard",
       accountReplicationType: "LRS"
-    } as azure.storage.AccountArgs);
+    } as azure.storage.AccountArgs, 'resource');
+    const storageAccountResource = this.register(storageAccountConfig);
     resources.push(storageAccountResource);
     this.storageAccount = storageAccountResource.resource as azure.storage.Account;
 
     // Create a storage container
-    const storageContainerResource = this.register(`${stackName}c`, "azure.storage.Container", {
+    const storageContainerConfig = this.configure(`${stackName}c`, "azure.storage.Container", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       containerAccessType: "private",
-    });
+    }, 'resource');
+    const storageContainerResource = this.register(storageContainerConfig);
     resources.push(storageContainerResource);
     this.storageContainer = storageContainerResource.resource as azure.storage.Container;
 
     // Create an App Service Plan
-    const appServicePlanResource = this.register(`${stackName}Plan`, "azure.appservice.Plan", {
+    const appServicePlanConfig = this.configure(`${stackName}Plan`, "azure.appservice.Plan", {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       sku: {
         size: "S1",
         tier: "Standard",
       },
-    });
+    }, 'resource');
+    const appServicePlanResource = this.register(appServicePlanConfig);
     resources.push(appServicePlanResource);
     this.appservicePlan = appServicePlanResource.resource as azure.appservice.Plan;
 
@@ -90,9 +99,11 @@ export default class AzureProcessor implements PlatformProcessor {
         .map(component => this.createRoutingComponent(component))
     );
 
-    const resourceResources = this.flows
-      .filter(component => component.component === "resource")
-      .map(component => this.register(component.meta!.identifier, component.type!, component.config));
+    const resourceConfigs = this.flows
+    .filter(component => component.component === "resource")
+    .map(component => this.configure(component.meta!.identifier, component.type!, component.config, 'resource'));
+
+    const resourceResources = this.batchRegister(resourceConfigs);
 
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
@@ -142,17 +153,19 @@ export default class AzureProcessor implements PlatformProcessor {
 
     if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
 
-    const eventHubResource = this.register(name, mechanism, config);
+    const eventHubConfig = this.configure(name, mechanism, config, 'resource');
+    const eventHubResource = this.register(eventHubConfig);
     const eventHub = eventHubResource.resource as azure.eventhub.EventHub;
 
-    const eventHubAuthorizationRuleResource = this.register(`${name}-rule`, "azure.eventhub.EventHubAuthorizationRule", {
+    const eventHubAuthorizationRuleConfig = this.configure(`${name}-rule`, "azure.eventhub.EventHubAuthorizationRule", {
       eventhubName: eventHub.name,
       listen: true,
       manage: false,
       namespaceName: this.eventHubNamespace.name,
       resourceGroupName: this.resourceGroup.name,
       send: true,
-    });
+    }, 'resource');
+    const eventHubAuthorizationRuleResource = this.register(eventHubAuthorizationRuleConfig);
 
     return [
       eventHubResource,
@@ -189,7 +202,7 @@ export default class AzureProcessor implements PlatformProcessor {
     const codeBlobUrl = this.signedBlobReadUrl(blobName, this.storageAccount, this.storageContainer);
 
     // Create an App Service Function
-    resources.push(this.register(identifier, "azure.appservice.FunctionApp", {
+    const functionAppConfig = this.configure(identifier, "azure.appservice.FunctionApp", {
       appServicePlanId: this.appservicePlan.id,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -207,7 +220,8 @@ export default class AzureProcessor implements PlatformProcessor {
       siteConfig: {
         alwaysOn: true
       }
-    } as azure.appservice.FunctionAppArgs));
+    } as azure.appservice.FunctionAppArgs, 'module');
+    resources.push(this.register(functionAppConfig));
 
     return resources;
 
@@ -250,26 +264,108 @@ export default class AzureProcessor implements PlatformProcessor {
     return [...([] as RegisteredResource[]).concat(...resources)];
   }
 
-  register(name: string, type: string, config: any): RegisteredResource {
+  configure(name: string, type: string, config: any, scope: string): ResourceConfig {
+    const propertiesWithVars = VarUtil.process(config, scope);
 
+    return {
+      name,
+      type,
+      scope,
+      propertiesWithVars,
+      config
+    }
+  }
+
+  register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
     try {
-
-      const [resource, newConfig] = AzureResourceFactory.getResource(name, type, config);
+      const [provider, newConfig] = AzureResourceFactory.getResource(config.name, config.type, config.config);
 
       if (this.resourceGroup) {
         newConfig.resourceGroupName = this.resourceGroup.name;
         newConfig.location = this.resourceGroup.location;
       }
 
-      const instance = new resource(name, newConfig) as pulumi.CustomResource;
+      const dependencies = [];
+      if (Array.isArray(config.propertiesWithVars) && config.propertiesWithVars.length > 0) {
+        for (const propertyWithVars of config.propertiesWithVars) {
+          const toConcat = [];
+          for (const fragment of propertyWithVars.varParts) {
+            if( VarUtil.isObject(fragment) ) {
+              const dependencyName = `${this.stackConfig.name}-${fragment.resource}-${this.environment}`;
+              const resource = this.findResourceOrConfigByName(dependencyName, registeredResources);
+              if(!resource) {
+                throw new Error(`Dependency resource: ${fragment.resource} not found`);
+              } else {
+                dependencies.push(resource.resource);
+                toConcat.push(_.get(resource.resource, fragment.bindTo, fragment.default));
+              }
+            } else {
+              toConcat.push(fragment);
+            }
+          }
+          _.set(newConfig, propertyWithVars.property, pulumi.concat(...toConcat));
+        }
+      }
+      const instance = new provider(config.name, newConfig, {dependesOn: dependencies}) as pulumi.CustomResource;
 
       return {
-        name,
-        type,
+        name: config.name,
+        type: config.type,
         resource: instance
       }
-    } catch (err) {
-      throw new Error(`unable to create resource ${name} of type ${type}: ${err}`);
+    } catch(err) {
+      throw new Error(`Unable to create resource ${config.name} of type ${config.type}: ${err}`);
     }
+  }
+
+  findResourceOrConfigByName(name: string, items: any[]) {
+    if( items.length > 0 ) {
+      return items.find(item => item.name === name);
+    }
+    return false;
+  }
+
+  batchRegister(configs: ResourceConfig[], existingResources: RegisteredResource[] = [], callingResource: string = '') {
+    let registeredResources:RegisteredResource[] = existingResources;
+    for( const config of configs ) {
+      // check if we have dependencies fot this item
+      if( Array.isArray( config.propertiesWithVars.length ) ) {
+        // if we do, create an array with all resources this item depends on
+        const dependencies = [];
+        for( const propertyWithVars of config.propertiesWithVars ) {
+          // check if the dependency is same as the one that called us and if so, throw and error as we
+          // have a circular dependency issue
+          for( const fragment of propertyWithVars.varParts ) {
+            if( VarUtil.isObject(fragment) ) {
+              if( callingResource && fragment.resource == callingResource )
+                throw new Error(`Circular dependency error: ${callingResource} and ${fragment.resource} depend each on the other`);
+              dependencies.push(fragment.resource);
+            }
+          }
+        }
+        // check if all those dependencies are already registered
+        const pendingRegistrationResources = [];
+        for( const dependency of dependencies ) {
+          const dependencyName = `${this.stackConfig.name}-${dependency}-${this.environment}`;
+          if( !this.findResourceOrConfigByName(dependencyName, registeredResources) ) {
+            pendingRegistrationResources.push(dependency);
+          }
+        }
+        // if not, register the necessary dependencies
+        if( pendingRegistrationResources.length > 0 ) {
+          const pendingConfigs = [];
+          for( const pending of pendingRegistrationResources ) {
+            const resourceConfig = this.findResourceOrConfigByName(pending.name, configs);
+            if( resourceConfig ) {
+              pendingConfigs.push( resourceConfig );
+            }
+          }
+          registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, config.name));
+        }
+      }
+      // finally register the pretinent resource
+      registeredResources.push(this.register(config, registeredResources));
+    }
+    return registeredResources;
   }
 }
