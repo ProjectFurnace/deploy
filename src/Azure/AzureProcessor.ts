@@ -183,7 +183,6 @@ export default class AzureProcessor implements PlatformProcessor {
     const { identifier } = component.meta!;
 
     const blobName = `${component.module!}/${component.buildSpec!.hash}`
-
     await this.moduleBuilder!.uploadArtifcat(this.buildBucket, blobName, buildDef.buildArtifact)
 
     // // Zip the code in the repo and store on container

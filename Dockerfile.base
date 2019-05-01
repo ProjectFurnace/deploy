@@ -1,0 +1,22 @@
+FROM ubuntu:bionic
+
+ENV DEBIAN_FRONTEND=noninteractive
+
+RUN apt-get update && \
+    apt-get install -my \
+        curl \
+        wget \
+        gnupg \
+        git \
+        python-pip \
+        jq \
+        apt-transport-https \
+        lsb-release \
+        gpg
+
+RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
+    apt-get install -y nodejs
+
+RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.17.5
+
+ENV PATH=$PATH:/root/.pulumi/bin

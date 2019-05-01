@@ -38,14 +38,14 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
         direction: 'in',
         name: 'eventInput',
         eventHubName: source,
-        connection: 'inputEventHubConnectionAppSeting'
+        connection: 'inputEventHubConnectionAppSetting'
       },
       {
         type: 'eventHub',
         direction: 'out',
         name: '$return',
         eventHubName: output,
-        connection: 'outputEventHubConnectionAppSeting'
+        connection: 'outputEventHubConnectionAppSetting'
       }
     ]
 
@@ -58,10 +58,10 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
       , tempDir = def.buildPath + "-tmp"
       ;
 
-    fs.moveSync(def.buildPath, tempDir);
+    fs.renameSync(def.buildPath, tempDir);
     fsUtils.mkdir(def.buildPath);
     fsUtils.mkdir(fnDir);
-    fs.moveSync(tempDir, fnDir);
+    fs.renameSync(tempDir, fnDir);
 
     fsUtils.writeFile(path.join(def.buildPath, "host.json"), JSON.stringify({ version: "2.0" }));
     fsUtils.writeFile(path.join(def.buildPath, "extensions.csproj"), `

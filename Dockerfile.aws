@@ -1,0 +1,18 @@
+FROM dannywaite/deploy-base:latest
+
+RUN pip install awscli
+
+WORKDIR /app
+
+ARG NPM_TOKEN  
+#COPY .npmrc .npmrc 
+
+COPY package*.json ./
+
+RUN npm install
+
+#RUN rm -f .npmrc
+
+COPY . .
+
+CMD /app/deploy_aws.sh

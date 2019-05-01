@@ -1,7 +1,4 @@
-name: fscratch2
-platform:
-  azure:
-    defaultParam: unknown
+name: fgen
 state:
   repo: test
 environments:

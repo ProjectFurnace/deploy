@@ -1,0 +1,34 @@
+FROM dannywaite/deploy-base:latest
+
+RUN curl -sL https://packages.microsoft.com/keys/microsoft.asc | \
+    gpg --dearmor | \
+    tee /etc/apt/trusted.gpg.d/microsoft.asc.gpg > /dev/null
+
+RUN AZ_REPO=$(lsb_release -cs) && \
+    echo "deb [arch=amd64] https://packages.microsoft.com/repos/azure-cli/ $AZ_REPO main" | \
+    tee /etc/apt/sources.list.d/azure-cli.list
+
+RUN wget -q https://packages.microsoft.com/config/ubuntu/18.10/packages-microsoft-prod.deb && \
+    dpkg -i packages-microsoft-prod.deb
+
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > microsoft.gpg && \
+    mv microsoft.gpg /etc/apt/trusted.gpg.d/microsoft.gpg
+
+RUN sh -c 'echo "deb [arch=amd64] https://packages.microsoft.com/repos/microsoft-ubuntu-$(lsb_release -cs)-prod $(lsb_release -cs) main" > /etc/apt/sources.list.d/dotnetdev.list'
+
+RUN apt-get update && apt-get install -y azure-cli dotnet-sdk-2.2 azure-functions-core-tools
+
+WORKDIR /app
+
+ARG NPM_TOKEN  
+#COPY .npmrc .npmrc 
+
+COPY package*.json ./
+
+RUN npm install
+
+#RUN rm -f .npmrc
+
+COPY . .
+
+CMD /app/deploy_azure.sh

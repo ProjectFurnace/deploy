@@ -3,3 +3,4 @@
 .env
 Pulumi*.yaml
 .DS_Store
+/env/*

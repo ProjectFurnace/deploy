@@ -1,0 +1,5 @@
+- tap: mytap
+  pipeline: enrichment
+
+- pipeline: enrichment
+  sink: dummy

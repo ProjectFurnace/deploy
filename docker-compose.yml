@@ -2,10 +2,13 @@ version: "3"
 
 services:
   deploy:
+    volumes:
+      - ./test/fixtures/config/azure:/furnace/stack
+      - ./test/fixtures/templates:/furnace/templates
     env_file:
-      - .env
+      - env/azure.env
     build:
       context: .
-      args:
-        NPM_TOKEN: abc
+      # args:
+
 
