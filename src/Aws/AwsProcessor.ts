@@ -33,7 +33,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
 
     const routingResources = this.flows
-      .filter(flow => !["sink", "resource", "connector"].includes(flow.component))
+      .filter(flow => !["sink", "resource", "connector", "function"].includes(flow.component))
       .map(flow => this.createRoutingComponent(flow));
 
     const resourceResources = this.flows
@@ -50,7 +50,7 @@ export default class AwsProcessor implements PlatformProcessor {
     for (const component of moduleComponents) {
 
       const routingResource = routingResources.find(r => r.name === component.meta!.source)
-      if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
+      if (!routingResource && component.component !== "function") throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
 
       const resources = await this.createModuleResource(component, routingResource, identity.accountId);
       resources.forEach(resource => moduleResources.push(resource));
@@ -68,7 +68,7 @@ export default class AwsProcessor implements PlatformProcessor {
     return [...([] as RegisteredResource[]).concat(...resources)];
   }
 
-  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource, accountId: string): Promise<Array<RegisteredResource>> {
+  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<Array<RegisteredResource>> {
 
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
@@ -150,7 +150,7 @@ export default class AwsProcessor implements PlatformProcessor {
     };
 
     for (let param of component.parameters) {
-      variables[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1];
+      variables[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1]; 
     }
 
     if (component.component !== "sink") {
@@ -170,14 +170,16 @@ export default class AwsProcessor implements PlatformProcessor {
       environment: { variables }
     }));
 
-    resources.push(this.register(identifier + "-source", componentType, "aws.lambda.EventSourceMapping", {
-      eventSourceArn: (inputResource.resource as any).arn,
-      functionName: identifier,
-      enabled: true,
-      batchSize: awsConfig.batchSize || defaultBatchSize,
-      startingPosition: awsConfig.startingPosition || defaultStartingPosition,
+    if (inputResource) {  
+      resources.push(this.register(identifier + "-source", componentType, "aws.lambda.EventSourceMapping", {
+        eventSourceArn: (inputResource.resource as any).arn,
+        functionName: identifier,
+        enabled: true,
+        batchSize: awsConfig.batchSize || defaultBatchSize,
+        startingPosition: awsConfig.startingPosition || defaultStartingPosition,
+      }
+      ));
     }
-    ));
 
     // this.processIOParameters(flow, lambda, createdResources);
     return resources;

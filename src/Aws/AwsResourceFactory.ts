@@ -19,7 +19,8 @@ export default class AwsResourceFactory {
       "aws.iam.Role": aws.iam.Role,
       "aws.iam.RolePolicy": aws.iam.RolePolicy,
       "aws.lambda.Function": aws.lambda.Function,
-      "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping
+      "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping,
+      "awsx.apigateway.API": awsx.apigateway.API
     }
 
     const provider = providers[type];
@@ -57,7 +58,6 @@ export default class AwsResourceFactory {
           },
           ...finalConfig
         } as awsx.ecs.FargateServiceArgs ];
-        break;
       default:
         throw new Error(`unable native resource type ${type}`);
     }
