@@ -39,9 +39,9 @@ export default class VarUtil {
         if (varStart > pos + 1) {
           bits.push(variable.substring(pos + 1, varStart));
         }
-        const varParts = this.VAR_MATCH.exec(variable.substr(varStart, varEnd));
+        const varParts = VarUtil.VAR_MATCH.exec(variable.substr(varStart, varEnd));
         if (!varParts) {
-          throw Error('Cannot decode variable format');
+          throw Error(`Cannot decode variable format: ${variable}`);
         }
         bits.push({
           scope: (varParts[1] !== undefined ? varParts[1] : scope),
