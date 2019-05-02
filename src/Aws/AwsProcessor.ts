@@ -89,6 +89,11 @@ export default class AwsProcessor implements PlatformProcessor {
     const s3Key = `${component.module!}/${component.buildSpec!.hash}`
     await this.moduleBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
 
+    // TODO: use role helper below
+  //   const role = new aws.iam.Role("mylambda-role", {
+  //     assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({ "Service": ["lambda.amazonaws.com"] }),
+  // });
+
     const functionRoleResource = this.register(`${identifier}-role`, componentType, "aws.iam.Role", {
       assumeRolePolicy: JSON.stringify({
         "Version": "2012-10-17",

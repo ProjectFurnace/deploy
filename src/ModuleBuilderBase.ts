@@ -48,14 +48,16 @@ export default abstract class ModuleBuilder {
 
   async preProcess(def: any) {
     //TODO: We should check that there won't be any files from the module overwritten by the template and viceversa
-    fsUtils.cp(def.templatePath, def.buildPath);
+    console.log(`preProcessing ${def.name} ${def.eventType}`)
+    if (def.eventType !== "raw") {
+      // if eventType is raw, we don't copy over a template
+
+      fsUtils.cp(def.templatePath, def.buildPath);
+    }
     fsUtils.cp(def.codePath, def.buildPath);
   }
 
-
-  async postBuild(def: any) {
-
-  }
+  async postBuild(def: any) {}
 
   getModuleDef(buildSpec: BuildSpec): any {
 
@@ -70,7 +72,8 @@ export default abstract class ModuleBuilder {
 
     const info = yaml.load(infoPath);;
 
-    const { identifier, source, output } = buildSpec.meta!
+    const { identifier, source, output } = buildSpec.meta!;
+    const { eventType } = buildSpec.moduleSpec;
 
     let def = {
       name,
@@ -85,13 +88,13 @@ export default abstract class ModuleBuilder {
       buildArtifact: "",
       identifier,
       source,
-      output
+      output,
+      eventType
     };
 
     def.buildArtifact = def.buildPath + ".zip"
 
     return def;
-  
   }
 
   async buildModule(def: any) {
@@ -125,63 +128,61 @@ export default abstract class ModuleBuilder {
 
   async buildNode(name: string, buildPath: string) {
 
-    try
-    {
-        if (process.env.NPM_TOKEN) { 
-            const npmrc = "//registry.npmjs.org/:_authToken=${NPM_TOKEN}";
-            fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
-        }
+    try {
+      if (process.env.NPM_TOKEN) {
+        const npmrc = "//registry.npmjs.org/:_authToken=${NPM_TOKEN}";
+        fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
+      }
 
-        console.log(`building ${name} in ${buildPath}`);
+      console.log(`building ${name} in ${buildPath}`);
 
-        const execResult = await execPromise("npm install --production", 
-            { cwd: buildPath, env: process.env });
+      const execResult = await execPromise("npm install --production",
+        { cwd: buildPath, env: process.env });
 
-        if (execResult.stderr) {
-            throw new Error(`npm install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
-        }
-        
+      if (execResult.stderr) {
+        throw new Error(`npm install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
+      }
+
     } catch (err) {
-        throw new Error(`unable to build module ${name}: ${err}`)
+      throw new Error(`unable to build module ${name}: ${err}`)
     }
-    
-}
+
+  }
 
   async buildPython(name: string, buildPath: string) {
 
-    try
-    {
-        console.log(`building ${name} in ${buildPath}`);
+    try {
+      console.log(`building ${name} in ${buildPath}`);
 
-        if( fsUtils.exists(path.join(buildPath, 'requirements.txt')) ) {
-            console.log('installing dependencies...')
-            const execResult = await execPromise("pip install -r requirements.txt -t .", 
-                { cwd: buildPath, env: process.env });
+      if (fsUtils.exists(path.join(buildPath, 'requirements.txt'))) {
+        console.log('installing dependencies...')
+        const execResult = await execPromise("pip install -r requirements.txt -t .",
+          { cwd: buildPath, env: process.env });
 
-            if (execResult.stderr) {
-                throw new Error(`pip install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
-            }
-        } else {
-            console.log('no requirements.txt file. skipping pip install.')
+        if (execResult.stderr) {
+          throw new Error(`pip install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
         }
-        
+      } else {
+        console.log('no requirements.txt file. skipping pip install.')
+      }
+
     } catch (err) {
-        throw new Error(`unable to build module ${name}: ${err}`)
+      throw new Error(`unable to build module ${name}: ${err}`)
     }
-    
-}
 
-abstract async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any>;
+  }
 
-validateModuleMetadata(moduleDef: any) {
+  abstract async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any>;
+
+  validateModuleMetadata(moduleDef: any) {
     let errors = [];
 
     //TODO: more validation required
     if (!moduleDef.info.runtime) {
-        errors.push(`runtime must be specified in the module definition file`)
+      errors.push(`runtime must be specified in the module definition file`)
     }
 
     return errors;
-}
+  }
 
 }

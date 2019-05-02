@@ -68,6 +68,16 @@ export default class AwsResourceFactory {
 
     switch (type) {
       case "awsx.apigateway.API":
+        console.log("got config", newConfig.routes[0].authorizers2);
+        if (newConfig.createAssociatedAPIKeys) {
+          // const apikeys = awsx.apigateway.createAssociatedAPIKeys("my-api-keys", {
+          //   apis: [api],
+          //   apiKeys: [{
+          //       name: "test-key",
+          //   }],
+          // });
+        }
+
         for (let route of newConfig.routes) {
           if (!route.function) throw new Error(`function property must be set on route for resource type ${type}`);
           route.eventHandler = aws.lambda.Function.get("func", route.function);
