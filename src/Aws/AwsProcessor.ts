@@ -1,17 +1,21 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import AwsValidator from "../Validation/AwsValidator";
 import AwsUtil from "../Util/AwsUtil";
 import { PlatformProcessor } from "../IPlatformProcessor";
-import { Source, BuildSpec, SourceType, Stack } from "@project-furnace/stack-processor/src/Model";
-import { RegisteredResource } from "../Types";
+import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
+import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
+import ResourceUtil from "../Util/ResourceUtil";
+import { BatchGetResourceConfigRequest } from "aws-sdk/clients/configservice";
 
 export default class AwsProcessor implements PlatformProcessor {
 
+  resourceUtil: ResourceUtil;
+  readonly PLATFORM: string = 'aws';
+
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
+    this.resourceUtil = new ResourceUtil(this.stackConfig.name, this.environment, this.PLATFORM);
   }
 
   validate() {
@@ -36,38 +40,47 @@ export default class AwsProcessor implements PlatformProcessor {
       .filter(flow => !["sink", "resource", "connector", "function"].includes(flow.component))
       .map(flow => this.createRoutingComponent(flow));
 
-    const resourceResources = this.flows
+    const resourceConfigs = this.flows
       .filter(flow => flow.component === "resource")
       .map(flow => this.createResourceComponent(flow));
 
-    const nativeResources = this.flows
+    const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => this.createNativeResourceComponent(flow));
 
+    const functionConfigs = this.flows
+      .filter(flow => flow.component === "function")
+      .map(flow => this.createResourceComponent(flow));
+
+    resourceConfigs.push(...nativeResourceConfigs);
+    resourceConfigs.push(...functionConfigs);
+  
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
+
+    let pendingModuleConfigs:ResourceConfig[] = [];
+    let resources;
 
     for (const component of moduleComponents) {
       const routingResource = routingResources.find(r => r.name === component.meta!.source)
       if (!routingResource && component.component !== "function") throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
 
-      const resources = await this.createModuleResource(component, routingResource, identity.accountId);
+      [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResource, identity.accountId);
       resources.forEach(resource => moduleResources.push(resource));
     }
+
+    resourceConfigs.push(...pendingModuleConfigs);
+
+    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
     return [
       ...routingResources,
       ...resourceResources,
-      ...nativeResources,
       ...([] as RegisteredResource[]).concat(...moduleResources) // flatten the moduleResources
     ]
   }
 
-  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
-    return [...([] as RegisteredResource[]).concat(...resources)];
-  }
-
-  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<Array<RegisteredResource>> {
+  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
 
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
@@ -76,6 +89,7 @@ export default class AwsProcessor implements PlatformProcessor {
       , platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
 
     const resources: Array<RegisteredResource> = [];
+    const resourceConfigs: Array<ResourceConfig> = [];
 
     const defaultBatchSize = platformConfig.defaultBatchSize || 1
       , defaultStartingPosition = platformConfig.defaultStartingPosition || "LATEST"
@@ -89,7 +103,11 @@ export default class AwsProcessor implements PlatformProcessor {
     const s3Key = `${component.module!}/${component.buildSpec!.hash}`
     await this.moduleBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
 
-    const functionRoleResource = this.register(`${identifier}-role`, componentType, "aws.iam.Role", {
+  // TODO: use role helper below
+  //   const role = new aws.iam.Role("mylambda-role", {
+  //     assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({ "Service": ["lambda.amazonaws.com"] }),
+  // });
+    const functionRoleConfig = this.resourceUtil.configure(`${identifier}-role`, "aws.iam.Role", {
       assumeRolePolicy: JSON.stringify({
         "Version": "2012-10-17",
         "Statement": [
@@ -103,7 +121,8 @@ export default class AwsProcessor implements PlatformProcessor {
           },
         ],
       })
-    });
+    }, 'resource');
+    const functionRoleResource = this.resourceUtil.register(functionRoleConfig);
 
     resources.push(functionRoleResource);
     const role = (functionRoleResource.resource as aws.iam.Role);
@@ -131,14 +150,16 @@ export default class AwsProcessor implements PlatformProcessor {
         ]
       }
     };
-    resources.push(this.register(`${identifier}-policy`, componentType, "aws.iam.RolePolicy", rolePolicyDef));
+    const rolePolicyConf = this.resourceUtil.configure(`${identifier}-policy`, "aws.iam.RolePolicy", rolePolicyDef, 'resource');
+    resources.push(this.resourceUtil.register(rolePolicyConf));
 
     if (component.policies) {
       for (let p of component.policies) {
-        resources.push(this.register(`${identifier}-${p}`, componentType, "aws.iam.RolePolicyAttachment", {
+        const rolePolicyAttachResourceConfig = this.resourceUtil.configure(`${identifier}-${p}`, "aws.iam.RolePolicyAttachment", {
           role,
           policyArn: `arn:aws:iam::aws:policy/${p}`
-        } as aws.iam.RolePolicyAttachmentArgs))
+        } as aws.iam.RolePolicyAttachmentArgs, 'resource');
+        resources.push(this.resourceUtil.register(rolePolicyAttachResourceConfig));
       }
     }
 
@@ -159,7 +180,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
 
-    resources.push(this.register(identifier, componentType, "aws.lambda.Function", {
+    resourceConfigs.push(this.resourceUtil.configure(identifier, "aws.lambda.Function", {
       name: identifier,
       handler: "handler.handler",
       role: (functionRoleResource.resource as aws.iam.Role).arn,
@@ -167,24 +188,25 @@ export default class AwsProcessor implements PlatformProcessor {
       s3Bucket: this.buildBucket,
       s3Key,
       environment: { variables }
-    }));
+    }, 'module'));
+    //resources.push(this.resourceUtil.register(lambdaResourceConfig));
 
     if (inputResource) {  
-      resources.push(this.register(identifier + "-source", componentType, "aws.lambda.EventSourceMapping", {
+      resourceConfigs.push(this.resourceUtil.configure(identifier + "-source", "aws.lambda.EventSourceMapping", {
         eventSourceArn: (inputResource.resource as any).arn,
         functionName: identifier,
         enabled: true,
         batchSize: awsConfig.batchSize || defaultBatchSize,
         startingPosition: awsConfig.startingPosition || defaultStartingPosition,
-      }
-      ));
+      }, 'resource'));
+      //resources.push(this.resourceUtil.register(eventSourceMappingResourceConfig));
     }
 
     // this.processIOParameters(flow, lambda, createdResources);
-    return resources;
+    return [resources, resourceConfigs];
   }
 
-  createResourceComponent(component: BuildSpec): RegisteredResource {
+  createResourceComponent(component: BuildSpec): ResourceConfig {
     const name = component.meta!.identifier
         , stackName = this.stackConfig.name
         , { type, config, componentType } = component
@@ -203,15 +225,16 @@ export default class AwsProcessor implements PlatformProcessor {
           throw new Error(`unable to find secret ${secretName} specified in resource ${name}`);
         }
     }
-    return this.register(name, componentType, type!, finalConfig);
+
+    return this.resourceUtil.configure(name, type!, finalConfig, 'resource', {}, componentType);
   }
 
-  createNativeResourceComponent(component: BuildSpec): RegisteredResource {
+  createNativeResourceComponent(component: BuildSpec): ResourceConfig {
     const name = component.meta!.identifier
       , { type, config, componentType } = component
       ;
 
-    return this.register(name, componentType, type!, config);
+    return this.resourceUtil.configure(name, type!, config, 'resource', {}, componentType);
   }
 
   createRoutingComponent(component: BuildSpec): RegisteredResource {
@@ -237,49 +260,9 @@ export default class AwsProcessor implements PlatformProcessor {
       if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
     }
 
-    return this.register(name, "Resource", mechanism, config);
+    const routingComponentConfig = this.resourceUtil.configure(name, mechanism, config, 'resource');
+    return this.resourceUtil.register(routingComponentConfig);
   }
-
-  register(name: string, componentType: string, type: string, config: any): RegisteredResource {
-
-    try {
-      let resource, newConfig;
-
-      switch (componentType) {
-        case "NativeResource":
-          [resource, newConfig] = AwsResourceFactory.getNativeResource(name, type, config);
-          break;
-        default:
-          [resource, newConfig] = AwsResourceFactory.getResource(name, type, config);
-      }
-
-      const instance = new resource(name, newConfig) as pulumi.CustomResource;
-
-      return {
-        name,
-        type,
-        resource: instance
-      }
-    } catch (err) {
-      throw new Error(`unable to create resource ${name} of type ${type}: ${err}`);
-    }
-  }
-
-  // register(name: string, resource: any, config: any): RegisteredResource {
-
-  //   try {
-
-  //     const instance = new resource(name, config) as pulumi.CustomResource;
-  //     return {
-  //       name,
-  //       type: instance.constructor.name,
-  //       resource: instance
-  //     }
-  //   } catch (err) {
-  //     throw new Error(`unable to create resource ${name}: ${err}`);
-  //   }
-  // }
-}
 
 // processIOParameters(step: Model.FlowSpec, resource: any, createdResources: Map<string, any>) {
 //   // check if the step has any inputs defined and if so, store them in SSM parameter store
@@ -300,3 +283,5 @@ export default class AwsProcessor implements PlatformProcessor {
 // }
 //   }
 // }
+
+}
