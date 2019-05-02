@@ -4,6 +4,8 @@ export type ResourceConfig = {
   name: string
   type: string
   scope: string
+  options: any
+  componentType: string
   propertiesWithVars: any[]
   config: any
 }

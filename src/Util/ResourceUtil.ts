@@ -7,6 +7,16 @@ import AwsResourceFactory from "../Aws/AwsResourceFactory";
 import GcpResourceFactory from "../Gcp/GcpResourceFactory";
 
 export default class ResourceUtil {
+  constructor(private stackName: string, private environment: string, private platform: string) {
+    this.validate();
+  }
+
+  validate() {
+    if (!this.stackName) throw new Error("stackName must be set");
+    if (!this.environment) throw new Error("environment must be set");
+    if (!this.platform) throw new Error("platform must be set");
+  }
+
   static findResourceOrConfigByName(name: string, items: any[]) {
     if( items.length > 0 ) {
       return items.find(item => item.name === name);
@@ -14,13 +24,15 @@ export default class ResourceUtil {
     return false;
   }
 
-  static configure(name: string, type: string, config: any, scope: string): ResourceConfig {
+  configure(name: string, type: string, config: any, scope: string, options: any = {}, componentType: string = 'Resource', ): ResourceConfig {
     const propertiesWithVars = VarUtil.process(config, scope);
 
     return {
       name,
       type,
       scope,
+      options,
+      componentType,
       propertiesWithVars,
       config
     }
@@ -30,15 +42,15 @@ export default class ResourceUtil {
     return [...([] as RegisteredResource[]).concat(...resources)];
   }
 
-  static register(config: ResourceConfig, platform: string, platformConfig: any, stackName: string, environment: string, registeredResources:RegisteredResource[] = [], resourceOptions:any = {}) {
+  register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
     try {
 
       let provider, newConfig;
 
       // create provider and newConfig based on the platform we are working on
-      switch (platform) {
+      switch (this.platform) {
         case "aws":
-          switch (platformConfig.componentType) {
+          switch (config.componentType) {
             case "NativeResource":
               [provider, newConfig] = AwsResourceFactory.getNativeResource(config.name, config.type, config.config);
               break;
@@ -49,9 +61,9 @@ export default class ResourceUtil {
   
         case "azure":
           [provider, newConfig] = AzureResourceFactory.getResource(config.name, config.type, config.config);
-          if (platformConfig.resourceGroup) {
-            newConfig.resourceGroupName = platformConfig.resourceGroup.name;
-            newConfig.location = platformConfig.resourceGroup.location;
+          if (config.options.resourceGroup) {
+            newConfig.resourceGroupName = config.options.resourceGroup.name;
+            newConfig.location = config.options.resourceGroup.location;
           }
           break;
   
@@ -60,7 +72,7 @@ export default class ResourceUtil {
           break;
   
         default:
-          throw new Error(`unable to get resource factory for '${platform}'`)
+          throw new Error(`unable to get resource factory for '${this.platform}'`)
       }
 
       const dependencies = [];
@@ -71,8 +83,8 @@ export default class ResourceUtil {
           let isObjectBind = false;
           for (const fragment of propertyWithVars.varParts) {
             if( VarUtil.isObject(fragment) ) {
-              const dependencyName = `${stackName}-${fragment.resource}-${environment}`;
-              const resource = this.findResourceOrConfigByName(dependencyName, registeredResources);
+              const dependencyName = `${this.stackName}-${fragment.resource}-${this.environment}`;
+              const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
               if(!resource) {
                 throw new Error(`Dependency resource: ${fragment.resource} not found`);
               } else {
@@ -97,7 +109,8 @@ export default class ResourceUtil {
           }
         }
       }
-      const instance = new provider(config.name, newConfig, _.merge({dependesOn: dependencies}, resourceOptions)) as pulumi.CustomResource;
+      
+      const instance = new provider(config.name, newConfig, _.merge({dependesOn: dependencies}, (config.options.options ? config.options.options : {}) )) as pulumi.CustomResource;
 
       return {
         name: config.name,
@@ -109,7 +122,7 @@ export default class ResourceUtil {
     }
   }
 
-  static batchRegister(configs: ResourceConfig[], platform: string, platformConfig: any, stackName: string, environment: string, existingResources: RegisteredResource[] = [], callingResource: string = '') {
+  batchRegister(configs: ResourceConfig[], existingResources: RegisteredResource[] = [], callingResource: string = '') {
     let registeredResources:RegisteredResource[] = existingResources;
     for( const config of configs ) {
       // check if we have dependencies fot this item
@@ -130,8 +143,8 @@ export default class ResourceUtil {
         // check if all those dependencies are already registered
         const pendingRegistrationResources = [];
         for( const dependency of dependencies ) {
-          const dependencyName = `${stackName}-${dependency}-${environment}`;
-          if( !this.findResourceOrConfigByName(dependencyName, registeredResources) ) {
+          const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
+          if( !ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources) ) {
             pendingRegistrationResources.push(dependency);
           }
         }
@@ -139,16 +152,16 @@ export default class ResourceUtil {
         if( pendingRegistrationResources.length > 0 ) {
           const pendingConfigs = [];
           for( const pending of pendingRegistrationResources ) {
-            const resourceConfig = this.findResourceOrConfigByName(pending.name, configs);
+            const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending.name, configs);
             if( resourceConfig ) {
               pendingConfigs.push( resourceConfig );
             }
           }
-          registeredResources.push(...this.batchRegister(pendingConfigs, platform, platformConfig, stackName, environment, registeredResources, config.name));
+          registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, config.name));
         }
       }
       // finally register the pretinent resource
-      registeredResources.push(this.register(config, platform, platformConfig, stackName, environment, registeredResources));
+      registeredResources.push(this.register(config, registeredResources));
     }
     return registeredResources;
   }

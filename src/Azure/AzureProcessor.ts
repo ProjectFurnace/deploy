@@ -15,10 +15,12 @@ export default class AzureProcessor implements PlatformProcessor {
   storageAccount: azure.storage.Account;
   storageContainer: azure.storage.Container;
   appservicePlan: azure.appservice.Plan;
+  resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'azure';
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
+    this.resourceUtil = new ResourceUtil(this.stackConfig.name, this.environment, this.PLATFORM);
   }
 
   validate() {
@@ -33,12 +35,12 @@ export default class AzureProcessor implements PlatformProcessor {
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
 
-    const resourceGroupConfig = ResourceUtil.configure(`${stackName}RG`, "azure.core.ResourceGroup", { location: "WestUS" }, 'resource');
-    const resourceGroupResource = ResourceUtil.register(resourceGroupConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}RG`, "azure.core.ResourceGroup", { location: "WestUS" }, 'resource');
+    const resourceGroupResource = this.resourceUtil.register(resourceGroupConfig);
     resources.push(resourceGroupResource);
     this.resourceGroup = resourceGroupResource.resource as azure.core.ResourceGroup;
 
-    const eventHubNamespaceConfig = ResourceUtil.configure(`${stackName}NS`, "azure.eventhub.EventHubNamespace", {
+    const eventHubNamespaceConfig = this.resourceUtil.configure(`${stackName}NS`, "azure.eventhub.EventHubNamespace", {
       capacity: 1,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -46,44 +48,44 @@ export default class AzureProcessor implements PlatformProcessor {
       tags: {
         environment: 'Production',
       },
-    }, 'resource');
-    const eventHubNamespaceResource = ResourceUtil.register(eventHubNamespaceConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    }, 'resource', {resourceGroup: this.resourceGroup});
+    const eventHubNamespaceResource = this.resourceUtil.register(eventHubNamespaceConfig);
     //TODO: Should we push the event hub also here? Discuss with Danny
     //resources.push(instantiatedeventHubNamespace);
     this.eventHubNamespace = eventHubNamespaceResource.resource as azure.eventhub.EventHubNamespace;
 
     // create the storage account
-    const storageAccountConfig = ResourceUtil.configure(`${stackName}sa`, "azure.storage.Account", {
+    const storageAccountConfig = this.resourceUtil.configure(`${stackName}sa`, "azure.storage.Account", {
       resourceGroupName: this.resourceGroup.name,
       location: this.resourceGroup.location,
       accountKind: "StorageV2",
       accountTier: "Standard",
       accountReplicationType: "LRS"
-    } as azure.storage.AccountArgs, 'resource');
-    const storageAccountResource = ResourceUtil.register(storageAccountConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    } as azure.storage.AccountArgs, 'resource', {resourceGroup: this.resourceGroup});
+    const storageAccountResource = this.resourceUtil.register(storageAccountConfig);
     resources.push(storageAccountResource);
     this.storageAccount = storageAccountResource.resource as azure.storage.Account;
 
     // Create a storage container
-    const storageContainerConfig = ResourceUtil.configure(`${stackName}c`, "azure.storage.Container", {
+    const storageContainerConfig = this.resourceUtil.configure(`${stackName}c`, "azure.storage.Container", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       containerAccessType: "private",
-    }, 'resource');
-    const storageContainerResource = ResourceUtil.register(storageContainerConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    }, 'resource', {resourceGroup: this.resourceGroup});
+    const storageContainerResource = this.resourceUtil.register(storageContainerConfig);
     resources.push(storageContainerResource);
     this.storageContainer = storageContainerResource.resource as azure.storage.Container;
 
     // Create an App Service Plan
-    const appServicePlanConfig = ResourceUtil.configure(`${stackName}Plan`, "azure.appservice.Plan", {
+    const appServicePlanConfig = this.resourceUtil.configure(`${stackName}Plan`, "azure.appservice.Plan", {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       sku: {
         size: "S1",
         tier: "Standard",
       },
-    }, 'resource');
-    const appServicePlanResource = ResourceUtil.register(appServicePlanConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    }, 'resource', {resourceGroup: this.resourceGroup});
+    const appServicePlanResource = this.resourceUtil.register(appServicePlanConfig);
     resources.push(appServicePlanResource);
     this.appservicePlan = appServicePlanResource.resource as azure.appservice.Plan;
 
@@ -100,9 +102,9 @@ export default class AzureProcessor implements PlatformProcessor {
 
     const resourceConfigs = this.flows
     .filter(component => component.component === "resource")
-    .map(component => ResourceUtil.configure(component.meta!.identifier, component.type!, component.config, 'resource'));
+    .map(component => this.resourceUtil.configure(component.meta!.identifier, component.type!, component.config, 'resource', {resourceGroup: this.resourceGroup}));
 
-    const resourceResources = ResourceUtil.batchRegister(resourceConfigs, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
@@ -152,19 +154,19 @@ export default class AzureProcessor implements PlatformProcessor {
 
     if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
 
-    const eventHubConfig = ResourceUtil.configure(name, mechanism, config, 'resource');
-    const eventHubResource = ResourceUtil.register(eventHubConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    const eventHubConfig = this.resourceUtil.configure(name, mechanism, config, 'resource', {resourceGroup: this.resourceGroup});
+    const eventHubResource = this.resourceUtil.register(eventHubConfig);
     const eventHub = eventHubResource.resource as azure.eventhub.EventHub;
 
-    const eventHubAuthorizationRuleConfig = ResourceUtil.configure(`${name}-rule`, "azure.eventhub.EventHubAuthorizationRule", {
+    const eventHubAuthorizationRuleConfig = this.resourceUtil.configure(`${name}-rule`, "azure.eventhub.EventHubAuthorizationRule", {
       eventhubName: eventHub.name,
       listen: true,
       manage: false,
       namespaceName: this.eventHubNamespace.name,
       resourceGroupName: this.resourceGroup.name,
       send: true,
-    }, 'resource');
-    const eventHubAuthorizationRuleResource = ResourceUtil.register(eventHubAuthorizationRuleConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment);
+    }, 'resource', {resourceGroup: this.resourceGroup});
+    const eventHubAuthorizationRuleResource = this.resourceUtil.register(eventHubAuthorizationRuleConfig);
 
     return [
       eventHubResource,
@@ -185,7 +187,7 @@ export default class AzureProcessor implements PlatformProcessor {
     await this.moduleBuilder!.uploadArtifcat(this.buildBucket, blobName, buildDef.buildArtifact)
 
     // // Zip the code in the repo and store on container
-    // const blobResource = ResourceUtil.register(blobName, "azure.storage.ZipBlob", {
+    // const blobResource = this.resourceUtil.register(blobName, "azure.storage.ZipBlob", {
     //   resourceGroupName: this.resourceGroup.name,
     //   storageAccountName: this.storageAccount.name,
     //   storageContainerName: this.storageContainer.name,
@@ -201,7 +203,7 @@ export default class AzureProcessor implements PlatformProcessor {
     const codeBlobUrl = this.signedBlobReadUrl(blobName, this.storageAccount, this.storageContainer);
 
     // Create an App Service Function
-    const functionAppConfig = ResourceUtil.configure(identifier, "azure.appservice.FunctionApp", {
+    const functionAppConfig = this.resourceUtil.configure(identifier, "azure.appservice.FunctionApp", {
       appServicePlanId: this.appservicePlan.id,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -219,8 +221,8 @@ export default class AzureProcessor implements PlatformProcessor {
       siteConfig: {
         alwaysOn: true
       }
-    } as azure.appservice.FunctionAppArgs, 'module');
-    resources.push(ResourceUtil.register(functionAppConfig, this.PLATFORM, {resourceGroup: this.resourceGroup}, this.stackConfig.name, this.environment));
+    } as azure.appservice.FunctionAppArgs, 'module', {resourceGroup: this.resourceGroup});
+    resources.push(this.resourceUtil.register(functionAppConfig));
 
     return resources;
 
