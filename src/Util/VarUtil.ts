@@ -34,7 +34,7 @@ export default class VarUtil {
     while (pos < variable.length) {
       const varStart = variable.indexOf('${', pos);
       if (varStart !== -1) {
-        const varEnd = variable.indexOf('}', varStart);
+        const varEnd = variable.indexOf('}', varStart) + 1;
         if (varEnd === -1) {
           throw Error('Variable close not found');
         }
