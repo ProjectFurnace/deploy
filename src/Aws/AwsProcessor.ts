@@ -6,6 +6,7 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
+import { BatchGetResourceConfigRequest } from "aws-sdk/clients/configservice";
 
 export default class AwsProcessor implements PlatformProcessor {
 
@@ -53,19 +54,24 @@ export default class AwsProcessor implements PlatformProcessor {
 
     resourceConfigs.push(...nativeResourceConfigs);
     resourceConfigs.push(...functionConfigs);
-
-    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
   
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
+
+    let pendingModuleConfigs:ResourceConfig[] = [];
+    let resources;
 
     for (const component of moduleComponents) {
       const routingResource = routingResources.find(r => r.name === component.meta!.source)
       if (!routingResource && component.component !== "function") throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
 
-      const resources = await this.createModuleResource(component, routingResource, identity.accountId);
+      [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResource, identity.accountId);
       resources.forEach(resource => moduleResources.push(resource));
     }
+
+    resourceConfigs.push(...pendingModuleConfigs);
+
+    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
     return [
       ...routingResources,
@@ -74,7 +80,7 @@ export default class AwsProcessor implements PlatformProcessor {
     ]
   }
 
-  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<Array<RegisteredResource>> {
+  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
 
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
@@ -83,6 +89,7 @@ export default class AwsProcessor implements PlatformProcessor {
       , platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
 
     const resources: Array<RegisteredResource> = [];
+    const resourceConfigs: Array<ResourceConfig> = [];
 
     const defaultBatchSize = platformConfig.defaultBatchSize || 1
       , defaultStartingPosition = platformConfig.defaultStartingPosition || "LATEST"
@@ -169,7 +176,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
 
-    const lambdaResourceConfig = this.resourceUtil.configure(identifier, "aws.lambda.Function", {
+    resourceConfigs.push(this.resourceUtil.configure(identifier, "aws.lambda.Function", {
       name: identifier,
       handler: "handler.handler",
       role: (functionRoleResource.resource as aws.iam.Role).arn,
@@ -177,22 +184,22 @@ export default class AwsProcessor implements PlatformProcessor {
       s3Bucket: this.buildBucket,
       s3Key,
       environment: { variables }
-    }, 'module');
-    resources.push(this.resourceUtil.register(lambdaResourceConfig));
+    }, 'module'));
+    //resources.push(this.resourceUtil.register(lambdaResourceConfig));
 
     if (inputResource) {  
-      const eventSourceMappingResourceConfig = this.resourceUtil.configure(identifier + "-source", "aws.lambda.EventSourceMapping", {
+      resourceConfigs.push(this.resourceUtil.configure(identifier + "-source", "aws.lambda.EventSourceMapping", {
         eventSourceArn: (inputResource.resource as any).arn,
         functionName: identifier,
         enabled: true,
         batchSize: awsConfig.batchSize || defaultBatchSize,
         startingPosition: awsConfig.startingPosition || defaultStartingPosition,
-      }, 'resource');
-      resources.push(this.resourceUtil.register(eventSourceMappingResourceConfig));
+      }, 'resource'));
+      //resources.push(this.resourceUtil.register(eventSourceMappingResourceConfig));
     }
 
     // this.processIOParameters(flow, lambda, createdResources);
-    return resources;
+    return [resources, resourceConfigs];
   }
 
   createResourceComponent(component: BuildSpec): ResourceConfig {
