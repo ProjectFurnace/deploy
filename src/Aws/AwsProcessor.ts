@@ -1,14 +1,15 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import AwsValidator from "../Validation/AwsValidator";
 import AwsUtil from "../Util/AwsUtil";
 import { PlatformProcessor } from "../IPlatformProcessor";
-import { Source, BuildSpec, SourceType, Stack } from "@project-furnace/stack-processor/src/Model";
+import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import { RegisteredResource } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
+import ResourceUtil from "../Util/ResourceUtil";
 
 export default class AwsProcessor implements PlatformProcessor {
+
+  readonly PLATFORM: string = 'aws';
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
@@ -63,10 +64,6 @@ export default class AwsProcessor implements PlatformProcessor {
     ]
   }
 
-  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
-    return [...([] as RegisteredResource[]).concat(...resources)];
-  }
-
   async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<Array<RegisteredResource>> {
 
     const stackName = this.stackConfig.name
@@ -89,7 +86,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const s3Key = `${component.module!}/${component.buildSpec!.hash}`
     await this.moduleBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
 
-    const functionRoleResource = this.register(`${identifier}-role`, componentType, "aws.iam.Role", {
+    const functionRoleConfig = ResourceUtil.configure(`${identifier}-role`, "aws.iam.Role", {
       assumeRolePolicy: JSON.stringify({
         "Version": "2012-10-17",
         "Statement": [
@@ -103,7 +100,8 @@ export default class AwsProcessor implements PlatformProcessor {
           },
         ],
       })
-    });
+    }, 'resource');
+    const functionRoleResource = ResourceUtil.register(functionRoleConfig, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment);
 
     resources.push(functionRoleResource);
     const role = (functionRoleResource.resource as aws.iam.Role);
@@ -131,14 +129,16 @@ export default class AwsProcessor implements PlatformProcessor {
         ]
       }
     };
-    resources.push(this.register(`${identifier}-policy`, componentType, "aws.iam.RolePolicy", rolePolicyDef));
+    const rolePolicyConf = ResourceUtil.configure(`${identifier}-policy`, "aws.iam.RolePolicy", rolePolicyDef, 'resource');
+    resources.push(ResourceUtil.register(rolePolicyConf, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment));
 
     if (component.policies) {
       for (let p of component.policies) {
-        resources.push(this.register(`${identifier}-${p}`, componentType, "aws.iam.RolePolicyAttachment", {
+        const rolePolicyAttachResourceConfig = ResourceUtil.configure(`${identifier}-${p}`, "aws.iam.RolePolicyAttachment", {
           role,
           policyArn: `arn:aws:iam::aws:policy/${p}`
-        } as aws.iam.RolePolicyAttachmentArgs))
+        } as aws.iam.RolePolicyAttachmentArgs, 'resource');
+        resources.push(ResourceUtil.register(rolePolicyAttachResourceConfig, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment));
       }
     }
 
@@ -159,7 +159,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
 
-    resources.push(this.register(identifier, componentType, "aws.lambda.Function", {
+    const lambdaResourceConfig = ResourceUtil.configure(identifier, "aws.lambda.Function", {
       name: identifier,
       handler: "handler.handler",
       role: (functionRoleResource.resource as aws.iam.Role).arn,
@@ -167,17 +167,18 @@ export default class AwsProcessor implements PlatformProcessor {
       s3Bucket: this.buildBucket,
       s3Key,
       environment: { variables }
-    }));
+    }, 'module');
+    resources.push(ResourceUtil.register(lambdaResourceConfig, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment));
 
     if (inputResource) {  
-      resources.push(this.register(identifier + "-source", componentType, "aws.lambda.EventSourceMapping", {
+      const eventSourceMappingResourceConfig = ResourceUtil.configure(identifier + "-source", "aws.lambda.EventSourceMapping", {
         eventSourceArn: (inputResource.resource as any).arn,
         functionName: identifier,
         enabled: true,
         batchSize: awsConfig.batchSize || defaultBatchSize,
         startingPosition: awsConfig.startingPosition || defaultStartingPosition,
-      }
-      ));
+      }, 'resource');
+      resources.push(ResourceUtil.register(eventSourceMappingResourceConfig, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment));
     }
 
     // this.processIOParameters(flow, lambda, createdResources);
@@ -203,7 +204,9 @@ export default class AwsProcessor implements PlatformProcessor {
           throw new Error(`unable to find secret ${secretName} specified in resource ${name}`);
         }
     }
-    return this.register(name, componentType, type!, finalConfig);
+
+    const resourceComponentConfig = ResourceUtil.configure(name, type!, finalConfig, 'resource');
+    return ResourceUtil.register(resourceComponentConfig, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment);
   }
 
   createNativeResourceComponent(component: BuildSpec): RegisteredResource {
@@ -211,7 +214,8 @@ export default class AwsProcessor implements PlatformProcessor {
       , { type, config, componentType } = component
       ;
 
-    return this.register(name, componentType, type!, config);
+    const nativeResourceComponentConfig = ResourceUtil.configure(name, type!, config, 'resource');
+    return ResourceUtil.register(nativeResourceComponentConfig, this.PLATFORM, {componentType}, this.stackConfig.name, this.environment);
   }
 
   createRoutingComponent(component: BuildSpec): RegisteredResource {
@@ -237,49 +241,9 @@ export default class AwsProcessor implements PlatformProcessor {
       if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
     }
 
-    return this.register(name, "Resource", mechanism, config);
+    const routingComponentConfig = ResourceUtil.configure(name, mechanism, config, 'resource');
+    return ResourceUtil.register(routingComponentConfig, this.PLATFORM, {componentType: 'Resource'}, this.stackConfig.name, this.environment);
   }
-
-  register(name: string, componentType: string, type: string, config: any): RegisteredResource {
-
-    try {
-      let resource, newConfig;
-
-      switch (componentType) {
-        case "NativeResource":
-          [resource, newConfig] = AwsResourceFactory.getNativeResource(name, type, config);
-          break;
-        default:
-          [resource, newConfig] = AwsResourceFactory.getResource(name, type, config);
-      }
-
-      const instance = new resource(name, newConfig) as pulumi.CustomResource;
-
-      return {
-        name,
-        type,
-        resource: instance
-      }
-    } catch (err) {
-      throw new Error(`unable to create resource ${name} of type ${type}: ${err}`);
-    }
-  }
-
-  // register(name: string, resource: any, config: any): RegisteredResource {
-
-  //   try {
-
-  //     const instance = new resource(name, config) as pulumi.CustomResource;
-  //     return {
-  //       name,
-  //       type: instance.constructor.name,
-  //       resource: instance
-  //     }
-  //   } catch (err) {
-  //     throw new Error(`unable to create resource ${name}: ${err}`);
-  //   }
-  // }
-}
 
 // processIOParameters(step: Model.FlowSpec, resource: any, createdResources: Map<string, any>) {
 //   // check if the step has any inputs defined and if so, store them in SSM parameter store
@@ -300,3 +264,5 @@ export default class AwsProcessor implements PlatformProcessor {
 // }
 //   }
 // }
+
+}

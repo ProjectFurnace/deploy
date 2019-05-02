@@ -1,14 +1,14 @@
-import * as pulumi from "@pulumi/pulumi";
 import * as gcp from "@pulumi/gcp"
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { RegisteredResource } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
-import GcpResourceFactory from "./GcpResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
+import ResourceUtil from "../Util/ResourceUtil";
 
 export default class GcpProcessor implements PlatformProcessor {
 
   cloudfunctionsService: gcp.projects.Service;
+  readonly PLATFORM: string = 'gcp';
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
@@ -27,10 +27,11 @@ export default class GcpProcessor implements PlatformProcessor {
     const { project } = this.initialConfig;
 
     // Create a function service. Is it better to do this from the CLI?
-    const cloudfunctionsServiceResource = this.register(`${stackName}FS`, "gcp.projects.Service", {
+    const cloudfunctionsServiceConfig = ResourceUtil.configure(`${stackName}FS`, "gcp.projects.Service", {
       project,
       service: "cloudfunctions.googleapis.com",
-    });
+    }, 'resource');
+    const cloudfunctionsServiceResource = ResourceUtil.register(cloudfunctionsServiceConfig, this.PLATFORM, {}, this.stackConfig.name, this.environment);
     resources.push(cloudfunctionsServiceResource);
     this.cloudfunctionsService = cloudfunctionsServiceResource.resource as gcp.projects.Service;
 
@@ -45,15 +46,17 @@ export default class GcpProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
 
-    const routingResources = this.flattenResourceArray(
+    const routingResources = ResourceUtil.flattenResourceArray(
       this.flows
         .filter(component => !["sink", "resource"].includes(component.component))
         .map(component => this.createRoutingComponent(component))
     );
 
-    const resourceResources = this.flows
-      .filter(component => component.component === "resource")
-      .map(component => this.register(component.meta!.identifier, component.type!, component.config));
+    const resourceConfigs = this.flows
+    .filter(component => component.component === "resource")
+    .map(component => ResourceUtil.configure(component.meta!.identifier, component.type!, component.config, 'resource'));
+
+    const resourceResources = ResourceUtil.batchRegister(resourceConfigs, this.PLATFORM, {}, this.stackConfig.name, this.environment);
 
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
@@ -72,10 +75,6 @@ export default class GcpProcessor implements PlatformProcessor {
       ...routingResources
     ];
 
-  }
-
-  flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
-    return [...([] as RegisteredResource[]).concat(...resources)];
   }
 
   getRoutingComponentName(component: BuildSpec): string {
@@ -97,15 +96,17 @@ export default class GcpProcessor implements PlatformProcessor {
 
     if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
 
-    const pubSubTopicResource = this.register(name, mechanism, config);
+    const pubSubTopicConfig = ResourceUtil.configure(name, mechanism, config, 'resource');
+    const pubSubTopicResource = ResourceUtil.register(pubSubTopicConfig, this.PLATFORM, {}, this.stackConfig.name, this.environment);
     const pubSubTopic = pubSubTopicResource.resource as gcp.pubsub.Topic;
 
-    const pubSubSubscriptionResource = this.register(`${name}-subscription`, "gcp.pubsub.Subscription", {
+    const pubSubSubscriptionConfig = ResourceUtil.configure(`${name}-subscription`, "gcp.pubsub.Subscription", {
       ackDeadlineSeconds: 20,
       messageRetentionDuration: "1200s",
       retainAckedMessages: true,
       topic: pubSubTopic.name,
-    });
+    }, 'resource');
+    const pubSubSubscriptionResource = ResourceUtil.register(pubSubSubscriptionConfig, this.PLATFORM, {}, this.stackConfig.name, this.environment);
 
     return [
       pubSubTopicResource,
@@ -135,7 +136,7 @@ export default class GcpProcessor implements PlatformProcessor {
     if (component.logging === "debug") envVars.DEBUG = '1';
 
     // Create an App Service Function
-    resources.push(this.register(identifier, 'gcp.cloudfunctions.Function', {
+    const cloudFunctionConfig = ResourceUtil.configure(identifier, 'gcp.cloudfunctions.Function', {
       availableMemoryMb: 128,
       description: identifier,
       entryPoint: 'process',
@@ -148,26 +149,10 @@ export default class GcpProcessor implements PlatformProcessor {
         eventType: 'google.pubsub.topic.publish',
         resource: inputResource.name
       }
-    } as gcp.cloudfunctions.FunctionArgs, {dependsOn: [this.cloudfunctionsService]}));
+    } as gcp.cloudfunctions.FunctionArgs, 'resource');
+
+    resources.push(ResourceUtil.register(cloudFunctionConfig, this.PLATFORM, {}, this.stackConfig.name, this.environment, [], {dependsOn: [this.cloudfunctionsService]}));
 
     return resources;
-  }
-
-  register(name: string, type: string, config: any, options: any = {}): RegisteredResource {
-
-    try {
-
-      const [resource, newConfig] = GcpResourceFactory.getResource(name, type, config);
-
-      const instance = new resource(name, newConfig, options) as pulumi.CustomResource;
-
-      return {
-        name,
-        type,
-        resource: instance
-      }
-    } catch (err) {
-      throw new Error(`unable to create resource ${name} of type ${type}: ${err}`);
-    }
   }
 }
