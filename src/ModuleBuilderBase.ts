@@ -48,10 +48,8 @@ export default abstract class ModuleBuilder {
 
   async preProcess(def: any) {
     //TODO: We should check that there won't be any files from the module overwritten by the template and viceversa
-    console.log(`preProcessing ${def.name} ${def.eventType}`)
     if (def.eventType !== "raw") {
       // if eventType is raw, we don't copy over a template
-
       fsUtils.cp(def.templatePath, def.buildPath);
     }
     fsUtils.cp(def.codePath, def.buildPath);

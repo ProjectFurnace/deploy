@@ -48,12 +48,7 @@ export default class AwsProcessor implements PlatformProcessor {
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => this.createNativeResourceComponent(flow));
 
-    const functionConfigs = this.flows
-      .filter(flow => flow.component === "function")
-      .map(flow => this.createResourceComponent(flow));
-
     resourceConfigs.push(...nativeResourceConfigs);
-    resourceConfigs.push(...functionConfigs);
   
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");

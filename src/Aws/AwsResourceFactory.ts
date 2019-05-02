@@ -68,7 +68,6 @@ export default class AwsResourceFactory {
 
     switch (type) {
       case "awsx.apigateway.API":
-        console.log("got config", newConfig.routes[0].authorizers2);
         if (newConfig.createAssociatedAPIKeys) {
           // const apikeys = awsx.apigateway.createAssociatedAPIKeys("my-api-keys", {
           //   apis: [api],
