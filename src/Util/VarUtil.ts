@@ -1,7 +1,9 @@
 import * as _ from "lodash";
 
 export default class VarUtil {
-  static readonly VAR_MATCH = /\${(?:([\w-]+):)?([\w-]+).([\w-.]+)(?:[\s]*[,][\s]*["']([\w-.:]+)["'])?}/;
+  // vars defined in format: ${type:resource_name.property,'default_val'}
+  // if type is ommited, the same type of the linking resource is taken (so we look at resources in the same file essentially)
+  static readonly VAR_MATCH = /\${(?:([\w-]+):)?([\w-]+)(?:\.([\w-.]+))?(?:[\s]*[,][\s]*["']*([\w-.:]+)["']*)?}/;
 
   static process(config:any, scope:any, path = '') {
     // iterate through the keys and if it's an object call the function again
@@ -46,7 +48,7 @@ export default class VarUtil {
         bits.push({
           scope: (varParts[1] !== undefined ? varParts[1] : scope),
           resource: varParts[2],
-          bindTo: varParts[3],
+          bindTo: (varParts[3] !== undefined ? varParts[3] : ''),
           default: (varParts[4] !== undefined ? varParts[4] : ''),
         });
         pos = varEnd;
