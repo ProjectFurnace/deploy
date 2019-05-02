@@ -48,7 +48,6 @@ export default class AwsProcessor implements PlatformProcessor {
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
 
     for (const component of moduleComponents) {
-
       const routingResource = routingResources.find(r => r.name === component.meta!.source)
       if (!routingResource && component.component !== "function") throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
 
@@ -186,11 +185,11 @@ export default class AwsProcessor implements PlatformProcessor {
   }
 
   createResourceComponent(component: BuildSpec): RegisteredResource {
-
     const name = component.meta!.identifier
-      , stackName = this.stackConfig.name
-      , { type, config, componentType } = component
-      ;
+        , stackName = this.stackConfig.name
+        , { type, config, componentType } = component
+        , finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {}
+        ;
 
     // TODO: can we wrap secrets into a generic mechanism
     switch (type) {
@@ -204,8 +203,7 @@ export default class AwsProcessor implements PlatformProcessor {
           throw new Error(`unable to find secret ${secretName} specified in resource ${name}`);
         }
     }
-
-    return this.register(name, componentType, type!, config);
+    return this.register(name, componentType, type!, finalConfig);
   }
 
   createNativeResourceComponent(component: BuildSpec): RegisteredResource {
@@ -213,12 +211,10 @@ export default class AwsProcessor implements PlatformProcessor {
       , { type, config, componentType } = component
       ;
 
-
     return this.register(name, componentType, type!, config);
   }
 
   createRoutingComponent(component: BuildSpec): RegisteredResource {
-
     const awsConfig = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
       , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
       , defaultRoutingShards = awsConfig.defaultRoutingShards || 1

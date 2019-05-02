@@ -25,7 +25,7 @@
     "@project-furnace/fsutils": "^0.1.6",
     "@project-furnace/gitutils": "^0.1.4",
     "@project-furnace/s3utils": "^0.1.6",
-    "@project-furnace/stack-processor": "^0.0.7",
+    "@project-furnace/stack-processor": "0.0.9",
     "@project-furnace/ziputils": "^0.1.4",
     "@pulumi/aws": "^0.17.1",
     "@pulumi/awsx": "^0.18.3",

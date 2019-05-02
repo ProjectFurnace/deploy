@@ -62,4 +62,20 @@ export default class AwsResourceFactory {
         throw new Error(`unable native resource type ${type}`);
     }
   }
+
+  static translateResourceConfig(type: string, config: any) {
+    const newConfig = _.cloneDeep(config);
+
+    switch (type) {
+      case "awsx.apigateway.API":
+        for (let route of newConfig.routes) {
+          if (!route.function) throw new Error(`function property must be set on route for resource type ${type}`);
+          route.eventHandler = aws.lambda.Function.get("func", route.function);
+          delete route.function;
+        }
+        return newConfig;
+      default:
+        return newConfig;
+    }
+  }
 }
