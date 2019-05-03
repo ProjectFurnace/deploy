@@ -124,9 +124,10 @@ export default class ResourceUtil {
 
   batchRegister(configs: ResourceConfig[], existingResources: RegisteredResource[] = [], callingResource: string = '') {
     let registeredResources:RegisteredResource[] = existingResources;
+
     for( const config of configs ) {
       // check if we have dependencies fot this item
-      if( Array.isArray( config.propertiesWithVars.length ) ) {
+      if( Array.isArray(config.propertiesWithVars) && config.propertiesWithVars.length > 0 ) {
         // if we do, create an array with all resources this item depends on
         const dependencies = [];
         for( const propertyWithVars of config.propertiesWithVars ) {
@@ -145,14 +146,14 @@ export default class ResourceUtil {
         for( const dependency of dependencies ) {
           const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
           if( !ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources) ) {
-            pendingRegistrationResources.push(dependency);
+            pendingRegistrationResources.push(dependencyName);
           }
         }
         // if not, register the necessary dependencies
         if( pendingRegistrationResources.length > 0 ) {
           const pendingConfigs = [];
           for( const pending of pendingRegistrationResources ) {
-            const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending.name, configs);
+            const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending, configs);
             if( resourceConfig ) {
               pendingConfigs.push( resourceConfig );
             }
@@ -160,8 +161,10 @@ export default class ResourceUtil {
           registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, config.name));
         }
       }
-      // finally register the pretinent resource
-      registeredResources.push(this.register(config, registeredResources));
+      // finally register the pertinent resource unless it has already been registered previously
+      if( !ResourceUtil.findResourceOrConfigByName(config.name, registeredResources) ) {
+        registeredResources.push(this.register(config, registeredResources));
+      }
     }
     return registeredResources;
   }

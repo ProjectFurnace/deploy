@@ -9,16 +9,20 @@ export default class VarUtil {
     // iterate through the keys and if it's an object call the function again
     // if not, replace vars
     let output: any[] = [];
+    let newpath: string = '';
     for (const key in config) {
-      path = ( path != '' ? path + '.' + key : key );
+      if( Array.isArray(config) )
+        newpath = ( path != '' ? path + '[' + key + ']' : key );
+      else
+        newpath = ( path != '' ? path + '.' + key : key );
       if (this.isObject(config[key])) {
-        output.push( ...this.process(config[key], scope, path) );
+        output.push( ...this.process(config[key], scope, newpath) );
       } else if (typeof config[key] === 'string' || config[key] instanceof String) {
         if (config[key].includes('${') && config[key].includes('}')) {
           const varParts = this.split(config[key], scope);
           const dependency = {
             varParts,
-            property: path
+            property: newpath
           }
           output.push( dependency );
         }
@@ -53,7 +57,7 @@ export default class VarUtil {
         });
         pos = varEnd;
       } else if (pos < variable.length) {
-        bits.push(variable.substring(pos + 1));
+        bits.push(variable.substring(pos));
         pos = variable.length;
       }
     }
