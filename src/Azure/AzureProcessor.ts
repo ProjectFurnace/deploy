@@ -19,9 +19,9 @@ export default class AzureProcessor implements PlatformProcessor {
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'azure';
 
-  constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
+  constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
-    this.resourceUtil = new ResourceUtil(this);
+    this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
   }
 
   validate() {
@@ -271,14 +271,6 @@ export default class AzureProcessor implements PlatformProcessor {
     }
 
     return [provider, newConfig];
-  }
-
-  getStackName() {
-    return this.stackConfig.name;
-  }
-
-  getEnvironment() {
-    return this.environment;
   }
 
   processOutputs(name: string, resource: any, outputs: any) {}
