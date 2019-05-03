@@ -62,10 +62,9 @@ export default class AwsProcessor implements PlatformProcessor {
 
       [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResource, identity.accountId);
       resources.forEach(resource => moduleResources.push(resource));
+      pendingModuleConfigs.forEach(moduleConfig => resourceConfigs.push(moduleConfig));
     }
-
-    resourceConfigs.push(...pendingModuleConfigs);
-
+    
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
     return [
@@ -174,7 +173,7 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
-
+    
     resourceConfigs.push(this.resourceUtil.configure(identifier, "aws.lambda.Function", {
       name: identifier,
       handler: "handler.handler",

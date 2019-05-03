@@ -20,7 +20,8 @@ export default class AwsResourceFactory {
       "aws.iam.RolePolicy": aws.iam.RolePolicy,
       "aws.lambda.Function": aws.lambda.Function,
       "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping,
-      "awsx.apigateway.API": awsx.apigateway.API
+      "awsx.apigateway.API": awsx.apigateway.API,
+      "aws.ssm.Parameter": aws.ssm.Parameter
     }
 
     const provider = providers[type];
@@ -67,22 +68,6 @@ export default class AwsResourceFactory {
     const newConfig = _.cloneDeep(config);
 
     switch (type) {
-      case "awsx.apigateway.API":
-        if (newConfig.createAssociatedAPIKeys) {
-          // const apikeys = awsx.apigateway.createAssociatedAPIKeys("my-api-keys", {
-          //   apis: [api],
-          //   apiKeys: [{
-          //       name: "test-key",
-          //   }],
-          // });
-        }
-
-        for (let route of newConfig.routes) {
-          if (!route.function) throw new Error(`function property must be set on route for resource type ${type}`);
-          route.eventHandler = aws.lambda.Function.get("func", route.function);
-          delete route.function;
-        }
-        return newConfig;
       default:
         return newConfig;
     }
