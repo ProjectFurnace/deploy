@@ -1,8 +1,9 @@
 import * as gcp from "@pulumi/gcp"
 import { PlatformProcessor } from "../IPlatformProcessor";
-import { RegisteredResource } from "../Types";
+import { RegisteredResource, ResourceConfig } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import ModuleBuilderBase from "../ModuleBuilderBase";
+import GcpResourceFactory from "./GcpResourceFactory";
 import ResourceUtil from "../Util/ResourceUtil";
 
 export default class GcpProcessor implements PlatformProcessor {
@@ -13,7 +14,7 @@ export default class GcpProcessor implements PlatformProcessor {
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
-    this.resourceUtil = new ResourceUtil(this.stackConfig.name, this.environment, this.PLATFORM);
+    this.resourceUtil = new ResourceUtil(this);
   }
 
   validate() {
@@ -36,11 +37,6 @@ export default class GcpProcessor implements PlatformProcessor {
     const cloudfunctionsServiceResource = this.resourceUtil.register(cloudfunctionsServiceConfig);
     resources.push(cloudfunctionsServiceResource);
     this.cloudfunctionsService = cloudfunctionsServiceResource.resource as gcp.projects.Service;
-
-    // Create a storage bucket
-    /*const bucketResource = this.register(`${stackName}bucket`, "gcp.storage.Bucket", {});
-    resources.push(bucketResource);
-    this.bucket = bucketResource.resource as gcp.storage.Bucket;*/
 
     return resources;
   }
@@ -157,4 +153,20 @@ export default class GcpProcessor implements PlatformProcessor {
 
     return resources;
   }
+
+  getResource(config:ResourceConfig): [any, any] {
+    const [provider, newConfig] = GcpResourceFactory.getResource(config.name, config.type, config.config);
+
+    return [provider, newConfig];
+  }
+
+  getStackName() {
+    return this.stackConfig.name;
+  }
+
+  getEnvironment() {
+    return this.environment;
+  }
+
+  processOutputs(name: string, resource: any, outputs: any) {}
 }
