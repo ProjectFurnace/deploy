@@ -52,7 +52,7 @@ export default class VarUtil {
         bits.push({
           scope: (varParts[1] !== undefined ? varParts[1] : scope),
           resource: varParts[2],
-          bindTo: (varParts[3] !== undefined ? varParts[3] : ''),
+          bindTo: varParts[3],
           default: (varParts[4] !== undefined ? varParts[4] : ''),
         });
         pos = varEnd;

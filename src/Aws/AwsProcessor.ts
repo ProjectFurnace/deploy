@@ -6,7 +6,6 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
-import { BatchGetResourceConfigRequest } from "aws-sdk/clients/configservice";
 
 export default class AwsProcessor implements PlatformProcessor {
 
@@ -15,7 +14,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
-    this.resourceUtil = new ResourceUtil(this.stackConfig.name, this.environment, this.PLATFORM);
+    this.resourceUtil = new ResourceUtil(this);
   }
 
   validate() {
@@ -75,7 +74,6 @@ export default class AwsProcessor implements PlatformProcessor {
   }
 
   async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
-
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
       , { componentType } = component
@@ -183,7 +181,6 @@ export default class AwsProcessor implements PlatformProcessor {
       s3Key,
       environment: { variables }
     }, 'module'));
-    //resources.push(this.resourceUtil.register(lambdaResourceConfig));
 
     if (inputResource) {  
       resourceConfigs.push(this.resourceUtil.configure(identifier + "-source", "aws.lambda.EventSourceMapping", {
@@ -193,10 +190,8 @@ export default class AwsProcessor implements PlatformProcessor {
         batchSize: awsConfig.batchSize || defaultBatchSize,
         startingPosition: awsConfig.startingPosition || defaultStartingPosition,
       }, 'resource'));
-      //resources.push(this.resourceUtil.register(eventSourceMappingResourceConfig));
     }
 
-    // this.processIOParameters(flow, lambda, createdResources);
     return [resources, resourceConfigs];
   }
 
@@ -219,8 +214,7 @@ export default class AwsProcessor implements PlatformProcessor {
           throw new Error(`unable to find secret ${secretName} specified in resource ${name}`);
         }
     }
-
-    return this.resourceUtil.configure(name, type!, finalConfig, 'resource', {}, componentType);
+    return this.resourceUtil.configure(name, type!, finalConfig, 'resource', {}, component.outputs, componentType);
   }
 
   createNativeResourceComponent(component: BuildSpec): ResourceConfig {
@@ -228,7 +222,7 @@ export default class AwsProcessor implements PlatformProcessor {
       , { type, config, componentType } = component
       ;
 
-    return this.resourceUtil.configure(name, type!, config, 'resource', {}, componentType);
+    return this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType);
   }
 
   createRoutingComponent(component: BuildSpec): RegisteredResource {
@@ -258,24 +252,40 @@ export default class AwsProcessor implements PlatformProcessor {
     return this.resourceUtil.register(routingComponentConfig);
   }
 
-// processIOParameters(step: Model.FlowSpec, resource: any, createdResources: Map<string, any>) {
-//   // check if the step has any inputs defined and if so, store them in SSM parameter store
-//   if(step.inputs) {
-//   for (let input of step.inputs) {
-//     const resourceName = input.substring(0, input.indexOf('.'));
-//     const resourcePath = input.substring(input.indexOf('.') + 1);
-//     const createdResource = createdResources.get(resourceName);
+  getResource(config:ResourceConfig): [any, any] {
+    let provider, newConfig;
 
-//     if (!createdResource) throw new Error(`Invalid reference in ${step.name} to ${input}`);
+    switch (config.componentType) {
+      case "NativeResource":
+        [provider, newConfig] = AwsResourceFactory.getNativeResource(config.name, config.type, config.config);
+        break;
+      default:
+        [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
+    }
 
-//     const secret = new aws.ssm.Parameter(`/${process.env.FURNACE_INSTANCE}/${this.config.stack.name}-${step.name}-${this.environment}/${input}`, {
-//       name: `/${process.env.FURNACE_INSTANCE}/${this.config.stack.name}-${step.name}-${this.environment}/${input}`,
-//       type: 'SecureString',
-//       value: createdResource[resourcePath],
-//     });
-//   }
-// }
-//   }
-// }
+    return [provider, newConfig];
+  }
 
+  getStackName() {
+    return this.stackConfig.name;
+  }
+
+  getEnvironment() {
+    return this.environment;
+  }
+
+  processOutputs(name: string, resource: any, outputs: any) {
+    // check if the step has any inputs defined and if so, store them in SSM parameter store
+    if (outputs) {
+      let secretsConfig:ResourceConfig[] = [];
+      for (const key in outputs) {
+        secretsConfig.push(this.resourceUtil.configure(`/${process.env.FURNACE_INSTANCE}/${name}/${key}`, 'aws.ssm.Parameter', {
+          name: `/${process.env.FURNACE_INSTANCE}/-${name}/${key}`,
+          type: 'SecureString',
+          value: resource[outputs[key]],
+        }, 'resource'));
+      }
+      this.resourceUtil.batchRegister(secretsConfig);
+    }
+  }
 }

@@ -2,10 +2,11 @@ import * as pulumi from "@pulumi/pulumi";
 import * as azure from "@pulumi/azure";
 import * as azurestorage from "azure-storage";
 import { PlatformProcessor } from "../IPlatformProcessor";
-import { RegisteredResource } from "../Types";
+import { RegisteredResource, ResourceConfig } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
+import AzureResourceFactory from "./AzureResourceFactory";
 import * as _ from "lodash";
 
 export default class AzureProcessor implements PlatformProcessor {
@@ -20,7 +21,7 @@ export default class AzureProcessor implements PlatformProcessor {
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
-    this.resourceUtil = new ResourceUtil(this.stackConfig.name, this.environment, this.PLATFORM);
+    this.resourceUtil = new ResourceUtil(this);
   }
 
   validate() {
@@ -260,4 +261,25 @@ export default class AzureProcessor implements PlatformProcessor {
     });
 
   }
+
+  getResource(config:ResourceConfig): [any, any] {
+
+    const [provider, newConfig] = AzureResourceFactory.getResource(config.name, config.type, config.config);
+    if (config.options.resourceGroup) {
+      newConfig.resourceGroupName = config.options.resourceGroup.name;
+      newConfig.location = config.options.resourceGroup.location;
+    }
+
+    return [provider, newConfig];
+  }
+
+  getStackName() {
+    return this.stackConfig.name;
+  }
+
+  getEnvironment() {
+    return this.environment;
+  }
+
+  processOutputs(name: string, resource: any, outputs: any) {}
 }

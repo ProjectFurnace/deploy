@@ -2,19 +2,15 @@ import VarUtil from "../Util/VarUtil";
 import { RegisteredResource, ResourceConfig } from "../Types";
 import * as _ from "lodash";
 import * as pulumi from "@pulumi/pulumi";
-import AzureResourceFactory from "../Azure/AzureResourceFactory";
-import AwsResourceFactory from "../Aws/AwsResourceFactory";
-import GcpResourceFactory from "../Gcp/GcpResourceFactory";
+import { PlatformProcessor } from "../IPlatformProcessor";
 
 export default class ResourceUtil {
-  constructor(private stackName: string, private environment: string, private platform: string) {
-    this.validate();
-  }
+  private stackName: string;
+  private environment: string;
 
-  validate() {
-    if (!this.stackName) throw new Error("stackName must be set");
-    if (!this.environment) throw new Error("environment must be set");
-    if (!this.platform) throw new Error("platform must be set");
+  constructor(private processor: PlatformProcessor) {
+    this.stackName = processor.getStackName();
+    this.environment = processor.getEnvironment();
   }
 
   static findResourceOrConfigByName(name: string, items: any[]) {
@@ -24,7 +20,7 @@ export default class ResourceUtil {
     return false;
   }
 
-  configure(name: string, type: string, config: any, scope: string, options: any = {}, componentType: string = 'Resource', ): ResourceConfig {
+  configure(name: string, type: string, config: any, scope: string, options: any = {}, outputs: any = {}, componentType: string = 'Resource', ): ResourceConfig {
     const propertiesWithVars = VarUtil.process(config, scope);
 
     return {
@@ -32,6 +28,7 @@ export default class ResourceUtil {
       type,
       scope,
       options,
+      outputs,
       componentType,
       propertiesWithVars,
       config
@@ -44,36 +41,7 @@ export default class ResourceUtil {
 
   register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
     try {
-
-      let provider, newConfig;
-
-      // create provider and newConfig based on the platform we are working on
-      switch (this.platform) {
-        case "aws":
-          switch (config.componentType) {
-            case "NativeResource":
-              [provider, newConfig] = AwsResourceFactory.getNativeResource(config.name, config.type, config.config);
-              break;
-            default:
-              [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
-          }
-          break;
-  
-        case "azure":
-          [provider, newConfig] = AzureResourceFactory.getResource(config.name, config.type, config.config);
-          if (config.options.resourceGroup) {
-            newConfig.resourceGroupName = config.options.resourceGroup.name;
-            newConfig.location = config.options.resourceGroup.location;
-          }
-          break;
-  
-        case "gcp":
-          [provider, newConfig] = GcpResourceFactory.getResource(config.name, config.type, config.config);
-          break;
-  
-        default:
-          throw new Error(`unable to get resource factory for '${this.platform}'`)
-      }
+      const [provider, newConfig] = this.processor.getResource(config);
 
       const dependencies = [];
       // iterate over properties that are binded to other objects and create the necessary links in pulumi
@@ -84,13 +52,16 @@ export default class ResourceUtil {
           for (const fragment of propertyWithVars.varParts) {
             if( VarUtil.isObject(fragment) ) {
               const dependencyName = `${this.stackName}-${fragment.resource}-${this.environment}`;
+              /*console.log('RESOURCE', config.name);
+              console.log('DEPENDENCY NAME', dependencyName);
+              console.log(registeredResources);*/
               const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
               if(!resource) {
                 throw new Error(`Dependency resource: ${fragment.resource} not found`);
               } else {
                 // add this resource as a dependency
                 dependencies.push(resource.resource);
-                if ( fragment.bindTo != '' )
+                if ( fragment.bindTo )
                   toConcat.push(_.get(resource.resource, fragment.bindTo, fragment.default));
                 else
                   isObjectBind = true;
@@ -111,6 +82,9 @@ export default class ResourceUtil {
       }
       
       const instance = new provider(config.name, newConfig, _.merge({dependesOn: dependencies}, (config.options.options ? config.options.options : {}) )) as pulumi.CustomResource;
+
+      if (config.outputs)
+        this.processor.processOutputs(config.name, instance, config.outputs);
 
       return {
         name: config.name,
