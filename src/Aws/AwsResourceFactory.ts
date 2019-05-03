@@ -68,13 +68,6 @@ export default class AwsResourceFactory {
     const newConfig = _.cloneDeep(config);
 
     switch (type) {
-      case "awsx.apigateway.API":
-        // for (let route of newConfig.routes) {
-        //   if (!route.func) throw new Error(`func property must be set on route for resource type ${type}`);
-        //   route.eventHandler = route.func;
-        //   delete route.func;
-        // }
-        return newConfig;
       default:
         return newConfig;
     }
