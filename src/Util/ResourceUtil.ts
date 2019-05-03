@@ -5,12 +5,7 @@ import * as pulumi from "@pulumi/pulumi";
 import { PlatformProcessor } from "../IPlatformProcessor";
 
 export default class ResourceUtil {
-  private stackName: string;
-  private environment: string;
-
-  constructor(private processor: PlatformProcessor) {
-    this.stackName = processor.getStackName();
-    this.environment = processor.getEnvironment();
+  constructor(private processor: PlatformProcessor, private stackName: string, private environment: string) {
   }
 
   static findResourceOrConfigByName(name: string, items: any[]) {

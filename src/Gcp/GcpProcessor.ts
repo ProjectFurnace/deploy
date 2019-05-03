@@ -14,7 +14,7 @@ export default class GcpProcessor implements PlatformProcessor {
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
-    this.resourceUtil = new ResourceUtil(this);
+    this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
   }
 
   validate() {
@@ -158,14 +158,6 @@ export default class GcpProcessor implements PlatformProcessor {
     const [provider, newConfig] = GcpResourceFactory.getResource(config.name, config.type, config.config);
 
     return [provider, newConfig];
-  }
-
-  getStackName() {
-    return this.stackConfig.name;
-  }
-
-  getEnvironment() {
-    return this.environment;
   }
 
   processOutputs(name: string, resource: any, outputs: any) {}

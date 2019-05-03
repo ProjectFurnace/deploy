@@ -11,7 +11,5 @@ export interface PlatformProcessor {
   process(): Promise<Array<RegisteredResource>>
   preProcess(): Promise<Array<RegisteredResource>>
   getResource(config:ResourceConfig): [any, any]
-  getStackName(): string
-  getEnvironment(): string
   processOutputs(name:string, resource:any, outputs:any): void
 }
