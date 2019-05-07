@@ -1,7 +1,7 @@
 {
   "name": "typescript",
   "scripts": {
-    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=furnace-build-test3 REPO_DIR=./test/fixtures/config/generic TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=furnace-build-test3 REPO_DIR=../../stacks/aws-api-gateway TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "dev_azure": "FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=feasterc REPO_DIR=./test/fixtures/config/azure TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "dev_gcp": "FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test GCP_PROJECT=furnace-scratch BUILD_BUCKET=furnace-scratch REPO_DIR=./test/fixtures/config/gcp TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
