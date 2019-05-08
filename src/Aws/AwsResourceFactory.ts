@@ -2,6 +2,7 @@ import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as ResourceConfig from "./AwsResourceConfig.json";
 import * as _ from "lodash";
+import Base64Util from "../Util/Base64Util";
 
 export default class AwsResourceFactory {
 
@@ -48,11 +49,12 @@ export default class AwsResourceFactory {
           desiredCount: 1,
           taskDefinitionArgs: {
             containers: {
-              nginx: {
-                image: "nginx",
+              [name]: {
+                image: "dannywaite/active-connectors:latest",
                 memory: 512,
                 environment: [
-                  // { name: "", value: ""}
+                  { name: "INPUT", value: Base64Util.toBase64(JSON.stringify(config.input)) },
+                  { name: "OUTPUT", value: Base64Util.toBase64(JSON.stringify(config.output)) },
                 ]    
               } as awsx.ecs.Container,
             },

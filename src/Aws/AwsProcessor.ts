@@ -252,7 +252,7 @@ export default class AwsProcessor implements PlatformProcessor {
     return this.resourceUtil.register(routingComponentConfig);
   }
 
-  getResource(config:ResourceConfig): [any, any] {
+  getResource(config: ResourceConfig): [any, any] {
     let provider, newConfig;
 
     switch (config.componentType) {
