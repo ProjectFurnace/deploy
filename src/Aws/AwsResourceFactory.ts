@@ -6,11 +6,11 @@ import Base64Util from "../Util/Base64Util";
 
 export default class AwsResourceFactory {
 
-  getResource(name: string, type: string, config: any): [any, any] {
+  static getResource(name: string, type: string, config: any): [any, any] {
     return [ this.getResourceProvider(type), this.getResourceConfig(name, type, config) ];
   }
 
-  private getResourceProvider(type: string) {
+  private static getResourceProvider(type: string) {
 
     const providers: { [key: string]: any } = {
       "aws.elasticsearch.Domain": aws.elasticsearch.Domain,
@@ -31,7 +31,7 @@ export default class AwsResourceFactory {
     return provider;
   }
 
-  private getResourceConfig(name: string, type: string, config: any): any {
+  private static getResourceConfig(name: string, type: string, config: any): any {
     const newConfig = _.cloneDeep(config);
 
     const nameProp = (ResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
@@ -40,7 +40,7 @@ export default class AwsResourceFactory {
     return newConfig;
   }
 
-  getNativeResource(name: string, type: string, config: any): [any, any] {
+  static getNativeResource(name: string, type: string, config: any): [any, any] {
 
     let finalConfig = this.getResourceConfig(name, type, config);
 
@@ -52,7 +52,7 @@ export default class AwsResourceFactory {
     }
   }
 
-  translateResourceConfig(type: string, config: any) {
+  static translateResourceConfig(type: string, config: any) {
     const newConfig = _.cloneDeep(config);
 
     switch (type) {
@@ -61,7 +61,7 @@ export default class AwsResourceFactory {
     }
   }
 
-  private getActiveConnectorConfig(name: string, config: any): awsx.ecs.FargateServiceArgs {
+  private static getActiveConnectorConfig(name: string, config: any): awsx.ecs.FargateServiceArgs {
 
     const { source } = config.output;
     const output = {

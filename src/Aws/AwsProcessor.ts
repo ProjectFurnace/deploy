@@ -199,7 +199,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const name = component.meta!.identifier
         , stackName = this.stackConfig.name
         , { type, config, componentType } = component
-        , finalConfig = this.resourceFactory.translateResourceConfig(type!, config) || {}
+        , finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {}
         ;
 
     // TODO: can we wrap secrets into a generic mechanism

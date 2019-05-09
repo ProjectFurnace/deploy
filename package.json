@@ -30,6 +30,7 @@
     "@pulumi/aws": "^0.17.1",
     "@pulumi/awsx": "^0.18.3",
     "@pulumi/azure": "^0.17.3",
+    "@pulumi/cloud": "^0.18.0",
     "@pulumi/gcp": "^0.18.5",
     "@pulumi/pulumi": "^0.17.1",
     "@types/fs-extra": "^5.0.5",
