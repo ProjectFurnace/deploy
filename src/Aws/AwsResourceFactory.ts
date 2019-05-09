@@ -22,7 +22,8 @@ export default class AwsResourceFactory {
       "aws.lambda.Function": aws.lambda.Function,
       "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping,
       "awsx.apigateway.API": awsx.apigateway.API,
-      "aws.ssm.Parameter": aws.ssm.Parameter
+      "aws.ssm.Parameter": aws.ssm.Parameter,
+      "aws.kinesis.FirehoseDeliveryStream": aws.kinesis.FirehoseDeliveryStream
     }
 
     const provider = providers[type];
@@ -50,7 +51,7 @@ export default class AwsResourceFactory {
           taskDefinitionArgs: {
             containers: {
               [name]: {
-                image: "dannywaite/active-connectors:latest",
+                image: "dannywaite/active-connectors:1",
                 memory: 512,
                 environment: [
                   { name: "INPUT", value: Base64Util.toBase64(JSON.stringify(config.input)) },
