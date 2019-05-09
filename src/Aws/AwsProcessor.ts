@@ -171,7 +171,7 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     if (component.logging === "debug") variables["DEBUG"] = "1";
-
+    
     resourceConfigs.push(this.resourceUtil.configure(identifier, "aws.lambda.Function", {
       name: identifier,
       handler: "handler.handler",
@@ -199,7 +199,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const name = component.meta!.identifier
         , stackName = this.stackConfig.name
         , { type, config, componentType } = component
-        , finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {}
+        , finalConfig = this.resourceFactory.translateResourceConfig(type!, config) || {}
         ;
 
     // TODO: can we wrap secrets into a generic mechanism
@@ -252,7 +252,7 @@ export default class AwsProcessor implements PlatformProcessor {
     return this.resourceUtil.register(routingComponentConfig);
   }
 
-  getResource(config:ResourceConfig): [any, any] {
+  getResource(config: ResourceConfig): [any, any] {
     let provider, newConfig;
 
     switch (config.componentType) {
