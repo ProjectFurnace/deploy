@@ -71,14 +71,13 @@ export default class AwsResourceFactory {
         stream: source
       }
     }
-    console.log("output", output);
 
     const pulumiConfig = {
       desiredCount: 1,
       taskDefinitionArgs: {
         containers: {
           [name]: {
-            image: "dannywaite/active-connectors:2",
+            image: "dannywaite/active-connectors:3",
             memory: 512,
             environment: [
               { name: "INPUT", value: Base64Util.toBase64(JSON.stringify(config.input)) },

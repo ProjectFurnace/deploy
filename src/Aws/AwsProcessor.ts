@@ -40,7 +40,7 @@ export default class AwsProcessor implements PlatformProcessor {
       .map(flow => this.createRoutingComponent(flow));
 
     const resourceConfigs = this.flows
-      .filter(flow => flow.component === "resource")
+      .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
       .map(flow => this.createResourceComponent(flow));
 
     const nativeResourceConfigs = this.flows
