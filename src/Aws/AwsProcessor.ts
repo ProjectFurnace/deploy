@@ -11,10 +11,12 @@ export default class AwsProcessor implements PlatformProcessor {
 
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'aws';
+  resourceFactory: AwsResourceFactory;
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
     this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
+    this.resourceFactory = new AwsResourceFactory();
   }
 
   validate() {
@@ -199,7 +201,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const name = component.meta!.identifier
         , stackName = this.stackConfig.name
         , { type, config, componentType } = component
-        , finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {}
+        , finalConfig = this.resourceFactory.translateResourceConfig(type!, config) || {}
         ;
 
     // TODO: can we wrap secrets into a generic mechanism
@@ -257,10 +259,10 @@ export default class AwsProcessor implements PlatformProcessor {
 
     switch (config.componentType) {
       case "NativeResource":
-        [provider, newConfig] = AwsResourceFactory.getNativeResource(config.name, config.type, config.config);
+        [provider, newConfig] = this.resourceFactory.getNativeResource(config.name, config.type, config.config);
         break;
       default:
-        [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
+        [provider, newConfig] = this.resourceFactory.getResource(config.name, config.type, config.config);
     }
 
     return [provider, newConfig];

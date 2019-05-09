@@ -6,11 +6,11 @@ import Base64Util from "../Util/Base64Util";
 
 export default class AwsResourceFactory {
 
-  static getResource(name: string, type: string, config: any): [any, any] {
+  getResource(name: string, type: string, config: any): [any, any] {
     return [ this.getResourceProvider(type), this.getResourceConfig(name, type, config) ];
   }
 
-  private static getResourceProvider(type: string) {
+  private getResourceProvider(type: string) {
 
     const providers: { [key: string]: any } = {
       "aws.elasticsearch.Domain": aws.elasticsearch.Domain,
@@ -31,7 +31,7 @@ export default class AwsResourceFactory {
     return provider;
   }
 
-  private static getResourceConfig(name: string, type: string, config: any): any {
+  private getResourceConfig(name: string, type: string, config: any): any {
     const newConfig = _.cloneDeep(config);
 
     const nameProp = (ResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
@@ -40,34 +40,19 @@ export default class AwsResourceFactory {
     return newConfig;
   }
 
-  static getNativeResource(name: string, type: string, config: any): [any, any] {
+  getNativeResource(name: string, type: string, config: any): [any, any] {
 
     let finalConfig = this.getResourceConfig(name, type, config);
 
     switch (type) {
       case "ActiveConnector":
-        return [ awsx.ecs.FargateService, {
-          desiredCount: 1,
-          taskDefinitionArgs: {
-            containers: {
-              [name]: {
-                image: "dannywaite/active-connectors:1",
-                memory: 512,
-                environment: [
-                  { name: "INPUT", value: Base64Util.toBase64(JSON.stringify(config.input)) },
-                  { name: "OUTPUT", value: Base64Util.toBase64(JSON.stringify(config.output)) },
-                ]    
-              } as awsx.ecs.Container,
-            },
-          },
-          ...finalConfig
-        } as awsx.ecs.FargateServiceArgs ];
+        return [ awsx.ecs.FargateService, this.getActiveConnectorConfig(name, config) ];
       default:
         throw new Error(`unable native resource type ${type}`);
     }
   }
 
-  static translateResourceConfig(type: string, config: any) {
+  translateResourceConfig(type: string, config: any) {
     const newConfig = _.cloneDeep(config);
 
     switch (type) {
@@ -75,4 +60,36 @@ export default class AwsResourceFactory {
         return newConfig;
     }
   }
+
+  private getActiveConnectorConfig(name: string, config: any): awsx.ecs.FargateServiceArgs {
+
+    const { source } = config.output;
+    const output = {
+      name: "aws-kinesis-stream",
+      options: {
+        // stream: "${" + source + "}"
+        stream: source
+      }
+    }
+    console.log("output", output);
+
+    const pulumiConfig = {
+      desiredCount: 1,
+      taskDefinitionArgs: {
+        containers: {
+          [name]: {
+            image: "dannywaite/active-connectors:2",
+            memory: 512,
+            environment: [
+              { name: "INPUT", value: Base64Util.toBase64(JSON.stringify(config.input)) },
+              { name: "OUTPUT", value: Base64Util.toBase64(JSON.stringify(output)) },
+            ]    
+          } as awsx.ecs.Container,
+        },
+      },
+      ...config
+    } as awsx.ecs.FargateServiceArgs
+
+    return pulumiConfig;
+  } 
 }
