@@ -12,7 +12,7 @@ export default class GcpProcessor implements PlatformProcessor {
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'gcp';
 
-  constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
+  constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
     this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
   }

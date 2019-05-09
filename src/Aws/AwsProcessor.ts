@@ -11,12 +11,10 @@ export default class AwsProcessor implements PlatformProcessor {
 
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'aws';
-  resourceFactory: AwsResourceFactory;
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
     this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
-    this.resourceFactory = new AwsResourceFactory();
   }
 
   validate() {
@@ -259,10 +257,10 @@ export default class AwsProcessor implements PlatformProcessor {
 
     switch (config.componentType) {
       case "NativeResource":
-        [provider, newConfig] = this.resourceFactory.getNativeResource(config.name, config.type, config.config);
+        [provider, newConfig] = AwsResourceFactory.getNativeResource(config.name, config.type, config.config);
         break;
       default:
-        [provider, newConfig] = this.resourceFactory.getResource(config.name, config.type, config.config);
+        [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
     }
 
     return [provider, newConfig];
@@ -271,15 +269,20 @@ export default class AwsProcessor implements PlatformProcessor {
   processOutputs(name: string, resource: any, outputs: any) {
     // check if the step has any inputs defined and if so, store them in SSM parameter store
     if (outputs) {
-      let secretsConfig:ResourceConfig[] = [];
-      for (const key in outputs) {
-        secretsConfig.push(this.resourceUtil.configure(`/${process.env.FURNACE_INSTANCE}/${name}/${key}`, 'aws.ssm.Parameter', {
-          name: `/${process.env.FURNACE_INSTANCE}/-${name}/${key}`,
-          type: 'SecureString',
-          value: resource[outputs[key]],
-        }, 'resource'));
+      const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
+      const name_bits = REGEX.exec(name);
+
+      if (name_bits) {
+        let secretsConfig:ResourceConfig[] = [];
+        for (const key in outputs) {
+          secretsConfig.push(this.resourceUtil.configure(`/${process.env.FURNACE_INSTANCE}/${name_bits[1]}/${name_bits[2]}.${key}/${name_bits[3]}`, 'aws.ssm.Parameter', {
+            name: `/${process.env.FURNACE_INSTANCE}/${name_bits[1]}/${name_bits[2]}.${key}/${name_bits[3]}`,
+            type: 'SecureString',
+            value: resource[outputs[key]],
+          }, 'resource'));
+        }
+        this.resourceUtil.batchRegister(secretsConfig);
       }
-      this.resourceUtil.batchRegister(secretsConfig);
     }
   }
 }
