@@ -179,11 +179,11 @@ export default class Build {
 
             if( fsUtils.exists(path.join(buildPath, 'requirements.txt')) ) {
                 console.log('installing dependencies...')
-                const execResult = await this.execPromise("pip install -r requirements.txt -t .", 
+                const execResult = await this.execPromise("pip3 install -r requirements.txt -t .", 
                     { cwd: buildPath, env: process.env });
 
                 if (execResult.stderr) {
-                    throw new Error(`pip install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
+                    throw new Error(`pip3 install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
                 }
             } else {
                 console.log('no requirements.txt file. skipping pip install.')
