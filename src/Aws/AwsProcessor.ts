@@ -35,7 +35,7 @@ export default class AwsProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
-    console.log(util.inspect(this.flows, { depth: null }));
+    // console.log(util.inspect(this.flows, { depth: null }));
 
     const routingDefs = this.getRoutingDefinitions();
     const routingResources = routingDefs
@@ -123,7 +123,7 @@ export default class AwsProcessor implements PlatformProcessor {
       , { componentType } = component
       , awsConfig = component.config.aws || {}
       , platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
-    console.log("adding module", identifier)
+
     const resources: Array<RegisteredResource> = [];
     const resourceConfigs: Array<ResourceConfig> = [];
 

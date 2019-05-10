@@ -87,7 +87,7 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
     const artifactExists = await this.artifactExists(bucketName, key);
 
     if (artifactExists) {
-      console.log(`artifact with ${key} exists, skipping upload...`);
+      // console.log(`artifact with ${key} exists, skipping upload...`);
       return Promise.resolve();
     } else {
       return new Promise((resolve, reject) => {

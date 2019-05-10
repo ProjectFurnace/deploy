@@ -27,7 +27,7 @@ export default abstract class ModuleBuilder {
     const def = await this.getModuleDef(buildSpec);
 
     if (this.modules.includes(def.name)) {
-      console.log(`module ${def.name} already built, skipping`);
+      // console.log(`module ${def.name} already built, skipping`);
       return def;
     }
 
@@ -132,7 +132,7 @@ export default abstract class ModuleBuilder {
         fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
       }
 
-      console.log(`building ${name} in ${buildPath}`);
+      // console.log(`building ${name} in ${buildPath}`);
 
       const execResult = await execPromise("npm install --production",
         { cwd: buildPath, env: process.env });
@@ -150,10 +150,10 @@ export default abstract class ModuleBuilder {
   async buildPython(name: string, buildPath: string) {
 
     try {
-      console.log(`building ${name} in ${buildPath}`);
+      // console.log(`building ${name} in ${buildPath}`);
 
       if (fsUtils.exists(path.join(buildPath, 'requirements.txt'))) {
-        console.log('installing dependencies...')
+        // console.log('installing dependencies...')
         const execResult = await execPromise("pip install -r requirements.txt -t .",
           { cwd: buildPath, env: process.env });
 
