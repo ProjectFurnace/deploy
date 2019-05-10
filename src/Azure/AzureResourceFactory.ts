@@ -16,6 +16,7 @@ export default class AzureResourceFactory {
       "azure.storage.ZipBlob": azure.storage.ZipBlob,
       "azure.storage.Account": azure.storage.Account,
       "azure.storage.Container": azure.storage.Container,
+      "azure.storage.Table": azure.storage.Table,
       "azure.appservice.FunctionApp": azure.appservice.FunctionApp,
       "azure.appservice.Plan": azure.appservice.Plan,
       "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule,

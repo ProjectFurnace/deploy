@@ -5,6 +5,7 @@ import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import GcpResourceFactory from "./GcpResourceFactory";
 import ResourceUtil from "../Util/ResourceUtil";
+import awsUtil from "../Util/AwsUtil";
 
 export default class GcpProcessor implements PlatformProcessor {
 
@@ -51,8 +52,15 @@ export default class GcpProcessor implements PlatformProcessor {
     );
 
     const resourceConfigs = this.flows
-    .filter(component => component.component === "resource")
-    .map(component => this.resourceUtil.configure(component.meta!.identifier, component.type!, component.config, 'resource'));
+      .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
+      .map(flow => this.resourceUtil.configure(flow.meta!.identifier, flow.type!, flow.config, 'resource'));
+
+    const nativeResourceConfigs = this.flows
+      .filter(flow => flow.componentType === "NativeResource")
+      .map(flow => this.createNativeResourceComponent(flow));
+
+    for(const nativeResourceConfs of nativeResourceConfigs)
+      resourceConfigs.push(...nativeResourceConfs);
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
@@ -152,6 +160,40 @@ export default class GcpProcessor implements PlatformProcessor {
     resources.push(this.resourceUtil.register(cloudFunctionConfig));
 
     return resources;
+  }
+
+  createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
+    const name = component.meta!.identifier
+      , { type, config, componentType } = component
+      ;
+
+    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
+    const name_bits = REGEX.exec(name);
+
+    if( !name_bits) 
+      throw new Error('Unable to destructure name while creating native resource');
+
+    switch(type) {
+      case "Table":
+        const datasetConfig = {
+          datasetId: `${name}_dataset`,
+          location: gcp.config.region
+        };
+        const tableConfig = {
+            datasetId: '${'+ name_bits[2] + '_dataset.datasetId}',
+            schema: '[{"name": "' + config.primaryKey + '", "type": "' + config.primaryKeyType.toUpperCase() + '", "mode": "NULLABLE"}]',
+            tableId: name,
+            timePartitioning: {
+                type: "DAY"
+            }
+        };
+        const dataset = this.resourceUtil.configure(`${name_bits[1]}-${name_bits[2]}_dataset-${name_bits[3]}`, 'gcp.bigquery.Dataset', datasetConfig, 'resource', {}, {}, componentType);
+        const table = this.resourceUtil.configure(name, 'gcp.bigquery.Table', tableConfig, 'resource', {}, {}, componentType);
+        return [dataset, table];
+
+      default:
+        return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+    }
   }
 
   getResource(config:ResourceConfig): [any, any] {

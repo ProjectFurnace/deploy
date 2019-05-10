@@ -102,8 +102,15 @@ export default class AzureProcessor implements PlatformProcessor {
     );
 
     const resourceConfigs = this.flows
-    .filter(component => component.component === "resource")
+    .filter(component => component.componentType === "Resource" && component.component !== "source")
     .map(component => this.resourceUtil.configure(component.meta!.identifier, component.type!, component.config, 'resource', {resourceGroup: this.resourceGroup}));
+
+    const nativeResourceConfigs = this.flows
+      .filter(flow => flow.componentType === "NativeResource")
+      .map(flow => this.createNativeResourceComponent(flow));
+
+    for(const nativeResourceConfs of nativeResourceConfigs)
+      resourceConfigs.push(...nativeResourceConfs);
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
@@ -261,6 +268,23 @@ export default class AzureProcessor implements PlatformProcessor {
     });
 
   }
+
+
+createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
+  const name = component.meta!.identifier
+    , { type, config, componentType } = component
+    ;
+
+  switch(type) {
+    case "Table":
+      config.storageAccountName = this.storageAccount.name;
+      const tableName = name.replace(/[^A-Za-z0-9]/g, "");
+      return [this.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource', {resourceGroup: this.resourceGroup}, {}, componentType)];
+
+    default:
+      return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+  }
+}
 
   getResource(config:ResourceConfig): [any, any] {
 

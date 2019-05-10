@@ -17,7 +17,9 @@ export default class GcpResourceFactory {
       "gcp.pubsub.Subscription": gcp.pubsub.Subscription,
       "gcp.pubsub.Topic": gcp.pubsub.Topic,
       "gcp.kms.KeyRing": gcp.kms.KeyRing,
-      "gcp.kms.CryptoKey": gcp.kms.CryptoKey
+      "gcp.kms.CryptoKey": gcp.kms.CryptoKey,
+      "gcp.bigquery.Dataset": gcp.bigquery.Dataset,
+      "gcp.bigquery.Table": gcp.bigquery.Table
     }
 
     const provider = providers[type];

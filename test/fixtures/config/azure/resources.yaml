@@ -16,6 +16,13 @@
     tags:
       env2: abc-${rg1.tags.environment}-${resource:rg2.tags.env2}-cde
 
+- name: table1
+  type: Table
+  config:
+    primaryKey: "Id"
+    primaryKeyType: "string"
+
+
 # - name: cosmosdb2
 #   type: azure.cosmosdb.Account
 #   config:

@@ -35,7 +35,6 @@ export default class AwsProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
-    console.log(util.inspect(this.flows, { depth: null }));
 
     const routingDefs = this.getRoutingDefinitions();
     const routingResources = routingDefs
@@ -49,7 +48,8 @@ export default class AwsProcessor implements PlatformProcessor {
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => this.createNativeResourceComponent(flow));
 
-    resourceConfigs.push(...nativeResourceConfigs);
+    for(const nativeResourceConfs of nativeResourceConfigs)
+      resourceConfigs.push(...nativeResourceConfs);
   
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
@@ -261,12 +261,24 @@ export default class AwsProcessor implements PlatformProcessor {
     return this.resourceUtil.configure(name, type!, finalConfig, 'resource', {}, component.outputs, componentType);
   }
 
-  createNativeResourceComponent(component: BuildSpec): ResourceConfig {
+  createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
     const name = component.meta!.identifier
       , { type, config, componentType } = component
       ;
 
-    return this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType);
+    switch(type) {
+      case "Table":
+        config.attributes = [{name: config.primaryKey, type: config.primaryKeyType.charAt(0).toUpperCase()}];
+        config.hashKey = config.primaryKey;
+        config.writeCapacity = 1;
+        config.readCapacity = 1;
+        delete config.primaryKey;
+        delete config.primaryKeyType;
+        return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+  
+      default:
+        return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+    }
   }
 
   createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource {

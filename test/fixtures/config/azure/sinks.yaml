@@ -1,3 +1,0 @@
-- name: dummy
-  type: Module
-  module: passthrough2

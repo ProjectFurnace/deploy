@@ -7,3 +7,5 @@
       volumeSize: 10
     clusterConfig:
       instanceType: t2.small.elasticsearch
+- name: table1
+  type: Table

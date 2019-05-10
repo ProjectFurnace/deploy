@@ -1,6 +1,0 @@
-- name: connector1
-  realm: internal
-  type: ActiveConnector
-  source: salesforce-source
-  inputs:
-    - tenantId: abc123

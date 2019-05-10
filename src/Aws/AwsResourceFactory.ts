@@ -47,8 +47,10 @@ export default class AwsResourceFactory {
     switch (type) {
       case "ActiveConnector":
         return [ awsx.ecs.FargateService, this.getActiveConnectorConfig(name, config) ];
+      case "Table":
+        return [ aws.dynamodb.Table, finalConfig];
       default:
-        throw new Error(`unable native resource type ${type}`);
+        throw new Error(`unable to get native resource type ${type}`);
     }
   }
 
