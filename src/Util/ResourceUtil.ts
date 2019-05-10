@@ -5,6 +5,8 @@ import * as pulumi from "@pulumi/pulumi";
 import { PlatformProcessor } from "../IPlatformProcessor";
 
 export default class ResourceUtil {
+  global:any = {};
+
   constructor(private processor: PlatformProcessor, private stackName: string, private environment: string) {
   }
 
@@ -13,6 +15,10 @@ export default class ResourceUtil {
       return items.find(item => item.name === name);
     }
     return false;
+  }
+
+  setGlobal(global: any) {
+    this.global = global;
   }
 
   configure(name: string, type: string, config: any, scope: string, options: any = {}, outputs: any = {}, componentType: string = 'Resource', ): ResourceConfig {
@@ -45,21 +51,22 @@ export default class ResourceUtil {
           const toConcat = [];
           let isObjectBind = false;
           for (const fragment of propertyWithVars.varParts) {
-            if( VarUtil.isObject(fragment) ) {
-              const dependencyName = `${this.stackName}-${fragment.resource}-${this.environment}`;
-              /*console.log('RESOURCE', config.name);
-              console.log('DEPENDENCY NAME', dependencyName);
-              console.log(registeredResources);*/
-              const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
-              if(!resource) {
-                throw new Error(`Dependency resource: ${fragment.resource} not found`);
+            if (VarUtil.isObject(fragment)) {
+              if (fragment.scope == 'global') {
+                toConcat.push(_.get(this.global[fragment.resource], fragment.bindTo, fragment.default));
               } else {
-                // add this resource as a dependency
-                dependencies.push(resource.resource);
-                if ( fragment.bindTo )
-                  toConcat.push(_.get(resource.resource, fragment.bindTo, fragment.default));
-                else
-                  isObjectBind = true;
+                const dependencyName = `${this.stackName}-${fragment.resource}-${this.environment}`;
+                const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
+                if(!resource) {
+                  throw new Error(`Dependency resource: ${fragment.resource} not found`);
+                } else {
+                  // add this resource as a dependency
+                  dependencies.push(resource.resource);
+                  if ( fragment.bindTo )
+                    toConcat.push(_.get(resource.resource, fragment.bindTo, fragment.default));
+                  else
+                    isObjectBind = true;
+                }
               }
             } else {
               toConcat.push(fragment);

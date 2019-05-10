@@ -33,7 +33,7 @@ export default class VarUtil {
 
   static split(variable: string, scope: string) {
     const bits = [];
-    let pos = -1;
+    let pos = 0;
 
     while (pos < variable.length) {
       const varStart = variable.indexOf('${', pos);
@@ -42,8 +42,8 @@ export default class VarUtil {
         if (varEnd === -1) {
           throw Error('Variable close not found');
         }
-        if (varStart > pos + 1) {
-          bits.push(variable.substring(pos + 1, varStart));
+        if (varStart > pos) {
+          bits.push(variable.substring(pos, varStart));
         }
         const varParts = VarUtil.VAR_MATCH.exec(variable.substr(varStart, varEnd));
         if (!varParts) {

@@ -1,4 +1,5 @@
 import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
 import AwsUtil from "../Util/AwsUtil";
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
@@ -6,7 +7,6 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
-import * as util from "util";
 
 export default class AwsProcessor implements PlatformProcessor {
 
@@ -35,15 +35,36 @@ export default class AwsProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
-    // console.log(util.inspect(this.flows, { depth: null }));
+    
+    this.resourceUtil.setGlobal({
+      stack: {
+        name: this.stackConfig.name,
+        region: aws.config.region,
+        environment: this.environment
+      },
+      account: {
+        id: identity.accountId
+      }
+    });
 
     const routingDefs = this.getRoutingDefinitions();
-    const routingResources = routingDefs
+    const routingResourceConfigs = routingDefs
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config))
+
+    let registeredResources = this.resourceUtil.batchRegister(routingResourceConfigs);
 
     const resourceConfigs = this.flows
       .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
       .map(flow => this.createResourceComponent(flow))
+
+    /*resourceConfigs.push(...routingResourceConfigs);
+
+    resourceConfigs.push(this.resourceUtil.configure('__global__config__', 'noregister', {
+      stackName: this.stackConfig.name,
+      environment: this.environment,
+      accountId: identity.accountId,
+      region: aws.config.region
+    }, 'global'));*/
 
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
@@ -56,21 +77,25 @@ export default class AwsProcessor implements PlatformProcessor {
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
 
     let pendingModuleConfigs:ResourceConfig[] = [];
+
     let resources;
 
     for (const component of moduleComponents) {
-      const routingResource = routingResources.find(r => r.name === component.meta!.source)
+      const routingResource = registeredResources.find(r => r.name === component.meta!.source)
       if (!routingResource && component.component !== "function") throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
 
       [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResource, identity.accountId);
       resources.forEach(resource => moduleResources.push(resource));
       pendingModuleConfigs.forEach(moduleConfig => resourceConfigs.push(moduleConfig));
     }
+
+    if (resources)
+      registeredResources.push(...resources);
     
-    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
+    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, registeredResources);
 
     return [
-      ...routingResources,
+      ...registeredResources,
       ...resourceResources,
       ...([] as RegisteredResource[]).concat(...moduleResources) // flatten the moduleResources
     ]
@@ -282,7 +307,7 @@ export default class AwsProcessor implements PlatformProcessor {
     }
   }
 
-  createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource {
+  createRoutingComponent(name: string, mechanism: string | undefined, config: any): ResourceConfig {
     const awsConfig = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
       , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
       , defaultRoutingShards = awsConfig.defaultRoutingShards || 1
@@ -295,8 +320,7 @@ export default class AwsProcessor implements PlatformProcessor {
       if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
     }
 
-    const routingComponentConfig = this.resourceUtil.configure(name, mechanism, config, 'resource');
-    return this.resourceUtil.register(routingComponentConfig);
+    return this.resourceUtil.configure(name, mechanism, config, 'resource');
   }
 
   getResource(config: ResourceConfig): [any, any] {
