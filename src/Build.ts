@@ -155,7 +155,7 @@ export default class Build {
                 fsUtils.writeFile(path.join(buildPath, ".npmrc"), npmrc);
             }
 
-            console.log(`building ${name} in ${buildPath}`);
+            // console.log(`building ${name} in ${buildPath}`);
 
             // TODO: merge dependencies from template
             const execResult = await this.execPromise("npm install --production", 
@@ -175,10 +175,10 @@ export default class Build {
 
         try
         {
-            console.log(`building ${name} in ${buildPath}`);
+            // console.log(`building ${name} in ${buildPath}`);
 
             if( fsUtils.exists(path.join(buildPath, 'requirements.txt')) ) {
-                console.log('installing dependencies...')
+                // console.log('installing dependencies...')
                 const execResult = await this.execPromise("pip install -r requirements.txt -t .", 
                     { cwd: buildPath, env: process.env });
 
