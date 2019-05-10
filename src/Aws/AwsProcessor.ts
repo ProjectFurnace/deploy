@@ -6,6 +6,7 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
+import * as util from "util";
 
 export default class AwsProcessor implements PlatformProcessor {
 
@@ -34,14 +35,15 @@ export default class AwsProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
+    console.log(util.inspect(this.flows, { depth: null }));
 
-    const routingResources = this.flows
-      .filter(flow => !["sink", "resource", "connector", "function"].includes(flow.component))
-      .map(flow => this.createRoutingComponent(flow));
+    const routingDefs = this.getRoutingDefinitions();
+    const routingResources = routingDefs
+      .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config))
 
     const resourceConfigs = this.flows
       .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
-      .map(flow => this.createResourceComponent(flow));
+      .map(flow => this.createResourceComponent(flow))
 
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
@@ -73,13 +75,55 @@ export default class AwsProcessor implements PlatformProcessor {
     ]
   }
 
+  getRoutingDefinitions(): any[] {
+    const routingDefs = [];
+    
+    const routingComponents = this.flows
+      .filter(flow => ["source", "tap", "pipeline-module"].includes(flow.component));
+
+    for (let component of routingComponents) {
+      if (component.component === "source") {
+        const existing = routingDefs.find(r => r.name === component.meta!.identifier);
+        if (!existing) {
+          routingDefs.push({
+            name: component.meta!.identifier,
+            mechanism: component.type,
+            config: (component.config && component.config.aws) || {}
+          });
+        }
+      } else {
+        if (component.meta!.output) {
+          const existing = routingDefs.find(r => r.name === component.meta!.output);
+          if (!existing) {
+            routingDefs.push({
+              name: component.meta!.output!,
+              mechanism: undefined,
+              config: (component.config && component.config.aws) || {}
+            });
+          }
+        }
+        if (component.meta!.source) {
+          const existing = routingDefs.find(r => r.name === component.meta!.source);
+          if (!existing) {
+            routingDefs.push({
+              name: component.meta!.source!,
+              mechanism: undefined,
+              config: (component.config && component.config.aws) || {}
+            });
+          }
+        }
+      }
+    }
+    return routingDefs;
+  }
+
   async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
       , { componentType } = component
       , awsConfig = component.config.aws || {}
       , platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
-
+    console.log("adding module", identifier)
     const resources: Array<RegisteredResource> = [];
     const resourceConfigs: Array<ResourceConfig> = [];
 
@@ -225,24 +269,14 @@ export default class AwsProcessor implements PlatformProcessor {
     return this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType);
   }
 
-  createRoutingComponent(component: BuildSpec): RegisteredResource {
+  createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource {
     const awsConfig = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
       , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
       , defaultRoutingShards = awsConfig.defaultRoutingShards || 1
       ;
 
-    let name = component.meta && component.meta!.output!
-      , mechanism = defaultRoutingMechanism
-      , config: any = {}
-      ;
-
-    if (component.component === "source") {
-      name = component.meta!.identifier;
-      mechanism = component.type || defaultRoutingMechanism;
-      config = (component.config && component.config.aws) || {}
-    }
-
-    if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
+    if (!mechanism) mechanism = defaultRoutingMechanism;
+    if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
     if (mechanism === "aws.kinesis.Stream") {
       if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
