@@ -7,6 +7,7 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
+import * as util from "util";
 
 export default class AwsProcessor implements PlatformProcessor {
 
@@ -81,10 +82,11 @@ export default class AwsProcessor implements PlatformProcessor {
     let resources;
 
     for (const component of moduleComponents) {
-      const routingResource = registeredResources.find(r => r.name === component.meta!.source)
-      if (!routingResource && component.component !== "function") throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
+      const routingResources = registeredResources.filter(r => component.meta!.sources!.includes(r.name));
+      // console.log(component.name, component.meta!.sources, routingResources);
+      // if (routingResources.length === 0 && component.component !== "function") throw new Error(`unable to find routing resources in component ${component.name}`);
 
-      [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResource, identity.accountId);
+      [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResources, identity.accountId);
       resources.forEach(resource => moduleResources.push(resource));
       pendingModuleConfigs.forEach(moduleConfig => resourceConfigs.push(moduleConfig));
     }
@@ -128,11 +130,11 @@ export default class AwsProcessor implements PlatformProcessor {
             });
           }
         }
-        if (component.meta!.source) {
-          const existing = routingDefs.find(r => r.name === component.meta!.source);
+        for (let source of component.meta!.sources!) {
+          const existing = routingDefs.find(r => r.name === source);
           if (!existing) {
             routingDefs.push({
-              name: component.meta!.source!,
+              name: source!,
               mechanism: undefined,
               config: (component.config && component.config.aws) || {}
             });
@@ -143,7 +145,7 @@ export default class AwsProcessor implements PlatformProcessor {
     return routingDefs;
   }
 
-  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource | undefined, accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
+  async createModuleResource(component: BuildSpec, inputResources: RegisteredResource[], accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
       , { componentType } = component
@@ -189,29 +191,38 @@ export default class AwsProcessor implements PlatformProcessor {
     resources.push(functionRoleResource);
     const role = (functionRoleResource.resource as aws.iam.Role);
 
+    let kinesisResources = component.meta!.sources!.map(source => `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${source}`);
+    if (component.meta!.output) kinesisResources.push(`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`);
+
+    const rolePolicyDefStatement: aws.iam.PolicyStatement[] = [
+      { 
+        Effect: "Allow", 
+        Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], 
+        Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`  
+      },
+      {
+        Effect: "Allow",
+        Action: ["ssm:GetParametersByPath"],
+        Resource: [`arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`]
+      }
+    ];
+
+    if (kinesisResources.length > 0) {
+      rolePolicyDefStatement.push({ 
+        Effect: "Allow", 
+        Action: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"],
+        Resource: kinesisResources
+      })
+    }
+
     const rolePolicyDef: aws.iam.RolePolicyArgs = {
       role: role.id,
       policy: {
         Version: "2012-10-17",
-        Statement: [
-          { 
-            Effect: "Allow", 
-            Action: ["logs:CreateLogGroup", "logs:CreateLogStream", "logs:PutLogEvents"], 
-            Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`  
-          },
-          { 
-            Effect: "Allow", 
-            Action: ["kinesis:DescribeStream", "kinesis:PutRecord", "kinesis:PutRecords", "kinesis:GetShardIterator", "kinesis:GetRecords", "kinesis:ListStreams"],
-            Resource: [`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.source}`, `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`]
-          },
-          {
-            Effect: "Allow",
-            Action: ["ssm:GetParametersByPath"],
-            Resource: [`arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`]
-          }
-        ]
+        Statement: rolePolicyDefStatement
       }
     };
+    
     const rolePolicyConf = this.resourceUtil.configure(`${identifier}-policy`, "aws.iam.RolePolicy", rolePolicyDef, 'resource');
     resources.push(this.resourceUtil.register(rolePolicyConf));
 
@@ -252,8 +263,8 @@ export default class AwsProcessor implements PlatformProcessor {
       environment: { variables }
     }, 'module'));
 
-    if (inputResource) {  
-      resourceConfigs.push(this.resourceUtil.configure(identifier + "-source", "aws.lambda.EventSourceMapping", {
+    for (let inputResource of inputResources) {
+      resourceConfigs.push(this.resourceUtil.configure(identifier + "-source" + inputResources.indexOf(inputResource), "aws.lambda.EventSourceMapping", {
         eventSourceArn: (inputResource.resource as any).arn,
         functionName: identifier,
         enabled: true,
@@ -261,7 +272,7 @@ export default class AwsProcessor implements PlatformProcessor {
         startingPosition: awsConfig.startingPosition || defaultStartingPosition,
       }, 'resource'));
     }
-
+    
     return [resources, resourceConfigs];
   }
 
