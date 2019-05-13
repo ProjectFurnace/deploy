@@ -3,6 +3,7 @@ import * as awsx from "@pulumi/awsx";
 import * as ResourceConfig from "./AwsResourceConfig.json";
 import * as _ from "lodash";
 import Base64Util from "../Util/Base64Util";
+import * as util from "util";
 
 export default class AwsResourceFactory {
 

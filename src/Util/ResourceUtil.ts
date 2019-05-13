@@ -44,12 +44,13 @@ export default class ResourceUtil {
   register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
     try {
       const [provider, newConfig] = this.processor.getResource(config);
+      //console.log(util.inspect(newConfig, false, null, true))
 
       const dependencies = [];
       // iterate over properties that are binded to other objects and create the necessary links in pulumi
       if (Array.isArray(config.propertiesWithVars) && config.propertiesWithVars.length > 0) {
         for (const propertyWithVars of config.propertiesWithVars) {
-          console.log(util.inspect(propertyWithVars, false, null, true))
+          //console.log(util.inspect(propertyWithVars, false, null, true))
           const toConcat = [];
           let isObjectBind = false;
           for (const fragment of propertyWithVars.varParts) {
@@ -76,7 +77,7 @@ export default class ResourceUtil {
           }
           // if we are binding to a whole resource
           if (propertyWithVars.varParts.length > 1 && isObjectBind)
-            throw new Error(`Cannot bind to full resource while using constant prefixes or suffixes at: ${config.name}`);
+            throw new Error(`Cannot bind to full resource while using constant prefixes or suffixes at: ${config.name} [${propertyWithVars.property}]`);
           else if ( isObjectBind ) {
             _.set(newConfig, propertyWithVars.property, dependencies[0]);
           } else {

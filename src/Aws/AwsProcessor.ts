@@ -71,7 +71,7 @@ export default class AwsProcessor implements PlatformProcessor {
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => this.createNativeResourceComponent(flow));
 
-    console.log(util.inspect(nativeResourceConfigs, false, null, true))
+    //console.log(util.inspect(nativeResourceConfigs, false, null, true))
 
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...nativeResourceConfs);
@@ -262,6 +262,8 @@ export default class AwsProcessor implements PlatformProcessor {
       runtime: AwsUtil.runtimeFromString(component.moduleSpec.runtime ? component.moduleSpec.runtime : "nodejs8.10"),
       s3Bucket: this.buildBucket,
       s3Key,
+      memorySize: 256,
+      timeout: 60,
       environment: { variables }
     }, 'module'));
 
