@@ -70,7 +70,7 @@ export default abstract class ModuleBuilder {
 
     const info = yaml.load(infoPath);;
 
-    const { identifier, source, output } = buildSpec.meta!;
+    const { identifier, sources, output } = buildSpec.meta!;
     const { eventType } = buildSpec.moduleSpec;
 
     let def = {
@@ -85,7 +85,7 @@ export default abstract class ModuleBuilder {
       buildPath: path.join(this.buildPath, name),
       buildArtifact: "",
       identifier,
-      source,
+      sources,
       output,
       eventType
     };

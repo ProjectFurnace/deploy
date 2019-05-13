@@ -3,6 +3,7 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import * as _ from "lodash";
 import * as pulumi from "@pulumi/pulumi";
 import { PlatformProcessor } from "../IPlatformProcessor";
+import * as util from "util";
 
 export default class ResourceUtil {
   global:any = {};
@@ -48,6 +49,7 @@ export default class ResourceUtil {
       // iterate over properties that are binded to other objects and create the necessary links in pulumi
       if (Array.isArray(config.propertiesWithVars) && config.propertiesWithVars.length > 0) {
         for (const propertyWithVars of config.propertiesWithVars) {
+          console.log(util.inspect(propertyWithVars, false, null, true))
           const toConcat = [];
           let isObjectBind = false;
           for (const fragment of propertyWithVars.varParts) {

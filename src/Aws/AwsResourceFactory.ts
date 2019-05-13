@@ -79,7 +79,7 @@ export default class AwsResourceFactory {
       taskDefinitionArgs: {
         containers: {
           [name]: {
-            image: "dannywaite/active-connectors:4",
+            image: "dannywaite/active-connectors:5",
             memory: 512,
             environment: [
               { name: "INPUT", value: Base64Util.toBase64(JSON.stringify(config.input)) },

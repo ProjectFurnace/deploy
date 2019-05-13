@@ -71,7 +71,7 @@ function dumpFlows(flows: BuildSpec[]) {
             console.log(flow.component);
             currentType = flow.component;
         }
-        console.log(`  ${flow.meta!.identifier} <- ${flow.meta!.source}`);
+        console.log(`  ${flow.meta!.identifier} <- ${flow.meta!.sources}`);
     }
 }
 

@@ -36,7 +36,7 @@ export default class AwsProcessor implements PlatformProcessor {
   async process(): Promise<Array<RegisteredResource>> {
 
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
-    
+
     this.resourceUtil.setGlobal({
       stack: {
         name: this.stackConfig.name,
@@ -70,6 +70,8 @@ export default class AwsProcessor implements PlatformProcessor {
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => this.createNativeResourceComponent(flow));
+
+    console.log(util.inspect(nativeResourceConfigs, false, null, true))
 
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...nativeResourceConfs);

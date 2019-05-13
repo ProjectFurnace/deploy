@@ -118,8 +118,9 @@ export default class AzureProcessor implements PlatformProcessor {
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
 
     for (const component of moduleComponents) {
-      const inputResource = routingResources.find(r => r.name === component.meta!.source + "-rule");
-      if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.source} in flow ${component.name}`);
+      //TODO: this needs reviewing! sources is an array now
+      const inputResource = routingResources.find(r => r.name === component.meta!.sources + "-rule");
+      if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.sources} in flow ${component.name}`);
       const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
       const outputResource = routingResources.find(r => r.name === component.meta!.output + "-rule");
