@@ -23,7 +23,8 @@ export default class AwsResourceFactory {
       "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping,
       "awsx.apigateway.API": awsx.apigateway.API,
       "aws.ssm.Parameter": aws.ssm.Parameter,
-      "aws.kinesis.FirehoseDeliveryStream": aws.kinesis.FirehoseDeliveryStream
+      "aws.kinesis.FirehoseDeliveryStream": aws.kinesis.FirehoseDeliveryStream,
+      "aws.kinesis.AnalyticsApplication": aws.kinesis.AnalyticsApplication
     }
 
     const provider = providers[type];
