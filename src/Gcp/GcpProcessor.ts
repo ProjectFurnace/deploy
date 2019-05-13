@@ -68,8 +68,9 @@ export default class GcpProcessor implements PlatformProcessor {
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
 
     for (const component of moduleComponents) {
-      const routingResource = routingResources.find(r => r.name === component.meta!.source)
-      if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.source} in flow ${component.name}`);
+      //TODO: this needs reviewing! sources is an array now
+      const routingResource = routingResources.find(r => r.name === component.meta!.sources)
+      if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.sources} in flow ${component.name}`);
 
       const resources = await this.createModuleResource(component, routingResource);
       resources.forEach(resource => moduleResources.push(resource));
