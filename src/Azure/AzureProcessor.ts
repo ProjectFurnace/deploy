@@ -95,6 +95,18 @@ export default class AzureProcessor implements PlatformProcessor {
 
   async process(): Promise<Array<RegisteredResource>> {
 
+    this.resourceUtil.setGlobal({
+      stack: {
+        name: this.stackConfig.name,
+        region: this.resourceGroup.location,
+        environment: this.environment
+      },
+      account: {
+        subscriptionId: azure.config.subscriptionId
+      }
+    });
+    
+
     const routingResources = ResourceUtil.flattenResourceArray(
       this.flows
         .filter(component => !["sink", "resource"].includes(component.component))
@@ -102,8 +114,8 @@ export default class AzureProcessor implements PlatformProcessor {
     );
 
     const resourceConfigs = this.flows
-    .filter(component => component.componentType === "Resource" && component.component !== "source")
-    .map(component => this.resourceUtil.configure(component.meta!.identifier, component.type!, component.config, 'resource', {resourceGroup: this.resourceGroup}));
+      .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
+      .map(flow => this.resourceUtil.configure(flow.meta!.identifier, flow.type!, flow.config, 'resource', {resourceGroup: this.resourceGroup}));
 
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
@@ -118,8 +130,9 @@ export default class AzureProcessor implements PlatformProcessor {
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
 
     for (const component of moduleComponents) {
-      //TODO: this needs reviewing! sources is an array now
-      const inputResource = routingResources.find(r => r.name === component.meta!.sources + "-rule");
+      //TODO: right now we only support one source for Azure
+      if (component.meta!.sources!.length > 1) throw new Error(`Only one source is currently supported for Azure at: ${component.name}`);
+      const inputResource = routingResources.find(r => r.name === component.meta!.sources![0] + "-rule");
       if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.sources} in flow ${component.name}`);
       const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 

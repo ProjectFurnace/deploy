@@ -58,20 +58,9 @@ export default class AwsProcessor implements PlatformProcessor {
       .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
       .map(flow => this.createResourceComponent(flow))
 
-    /*resourceConfigs.push(...routingResourceConfigs);
-
-    resourceConfigs.push(this.resourceUtil.configure('__global__config__', 'noregister', {
-      stackName: this.stackConfig.name,
-      environment: this.environment,
-      accountId: identity.accountId,
-      region: aws.config.region
-    }, 'global'));*/
-
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => this.createNativeResourceComponent(flow));
-
-    //console.log(util.inspect(nativeResourceConfigs, false, null, true))
 
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...nativeResourceConfs);

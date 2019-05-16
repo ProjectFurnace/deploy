@@ -44,6 +44,16 @@ export default class GcpProcessor implements PlatformProcessor {
 
   async process(): Promise<Array<RegisteredResource>> {
 
+    this.resourceUtil.setGlobal({
+      stack: {
+        name: this.stackConfig.name,
+        region: gcp.config.region,
+        environment: this.environment
+      },
+      account: {
+        project: gcp.config.project
+      }
+    });
 
     const routingResources = ResourceUtil.flattenResourceArray(
       this.flows
@@ -62,19 +72,20 @@ export default class GcpProcessor implements PlatformProcessor {
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...nativeResourceConfs);
 
-    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
-
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
 
     for (const component of moduleComponents) {
-      //TODO: this needs reviewing! sources is an array now
-      /*const routingResource = routingResources.find(r => r.name === component.meta!.sources)
-      if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.sources} in flow ${component.name}`);
+      //TODO: right now we only support one source for GCP
+      if (component.meta!.sources!.length > 1) throw new Error(`Only one source is currently supported for GCP at: ${component.name}`);
+      const routingResource = routingResources.find(r => r.name === component.meta!.sources![0])
+      if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.sources![0]} in flow ${component.name}`);
 
       const resources = await this.createModuleResource(component, routingResource);
-      resources.forEach(resource => moduleResources.push(resource));*/
+      resources.forEach(resource => moduleResources.push(resource));
     }
+
+    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
 
     return [
       ...resourceResources,
