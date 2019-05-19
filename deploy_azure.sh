@@ -21,6 +21,11 @@ if [ -n "$GIT_TOKEN" ]; then
   export GIT_TOKEN="$GIT_TOKEN"
 fi
 
+if [ -n "$ARM_SUBSCRIPTION_ID" ]; then
+  echo "Setting ARM_SUBSCRIPTION_ID env var..."
+  export ARM_SUBSCRIPTION_ID="$ARM_SUBSCRIPTION_ID"
+fi
+
 # if [ -n "$NPM_TOKEN" ]; then
 #   echo "Setting NPM token env var..."
 #   export NPM_TOKEN="$NPM_TOKEN"
@@ -92,7 +97,7 @@ if pulumi stack init $STACK_NAME-$STACK_ENV; then
   echo "Setting provider to azure"
   pulumi config set cloud:provider azure
   echo "Setting aws:region to $STACK_REGION"
-  pulumi config set --plaintext aws:region eu-west-1
+  pulumi config set --plaintext aws:region $STACK_REGION"
   # check if we have a previous stack config
   if [ -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
     echo "Found previous stack state. Trying to import it..."

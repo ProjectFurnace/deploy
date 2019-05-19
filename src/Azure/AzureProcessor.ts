@@ -17,7 +17,6 @@ export default class AzureProcessor implements PlatformProcessor {
   storageContainer: azure.storage.Container;
   appservicePlan: azure.appservice.Plan;
   resourceUtil: ResourceUtil;
-  readonly PLATFORM: string = 'azure';
 
   constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
@@ -36,7 +35,7 @@ export default class AzureProcessor implements PlatformProcessor {
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
 
-    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}RG`, "azure.core.ResourceGroup", { location: "WestUS" }, 'resource');
+    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}RG`, "azure.core.ResourceGroup", { location: process.env.STACK_REGION }, 'resource');
     const resourceGroupResource = this.resourceUtil.register(resourceGroupConfig);
     resources.push(resourceGroupResource);
     this.resourceGroup = resourceGroupResource.resource as azure.core.ResourceGroup;
@@ -133,7 +132,7 @@ export default class AzureProcessor implements PlatformProcessor {
       //TODO: right now we only support one source for Azure
       if (component.meta!.sources!.length > 1) throw new Error(`Only one source is currently supported for Azure at: ${component.name}`);
       const inputResource = routingResources.find(r => r.name === component.meta!.sources![0] + "-rule");
-      if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.sources} in flow ${component.name}`);
+      if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.sources![0]} in flow ${component.name}`);
       const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
       const outputResource = routingResources.find(r => r.name === component.meta!.output + "-rule");

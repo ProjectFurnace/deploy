@@ -12,7 +12,6 @@ import * as util from "util";
 export default class AwsProcessor implements PlatformProcessor {
 
   resourceUtil: ResourceUtil;
-  readonly PLATFORM: string = 'aws';
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
