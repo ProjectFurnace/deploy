@@ -151,6 +151,11 @@ export default class GcpProcessor implements PlatformProcessor {
       FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || "unknown"
     };
 
+    // TODO: this replace should be global. and in all clouds!
+    for (let param of component.parameters) {
+      envVars[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1]; 
+    }
+
     if (component.logging === "debug") envVars.DEBUG = '1';
 
     // Create an App Service Function
@@ -187,14 +192,16 @@ export default class GcpProcessor implements PlatformProcessor {
 
     switch(type) {
       case "Table":
+        const datasetId = `${name_bits[1].replace(/-/g, '_')}_${name_bits[2].replace(/-/g, '_')}_dataset_${name_bits[3].replace(/-/g, '_')}`;
+        const tableId = `${name_bits[1].replace(/-/g, '_')}_${name_bits[2].replace(/-/g, '_')}_${name_bits[3].replace(/-/g, '_')}`;
         const datasetConfig = {
-          datasetId: `${name}_dataset`,
+          datasetId: datasetId,
           location: gcp.config.region
         };
         const tableConfig = {
-            datasetId: '${'+ name_bits[2] + '_dataset.datasetId}',
+            datasetId: '${' + name_bits[2] + '_dataset' + '.datasetId}',
             schema: '[{"name": "' + config.primaryKey + '", "type": "' + config.primaryKeyType.toUpperCase() + '", "mode": "NULLABLE"}]',
-            tableId: name,
+            tableId: tableId,
             timePartitioning: {
                 type: "DAY"
             }

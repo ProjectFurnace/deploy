@@ -1,4 +1,4 @@
-FROM dannywaite/deploy-base:latest
+FROM guillemmateos/deploy-base:latest
 
 RUN pip install awscli
 

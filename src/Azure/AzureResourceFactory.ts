@@ -19,6 +19,7 @@ export default class AzureResourceFactory {
       "azure.storage.Table": azure.storage.Table,
       "azure.appservice.FunctionApp": azure.appservice.FunctionApp,
       "azure.appservice.Plan": azure.appservice.Plan,
+      "azure.appinsights.Insights": azure.appinsights.Insights,
       "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule,
       "azure.cosmosdb.Account": azure.cosmosdb.Account,
       "azure.core.TemplateDeployment": azure.core.TemplateDeployment

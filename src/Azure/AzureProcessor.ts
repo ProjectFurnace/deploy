@@ -8,6 +8,7 @@ import ModuleBuilderBase from "../ModuleBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
 import AzureResourceFactory from "./AzureResourceFactory";
 import * as _ from "lodash";
+import AzureModuleBuilder from "./AzureModuleBuilder";
 
 export default class AzureProcessor implements PlatformProcessor {
 
@@ -35,12 +36,12 @@ export default class AzureProcessor implements PlatformProcessor {
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
 
-    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}RG`, "azure.core.ResourceGroup", { location: process.env.STACK_REGION }, 'resource');
+    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}-RG-${this.environment}`, "azure.core.ResourceGroup", { location: process.env.STACK_REGION }, 'resource');
     const resourceGroupResource = this.resourceUtil.register(resourceGroupConfig);
     resources.push(resourceGroupResource);
     this.resourceGroup = resourceGroupResource.resource as azure.core.ResourceGroup;
 
-    const eventHubNamespaceConfig = this.resourceUtil.configure(`${stackName}NS`, "azure.eventhub.EventHubNamespace", {
+    const eventHubNamespaceConfig = this.resourceUtil.configure(`${stackName}-hubns-${this.environment}`, "azure.eventhub.EventHubNamespace", {
       capacity: 1,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -55,7 +56,7 @@ export default class AzureProcessor implements PlatformProcessor {
     this.eventHubNamespace = eventHubNamespaceResource.resource as azure.eventhub.EventHubNamespace;
 
     // create the storage account
-    const storageAccountConfig = this.resourceUtil.configure(`${stackName}sa`, "azure.storage.Account", {
+    const storageAccountConfig = this.resourceUtil.configure(`${stackName}sa${this.environment}`, "azure.storage.Account", {
       resourceGroupName: this.resourceGroup.name,
       location: this.resourceGroup.location,
       accountKind: "StorageV2",
@@ -67,17 +68,17 @@ export default class AzureProcessor implements PlatformProcessor {
     this.storageAccount = storageAccountResource.resource as azure.storage.Account;
 
     // Create a storage container
-    const storageContainerConfig = this.resourceUtil.configure(`${stackName}c`, "azure.storage.Container", {
+    /*const storageContainerConfig = this.resourceUtil.configure(`${stackName}-sc-${this.environment}`, "azure.storage.Container", {
       resourceGroupName: this.resourceGroup.name,
       storageAccountName: this.storageAccount.name,
       containerAccessType: "private",
     }, 'resource', {resourceGroup: this.resourceGroup});
     const storageContainerResource = this.resourceUtil.register(storageContainerConfig);
     resources.push(storageContainerResource);
-    this.storageContainer = storageContainerResource.resource as azure.storage.Container;
+    this.storageContainer = storageContainerResource.resource as azure.storage.Container;*/
 
     // Create an App Service Plan
-    const appServicePlanConfig = this.resourceUtil.configure(`${stackName}Plan`, "azure.appservice.Plan", {
+    const appServicePlanConfig = this.resourceUtil.configure(`${stackName}-Plan-${this.environment}`, "azure.appservice.Plan", {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       sku: {
@@ -135,9 +136,12 @@ export default class AzureProcessor implements PlatformProcessor {
       if (!inputResource) throw new Error(`unable to find EventHubAuthorizationRule for Input ${component.meta!.sources![0]} in flow ${component.name}`);
       const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
-      const outputResource = routingResources.find(r => r.name === component.meta!.output + "-rule");
-      if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Outpul ${component.meta!.output} in flow ${component.name}`);
-      const outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+      let outputRule = undefined;
+      if (component.component !== 'sink') {
+        const outputResource = routingResources.find(r => r.name === component.meta!.output + "-rule");
+        if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Output ${component.meta!.output} in flow ${component.name}`);
+        outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
+      }
 
       const resources = await this.createModuleResource(component, inputRule, outputRule);
       resources.forEach(resource => moduleResources.push(resource));
@@ -196,11 +200,11 @@ export default class AzureProcessor implements PlatformProcessor {
 
   }
 
-  async createModuleResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule) {
+  async createModuleResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule | undefined) {
     const resources: RegisteredResource[] = [];
 
     await this.moduleBuilder!.initialize();
-    const buildDef = await this.moduleBuilder!.processModule(component);
+    const buildDef = await this.moduleBuilder!.processModule(component, true);
 
     const { identifier } = component.meta!;
 
@@ -221,7 +225,36 @@ export default class AzureProcessor implements PlatformProcessor {
     // const blob = blobResource.resource as azure.storage.ZipBlob;
 
     // Generates an address for the function source
-    const codeBlobUrl = this.signedBlobReadUrl(blobName, this.storageAccount, this.storageContainer);
+    //const codeBlobUrl = this.signedBlobReadUrl(blobName, this.storageAccount, this.storageContainer);
+    const codeBlobUrl = this.signedBlobReadUrl(blobName, (this.moduleBuilder! as AzureModuleBuilder).connectionString, this.buildBucket);
+
+    // Create App insights
+    const functionAppAIConfig = this.resourceUtil.configure(`${this.stackConfig.name}-${component.name}-ai-${this.environment}`, "azure.appinsights.Insights", {
+      applicationType: 'Web'
+    } as azure.appinsights.InsightsArgs, 'module', {resourceGroup: this.resourceGroup});
+    const functionAppAIResource = this.resourceUtil.register(functionAppAIConfig)
+    resources.push(functionAppAIResource);
+
+    const appSettings: any = {
+      STACK_NAME: this.stackConfig.name || 'unknown',
+      STACK_ENV: this.environment || 'unknown',
+      FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || 'unknown',
+      FUNCTIONS_WORKER_RUNTIME: "node",
+      WEBSITE_RUN_FROM_PACKAGE: codeBlobUrl,
+      WEBSITE_NODE_DEFAULT_VERSION: '8.11.1',
+      AZURE_STORAGE_CONNECTION_STRING: this.storageAccount.primaryConnectionString,
+      inputEventHubConnectionAppSetting: inputRule.primaryConnectionString,
+      APPINSIGHTS_INSTRUMENTATIONKEY: (functionAppAIResource.resource as azure.appinsights.Insights).instrumentationKey
+    }
+
+    if (component.logging === 'debug') appSettings['DEBUG'] = '1';
+
+    for (let param of component.parameters) {
+      appSettings[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1]; 
+    }
+
+    if (outputRule)
+      appSettings.outputEventHubConnectionAppSetting = outputRule!.primaryConnectionString;
 
     // Create an App Service Function
     const functionAppConfig = this.resourceUtil.configure(identifier, "azure.appservice.FunctionApp", {
@@ -229,16 +262,9 @@ export default class AzureProcessor implements PlatformProcessor {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       enabled: true,
-      storageConnectionString: this.storageAccount.primaryConnectionString,   
+      storageConnectionString: (this.moduleBuilder! as AzureModuleBuilder).connectionString,   
       version: '~2',
-      appSettings: {
-        'FUNCTIONS_WORKER_RUNTIME': "node",
-        'WEBSITE_RUN_FROM_PACKAGE': codeBlobUrl,
-        'WEBSITE_NODE_DEFAULT_VERSION': "8.11.1",
-        'inputEventHubConnectionAppSeting': inputRule.primaryConnectionString,
-        'outputEventHubConnectionAppSeting': outputRule.primaryConnectionString
-        // 'FUNCTIONS_EXTENSION_VERSION': ""
-      },
+      appSettings: appSettings,
       siteConfig: {
         alwaysOn: true
       }
@@ -250,7 +276,30 @@ export default class AzureProcessor implements PlatformProcessor {
   }
 
   // Given an Azure blob, create a SAS URL that can read it.
-  signedBlobReadUrl(
+  signedBlobReadUrl(blobName: string, connectionString: string, container: string): string {
+    // Choose a fixed, far-future expiration date for signed blob URLs.
+    // The shared access signature (SAS) we generate for the Azure storage blob must remain valid for as long as the
+    // Function App is deployed, since new instances will download the code on startup. By using a fixed date, rather
+    // than (e.g.) "today plus ten years", the signing operation is idempotent.
+    const signatureExpiration = new Date(2100, 1);
+
+    let blobService = new azurestorage.BlobService(connectionString);
+    let signature = blobService.generateSharedAccessSignature(
+      container,
+      blobName,
+      {
+        AccessPolicy: {
+          Expiry: signatureExpiration,
+          Permissions: azurestorage.BlobUtilities.SharedAccessPermissions.READ,
+        },
+      }
+    );
+
+    return blobService.getUrl(container, blobName, signature);
+  }
+
+  // Given an Azure blob, create a SAS URL that can read it.
+/*  signedBlobReadUrl(
     blobName: string,
     account: azure.storage.Account,
     container: azure.storage.Container)
@@ -280,7 +329,7 @@ export default class AzureProcessor implements PlatformProcessor {
       return blobService.getUrl(containerName, blobName, signature);
     });
 
-  }
+  }*/
 
 
 createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
@@ -304,7 +353,8 @@ createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
     const [provider, newConfig] = AzureResourceFactory.getResource(config.name, config.type, config.config);
     if (config.options.resourceGroup) {
       newConfig.resourceGroupName = config.options.resourceGroup.name;
-      newConfig.location = config.options.resourceGroup.location;
+      if (config.type != 'azure.eventhub.EventHubAuthorizationRule' && config.type != 'azure.eventhub.EventHub')
+        newConfig.location = config.options.resourceGroup.location;
     }
 
     return [provider, newConfig];

@@ -6,6 +6,7 @@ import * as zipUtils from "@project-furnace/ziputils";
 import merge from "util.merge-packages";
 import { execPromise } from "./Util/ProcessUtil";
 import * as randomstring from "randomstring";
+import HashUtil from "./Util/HashUtil";
 
 export default abstract class ModuleBuilder {
 
@@ -22,18 +23,22 @@ export default abstract class ModuleBuilder {
     if (fsUtils.exists(this.buildPath)) fsUtils.rimraf(this.buildPath);
   }
 
-  async processModule(buildSpec: BuildSpec) {
+  async processModule(buildSpec: BuildSpec, alwaysBuild: Boolean = false) {
 
     const def = await this.getModuleDef(buildSpec);
 
-    if (this.modules.includes(def.name)) {
-      // console.log(`module ${def.name} already built, skipping`);
+    if (this.modules.includes(def.name) && !alwaysBuild) {
+      console.log(`module ${def.name} already built, skipping`);
       return def;
     }
 
     await this.preProcess(def);
     await this.buildModule(def);
     await this.postBuild(def);
+    if (alwaysBuild) {
+      buildSpec.buildSpec!.moduleHash = await HashUtil.getDirectoryHash(def.buildPath);
+      buildSpec.buildSpec!.hash = HashUtil.combineHashes(buildSpec.buildSpec!.moduleHash, buildSpec.buildSpec!.templateHash);
+    }
     await this.packageModule(def);
     await this.postProcess(def);
 

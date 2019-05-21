@@ -31,6 +31,9 @@ fi
 #   export NPM_TOKEN="$NPM_TOKEN"
 # fi
 
+# avoid pulumi update warnings
+export PULUMI_SKIP_UPDATE_CHECK=1
+
 # clone the code repo
 TMP_DIR="$(node /app/deploy.js)"
 if [ $? -ne 0 ]; then
@@ -97,7 +100,7 @@ if pulumi stack init $STACK_NAME-$STACK_ENV; then
   echo "Setting provider to azure"
   pulumi config set cloud:provider azure
   echo "Setting aws:region to $STACK_REGION"
-  pulumi config set --plaintext aws:region $STACK_REGION"
+  pulumi config set --plaintext aws:region $STACK_REGION
   # check if we have a previous stack config
   if [ -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
     echo "Found previous stack state. Trying to import it..."
@@ -113,7 +116,7 @@ if [ $? -eq 0 ]; then
   echo "Bringing up stack. This may take a while..."
   pulumi up -y |& tee /tmp/pulumi-prev-config/commit/$GIT_TAG.log
   if [ ${PIPESTATUS[0]} -eq 0 ]; then
-    echo "Deplyoment succesful. Updating status in github..."
+    echo "Deplyoment successful. Updating status in github..."
     curl -o /dev/null -d '{"state":"success","description":"Deployment finished successfully"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
   else
     echo "Deployment failed.  Updating status in github..."
@@ -124,7 +127,7 @@ if [ $? -eq 0 ]; then
   # export current stack state
   if pulumi stack export --file /tmp/pulumi-prev-config/config.checkpoint.json; then
     # push new state to github
-    echo "Checkpoint succesfully saved..."
+    echo "Checkpoint successfully saved..."
   else
     echo "Checkpoint saving failed..."
   fi

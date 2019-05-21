@@ -4,26 +4,28 @@ import * as path from "path";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import { execPromise } from "../Util/ProcessUtil";
 import * as storage from "azure-storage";
+import HashUtil from "../Util/HashUtil";
 
 export default class AzureModuleBuilder extends ModuleBuilderBase {
 
   blobService: storage.BlobService;
+  connectionString: string;
 
   constructor(repoDir: string, templateRepoDir: string, bucket: string, platform: string, initConfig: any) {
     super(repoDir, templateRepoDir, bucket, platform, initConfig);
 
-    const connectionString = initConfig.storageConnectionString;
+    this.connectionString = initConfig.storageConnectionString;
 
-    if (!connectionString) throw new Error(`AzureModuleBuilder must be initialised with storageConnectionString set in config`);
+    if (!this.connectionString) throw new Error(`AzureModuleBuilder must be initialised with storageConnectionString set in config`);
 
-    this.blobService = storage.createBlobService(connectionString);
+    this.blobService = storage.createBlobService(this.connectionString);
   }
 
   async preProcess(def: any) {
     super.preProcess(def);
 
     const functionDefPath = path.join(def.buildPath, "function.json")
-      , { identifier, source, output } = def;
+      , { identifier, sources, output } = def;
     ;
 
     if (!fsUtils.exists(functionDefPath)) throw new Error(`cannot find function.json for module ${identifier}`);
@@ -37,17 +39,20 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
         type: 'eventHubTrigger',
         direction: 'in',
         name: 'eventInput',
-        eventHubName: source,
+        eventHubName: sources[0],
         connection: 'inputEventHubConnectionAppSetting'
-      },
-      {
+      }
+    ];
+
+    if (output) {
+      bindings.push({
         type: 'eventHub',
         direction: 'out',
         name: '$return',
         eventHubName: output,
         connection: 'outputEventHubConnectionAppSetting'
-      }
-    ]
+      });
+    }
 
     functionJson.bindings = bindings;
     fsUtils.writeFile(functionDefPath, JSON.stringify(functionJson));
