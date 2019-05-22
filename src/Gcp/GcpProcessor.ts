@@ -5,13 +5,11 @@ import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import GcpResourceFactory from "./GcpResourceFactory";
 import ResourceUtil from "../Util/ResourceUtil";
-import awsUtil from "../Util/AwsUtil";
 
 export default class GcpProcessor implements PlatformProcessor {
 
   cloudfunctionsService: gcp.projects.Service;
   resourceUtil: ResourceUtil;
-  readonly PLATFORM: string = 'gcp';
 
   constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
@@ -151,19 +149,22 @@ export default class GcpProcessor implements PlatformProcessor {
       FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || "unknown"
     };
 
-    // TODO: this replace should be global. and in all clouds!
     for (let param of component.parameters) {
-      envVars[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1]; 
+      envVars[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1]; 
     }
 
     if (component.logging === "debug") envVars.DEBUG = '1';
+
+    let runtime = 'nodejs8'
+    if (component.moduleSpec.runtime == 'python3.6')
+      runtime = 'python37'
 
     // Create an App Service Function
     const cloudFunctionConfig = this.resourceUtil.configure(identifier, 'gcp.cloudfunctions.Function', {
       availableMemoryMb: 128,
       description: identifier,
       entryPoint: 'process',
-      runtime: 'nodejs8',
+      runtime: runtime,
       sourceArchiveBucket: this.buildBucket,
       sourceArchiveObject: objectName,
       timeout: 60,

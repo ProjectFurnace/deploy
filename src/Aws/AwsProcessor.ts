@@ -233,7 +233,7 @@ export default class AwsProcessor implements PlatformProcessor {
     };
 
     for (let param of component.parameters) {
-      variables[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1]; 
+      variables[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1];
     }
 
     if (component.component !== "sink") {

@@ -116,6 +116,13 @@ export default abstract class ModuleBuilder {
         break;
 
       case 'python3.6':
+        //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
+        if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')) && fsUtils.exists(path.join(def.codePath, 'requirements.txt'))) {
+          var dst = fsUtils.readFile(path.join(def.codePath, 'requirements.txt'));
+          var src = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
+
+          fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), dst + "\n" + src);
+        }
         await this.buildPython(def.name, def.buildPath);
         break;
 

@@ -22,7 +22,8 @@ export default class AzureResourceFactory {
       "azure.appinsights.Insights": azure.appinsights.Insights,
       "azure.eventhub.EventHubAuthorizationRule": azure.eventhub.EventHubAuthorizationRule,
       "azure.cosmosdb.Account": azure.cosmosdb.Account,
-      "azure.core.TemplateDeployment": azure.core.TemplateDeployment
+      "azure.core.TemplateDeployment": azure.core.TemplateDeployment,
+      "azure.containerservice.Group":  azure.containerservice.Group
     }
 
     const provider = providers[type];

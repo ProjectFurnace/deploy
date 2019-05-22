@@ -1,4 +1,4 @@
-FROM guillemmateos/deploy-base:latest
+FROM projectfurnace/deploy-base:latest
 
 RUN curl -sL https://packages.microsoft.com/keys/microsoft.asc | \
     gpg --dearmor | \

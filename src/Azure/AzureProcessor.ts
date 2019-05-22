@@ -9,6 +9,7 @@ import ResourceUtil from "../Util/ResourceUtil";
 import AzureResourceFactory from "./AzureResourceFactory";
 import * as _ from "lodash";
 import AzureModuleBuilder from "./AzureModuleBuilder";
+import Base64Util from "../Util/Base64Util";
 
 export default class AzureProcessor implements PlatformProcessor {
 
@@ -107,11 +108,14 @@ export default class AzureProcessor implements PlatformProcessor {
     });
     
 
-    const routingResources = ResourceUtil.flattenResourceArray(
+    /*const routingResources = ResourceUtil.flattenResourceArray(
       this.flows
         .filter(component => !["sink", "resource"].includes(component.component))
         .map(component => this.createRoutingComponent(component))
-    );
+    );*/
+    const routingDefs = this.getRoutingDefinitions();
+    const routingResources = ResourceUtil.flattenResourceArray( routingDefs
+      .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
     const resourceConfigs = this.flows
       .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
@@ -163,7 +167,85 @@ export default class AzureProcessor implements PlatformProcessor {
     }
   }
 
-  createRoutingComponent(component: BuildSpec): RegisteredResource[] {
+  getRoutingDefinitions(): any[] {
+    const routingDefs = [];
+    
+    const routingComponents = this.flows
+      .filter(flow => ["source", "tap", "pipeline-module"].includes(flow.component));
+
+    for (let component of routingComponents) {
+      if (component.component === "source") {
+        const existing = routingDefs.find(r => r.name === component.meta!.identifier);
+        if (!existing) {
+          routingDefs.push({
+            name: component.meta!.identifier,
+            mechanism: component.type,
+            config: (component.config && component.config.aws) || {}
+          });
+        }
+      } else {
+        if (component.meta!.output) {
+          const existing = routingDefs.find(r => r.name === component.meta!.output);
+          if (!existing) {
+            routingDefs.push({
+              name: component.meta!.output!,
+              mechanism: undefined,
+              config: (component.config && component.config.aws) || {}
+            });
+          }
+        }
+        for (let source of component.meta!.sources!) {
+          const existing = routingDefs.find(r => r.name === source);
+          if (!existing) {
+            routingDefs.push({
+              name: source!,
+              mechanism: undefined,
+              config: (component.config && component.config.aws) || {}
+            });
+          }
+        }
+      }
+    }
+    return routingDefs;
+  }
+
+  createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource[] {
+    const defaultRoutingMechanism = "azure.eventhub.EventHub";
+
+    if (!mechanism) mechanism = defaultRoutingMechanism;
+    if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
+
+    config = Object.assign({}, config, {
+      messageRetention: 1,
+      namespaceName: this.eventHubNamespace.name,
+      partitionCount: 2,
+      resourceGroupName: this.resourceGroup.name,
+    })
+
+    if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
+
+    const eventHubConfig = this.resourceUtil.configure(name, mechanism, config, 'resource', {resourceGroup: this.resourceGroup});
+    const eventHubResource = this.resourceUtil.register(eventHubConfig);
+    const eventHub = eventHubResource.resource as azure.eventhub.EventHub;
+
+    const eventHubAuthorizationRuleConfig = this.resourceUtil.configure(`${name}-rule`, "azure.eventhub.EventHubAuthorizationRule", {
+      eventhubName: eventHub.name,
+      listen: true,
+      manage: false,
+      namespaceName: this.eventHubNamespace.name,
+      resourceGroupName: this.resourceGroup.name,
+      send: true,
+    }, 'resource', {resourceGroup: this.resourceGroup});
+    const eventHubAuthorizationRuleResource = this.resourceUtil.register(eventHubAuthorizationRuleConfig);
+
+    return [
+      eventHubResource,
+      eventHubAuthorizationRuleResource
+    ];
+
+  }
+
+  /*createRoutingComponent(component: BuildSpec): RegisteredResource[] {
 
     let name = this.getRoutingComponentName(component)
       , mechanism = "azure.eventhub.EventHub"
@@ -198,7 +280,7 @@ export default class AzureProcessor implements PlatformProcessor {
       eventHubAuthorizationRuleResource
     ];
 
-  }
+  }*/
 
   async createModuleResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule | undefined) {
     const resources: RegisteredResource[] = [];
@@ -250,7 +332,7 @@ export default class AzureProcessor implements PlatformProcessor {
     if (component.logging === 'debug') appSettings['DEBUG'] = '1';
 
     for (let param of component.parameters) {
-      appSettings[param[0].toUpperCase().replace("'", "").replace("-", "_")] = param[1]; 
+      appSettings[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1]; 
     }
 
     if (outputRule)
@@ -340,8 +422,33 @@ createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
   switch(type) {
     case "Table":
       config.storageAccountName = this.storageAccount.name;
-      const tableName = name.replace(/[^A-Za-z0-9]/g, "");
+      const tableName = name.replace(/[^A-Za-z0-9]/g, '');
       return [this.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource', {resourceGroup: this.resourceGroup}, {}, componentType)];
+
+    case 'ActiveConnector':
+      const { source, connection } = config.output;
+      const output = {
+        name: "azure-event-hubs",
+        options: {
+          connection: connection,
+          eventHub: source
+        }
+      };
+
+      const acConfig = {
+        containers: [{
+            name: name,
+            image: 'projectfurnace/active-connector-azure:latest',
+            memory: 0.5,
+            cpu: 1,
+            environmentVariables: {
+              INPUT: Base64Util.toBase64(JSON.stringify(config.input)),
+              OUTPUT: Base64Util.toBase64(JSON.stringify(output))
+            }
+        }],
+        osType: 'Linux'
+      };
+      return [this.resourceUtil.configure(name, 'azure.containerservice.Group', acConfig, 'resource', {resourceGroup: this.resourceGroup}, {}, componentType)];
 
     default:
       return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
