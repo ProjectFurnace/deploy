@@ -133,7 +133,7 @@ if [ $? -eq 0 ]; then
   # export current stack state
   if pulumi stack export --file /tmp/pulumi-prev-config/config.checkpoint.json; then
     # push new state to github
-    echo "Stack checkpoint succesfully saved..."
+    echo "Stack checkpoint successfully saved..."
     if [ -n "$SOPS_KMS_ARN" ]; then
       echo "Encrypting checkpoint file"
       if ! sops --kms $SOPS_KMS_ARN -e -i /tmp/pulumi-prev-config/config.checkpoint.json; then
