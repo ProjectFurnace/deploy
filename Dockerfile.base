@@ -17,6 +17,9 @@ RUN apt-get update && \
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs
 
+RUN curl -L https://github.com/mozilla/sops/releases/download/3.3.0/sops_3.3.0_amd64.deb -o /tmp/sops_3.3.0_amd64.deb && \
+    apt install /tmp/sops_3.3.0_amd64.deb
+
 RUN curl -L https://get.pulumi.com/ | bash -s -- --version 0.17.10
 
 ENV PATH=$PATH:/root/.pulumi/bin
