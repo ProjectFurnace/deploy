@@ -57,7 +57,7 @@ rm -rf /tmp/pulumi-prev-config
 if git clone $STATE_REPO /tmp/pulumi-prev-config; then
   # checkout branch and act depending on if it exists or not
   if git -C /tmp/pulumi-prev-config show-ref --verify --quiet refs/heads/$STACK_ENV; then
-    git -C /tmp/pulumi-prev-config  checkout $STACK_ENV
+    git -C /tmp/pulumi-prev-config checkout $STACK_ENV
   else
     git -C /tmp/pulumi-prev-config checkout -b $STACK_ENV
     # make sure the folder is empty (for when we promote)
@@ -100,7 +100,16 @@ if pulumi stack init $STACK_NAME-$STACK_ENV; then
   pulumi config set --plaintext aws:region $STACK_REGION
   # check if we have a previous stack config
   if [ -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
-    echo "Found previous stack state. Trying to import it..."
+    echo "Found previous stack state..."
+    if [ -n "$SOPS_KMS_ARN" ]; then
+      echo 'Decrypting stack state...'
+      if ! sops --kms $SOPS_KMS_ARN -d -i /tmp/pulumi-prev-config/config.checkpoint.json; then
+        echo 'Decrypting state file failed. Exiting...'
+        curl -o /dev/null -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
+        exit 1
+      fi
+    fi
+    echo "Proceeding to import state file..."
     if pulumi stack import --file /tmp/pulumi-prev-config/config.checkpoint.json; then
       echo "Selecting stack $STACK_NAME-$STACK_ENV..."
       pulumi stack select $STACK_NAME-$STACK_ENV
@@ -120,11 +129,18 @@ if [ $? -eq 0 ]; then
     curl -o /dev/null -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
   fi
 
-  echo "Proceeding to save pulumi checkpoint..."
+  echo "Proceeding to save stack checkpoint..."
   # export current stack state
   if pulumi stack export --file /tmp/pulumi-prev-config/config.checkpoint.json; then
     # push new state to github
-    echo "Checkpoint successfully saved..."
+    echo "Stack checkpoint succesfully saved..."
+    if [ -n "$SOPS_KMS_ARN" ]; then
+      echo "Encrypting checkpoint file"
+      if ! sops --kms $SOPS_KMS_ARN -e -i /tmp/pulumi-prev-config/config.checkpoint.json; then
+        echo "Issue encrypting state file. Not saving to git..."
+        exit 1
+      fi
+    fi
   else
     echo "Checkpoint saving failed..."
   fi
