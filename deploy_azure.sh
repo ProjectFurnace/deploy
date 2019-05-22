@@ -11,8 +11,13 @@ GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name
 STORAGE_CONNECTION_STRING="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name StorageConnectionString |jq -r .value)"
 # GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name NpmToken |jq -r .value)"
 
+KEYVAULT_QUERY="$(az keyvault key show --name state --vault-name $FURNACE_INSTANCE-vault --query key.kid)"
+if [ $? -eq 0 ]; then
+  SOPS_AZURE_KEYVAULT_URL=$KEYVAULT_QUERY
+fi
+
 if [ -n "$STORAGE_CONNECTION_STRING" ]; then
-  echo "Setting GIT token env var..."
+  echo "Setting storage connection string token env var..."
   export STORAGE_CONNECTION_STRING="$STORAGE_CONNECTION_STRING"
 fi
 
@@ -103,7 +108,16 @@ if pulumi stack init $STACK_NAME-$STACK_ENV; then
   pulumi config set --plaintext aws:region $STACK_REGION
   # check if we have a previous stack config
   if [ -f /tmp/pulumi-prev-config/config.checkpoint.json ]; then
-    echo "Found previous stack state. Trying to import it..."
+    echo "Found previous stack state..."
+    if [ -n "$SOPS_AZURE_KEYVAULT_URL" ]; then
+      echo 'Decrypting stack state...'
+      if ! sops --azure-kv $SOPS_AZURE_KEYVAULT_URL -d -i /tmp/pulumi-prev-config/config.checkpoint.json; then
+        echo 'Decrypting state file failed. Exiting...'
+        curl -o /dev/null -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
+        exit 1
+      fi
+    fi
+    echo "Proceeding to import state file..."
     if pulumi stack import --file /tmp/pulumi-prev-config/config.checkpoint.json; then
       echo "Selecting stack $STACK_NAME-$STACK_ENV..."
       pulumi stack select $STACK_NAME-$STACK_ENV
@@ -128,6 +142,13 @@ if [ $? -eq 0 ]; then
   if pulumi stack export --file /tmp/pulumi-prev-config/config.checkpoint.json; then
     # push new state to github
     echo "Checkpoint successfully saved..."
+    if [ -n "$SOPS_AZURE_KEYVAULT_URL" ]; then
+      echo "Encrypting checkpoint file"
+      if ! sops --azure-kv $SOPS_AZURE_KEYVAULT_URL -e -i /tmp/pulumi-prev-config/config.checkpoint.json; then
+        echo "Issue encrypting state file. Not saving to git..."
+        exit 1
+      fi
+    fi
   else
     echo "Checkpoint saving failed..."
   fi
