@@ -22,6 +22,8 @@ export default class GcpModuleBuilder extends ModuleBuilderBase {
    
   }
 
+  async buildPython(name: string, buildPath: string) {}
+
   async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any> {
 
     const artifactExists = await this.artifactExists(bucketName, key);

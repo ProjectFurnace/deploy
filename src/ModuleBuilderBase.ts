@@ -121,7 +121,7 @@ export default abstract class ModuleBuilder {
           var dst = fsUtils.readFile(path.join(def.codePath, 'requirements.txt'));
           var src = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
 
-          fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), dst + "\n" + src);
+          fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), src + "\n" + dst);
         }
         await this.buildPython(def.name, def.buildPath);
         break;
@@ -166,7 +166,7 @@ export default abstract class ModuleBuilder {
 
       if (fsUtils.exists(path.join(buildPath, 'requirements.txt'))) {
         // console.log('installing dependencies...')
-        const execResult = await execPromise("pip install -r requirements.txt -t .",
+        const execResult = await execPromise("pip3 install -r requirements.txt -t .",
           { cwd: buildPath, env: process.env });
 
         if (execResult.stderr) {

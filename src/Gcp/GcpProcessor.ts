@@ -5,11 +5,14 @@ import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import ModuleBuilderBase from "../ModuleBuilderBase";
 import GcpResourceFactory from "./GcpResourceFactory";
 import ResourceUtil from "../Util/ResourceUtil";
+import Base64Util from "../Util/Base64Util";
+import { environment } from "@pulumi/azure/config";
 
 export default class GcpProcessor implements PlatformProcessor {
 
   cloudfunctionsService: gcp.projects.Service;
   resourceUtil: ResourceUtil;
+  readonly PLATFORM: string = 'gcp';
 
   constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
@@ -29,7 +32,7 @@ export default class GcpProcessor implements PlatformProcessor {
     const { project } = this.initialConfig;
 
     // Create a function service. Is it better to do this from the CLI?
-    const cloudfunctionsServiceConfig = this.resourceUtil.configure(`${stackName}FS`, "gcp.projects.Service", {
+    const cloudfunctionsServiceConfig = this.resourceUtil.configure(`${stackName}-fs-${this.environment}`, "gcp.projects.Service", {
       project,
       service: "cloudfunctions.googleapis.com",
     }, 'resource');
@@ -53,11 +56,9 @@ export default class GcpProcessor implements PlatformProcessor {
       }
     });
 
-    const routingResources = ResourceUtil.flattenResourceArray(
-      this.flows
-        .filter(component => !["sink", "resource"].includes(component.component))
-        .map(component => this.createRoutingComponent(component))
-    );
+    const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
+    const routingResources = ResourceUtil.flattenResourceArray( routingDefs
+      .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
     const resourceConfigs = this.flows
       .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
@@ -65,10 +66,12 @@ export default class GcpProcessor implements PlatformProcessor {
 
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
-      .map(flow => this.createNativeResourceComponent(flow));
+      .map(flow => GcpResourceFactory.getNativeResourceConfig(flow, this));
 
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...nativeResourceConfs);
+
+    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
     const moduleResources: RegisteredResource[] = [];
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
@@ -83,8 +86,6 @@ export default class GcpProcessor implements PlatformProcessor {
       resources.forEach(resource => moduleResources.push(resource));
     }
 
-    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs);
-
     return [
       ...resourceResources,
       ...moduleResources,
@@ -93,30 +94,21 @@ export default class GcpProcessor implements PlatformProcessor {
 
   }
 
-  getRoutingComponentName(component: BuildSpec): string {
-    if (component.component === "source") {
-      return component.meta!.identifier;
-    } else {
-      return component.meta! && component.meta!.output!
-    }
-  }
+  createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource[] {
+    const defaultRoutingMechanism = "gcp.pubsub.Topic";
 
-  createRoutingComponent(component: BuildSpec): RegisteredResource[] {
-
-    let name = this.getRoutingComponentName(component)
-      , mechanism = "gcp.pubsub.Topic"
-      , config: any = component && component.config && component.config.gcp || {}
-      ;
+    if (!mechanism) mechanism = defaultRoutingMechanism;
+    if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
     config = Object.assign({}, config, {});
 
-    if (!name) throw new Error(`unable to get name for routing resource for component: '${component.name}'`);
+    if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
     const pubSubTopicConfig = this.resourceUtil.configure(name, mechanism, config, 'resource');
     const pubSubTopicResource = this.resourceUtil.register(pubSubTopicConfig);
     const pubSubTopic = pubSubTopicResource.resource as gcp.pubsub.Topic;
 
-    const pubSubSubscriptionConfig = this.resourceUtil.configure(`${name}-subscription`, "gcp.pubsub.Subscription", {
+    const pubSubSubscriptionConfig = this.resourceUtil.configure(ResourceUtil.injectInName(name, 'subscription'), "gcp.pubsub.Subscription", {
       ackDeadlineSeconds: 20,
       messageRetentionDuration: "1200s",
       retainAckedMessages: true,
@@ -128,6 +120,7 @@ export default class GcpProcessor implements PlatformProcessor {
       pubSubTopicResource,
       pubSubSubscriptionResource
     ];
+
   }
 
   async createModuleResource(component: BuildSpec, inputResource: RegisteredResource) {
@@ -178,42 +171,6 @@ export default class GcpProcessor implements PlatformProcessor {
     resources.push(this.resourceUtil.register(cloudFunctionConfig));
 
     return resources;
-  }
-
-  createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
-    const name = component.meta!.identifier
-      , { type, config, componentType } = component
-      ;
-
-    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
-    const name_bits = REGEX.exec(name);
-
-    if( !name_bits) 
-      throw new Error('Unable to destructure name while creating native resource');
-
-    switch(type) {
-      case "Table":
-        const datasetId = `${name_bits[1].replace(/-/g, '_')}_${name_bits[2].replace(/-/g, '_')}_dataset_${name_bits[3].replace(/-/g, '_')}`;
-        const tableId = `${name_bits[1].replace(/-/g, '_')}_${name_bits[2].replace(/-/g, '_')}_${name_bits[3].replace(/-/g, '_')}`;
-        const datasetConfig = {
-          datasetId: datasetId,
-          location: gcp.config.region
-        };
-        const tableConfig = {
-            datasetId: '${' + name_bits[2] + '_dataset' + '.datasetId}',
-            schema: '[{"name": "' + config.primaryKey + '", "type": "' + config.primaryKeyType.toUpperCase() + '", "mode": "NULLABLE"}]',
-            tableId: tableId,
-            timePartitioning: {
-                type: "DAY"
-            }
-        };
-        const dataset = this.resourceUtil.configure(`${name_bits[1]}-${name_bits[2]}_dataset-${name_bits[3]}`, 'gcp.bigquery.Dataset', datasetConfig, 'resource', {}, {}, componentType);
-        const table = this.resourceUtil.configure(name, 'gcp.bigquery.Table', tableConfig, 'resource', {}, {}, componentType);
-        return [dataset, table];
-
-      default:
-        return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
-    }
   }
 
   getResource(config:ResourceConfig): [any, any] {

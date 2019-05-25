@@ -11,7 +11,7 @@ GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name
 STORAGE_CONNECTION_STRING="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name StorageConnectionString |jq -r .value)"
 # GIT_TOKEN="$(az keyvault secret show --vault-name $FURNACE_INSTANCE-vault --name NpmToken |jq -r .value)"
 
-KEYVAULT_QUERY="$(az keyvault key show --name state --vault-name $FURNACE_INSTANCE-vault --query key.kid)"
+KEYVAULT_QUERY="$(az keyvault key show --name state --vault-name $FURNACE_INSTANCE-vault --query key.kid --o tsv)"
 if [ $? -eq 0 ]; then
   SOPS_AZURE_KEYVAULT_URL=$KEYVAULT_QUERY
 fi
@@ -111,10 +111,13 @@ if pulumi stack init $STACK_NAME-$STACK_ENV; then
     echo "Found previous stack state..."
     if [ -n "$SOPS_AZURE_KEYVAULT_URL" ]; then
       echo 'Decrypting stack state...'
-      if ! sops --azure-kv $SOPS_AZURE_KEYVAULT_URL -d -i /tmp/pulumi-prev-config/config.checkpoint.json; then
+      SOPS_OUTPUT="$(sops --azure-kv $SOPS_AZURE_KEYVAULT_URL -d -i /tmp/pulumi-prev-config/config.checkpoint.json 2>&1)"
+      if [ $? -ne 0 ] && [ "$SOPS_OUTPUT" != "sops metadata not found" ]; then
         echo 'Decrypting state file failed. Exiting...'
         curl -o /dev/null -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
         exit 1
+      elif [ "$SOPS_OUTPUT" = "sops metadata not found" ]; then
+        echo 'State file was not encrypted. It will be encrypted when pushed to git at the end of deployment.'
       fi
     fi
     echo "Proceeding to import state file..."
@@ -146,7 +149,6 @@ if [ $? -eq 0 ]; then
       echo "Encrypting checkpoint file"
       if ! sops --azure-kv $SOPS_AZURE_KEYVAULT_URL -e -i /tmp/pulumi-prev-config/config.checkpoint.json; then
         echo "Issue encrypting state file. Not saving to git..."
-        exit 1
       fi
     fi
   else

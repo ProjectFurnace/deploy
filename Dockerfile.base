@@ -8,7 +8,7 @@ RUN apt-get update && \
         wget \
         gnupg \
         git \
-        python-pip \
+        python3-pip \
         jq \
         apt-transport-https \
         lsb-release \

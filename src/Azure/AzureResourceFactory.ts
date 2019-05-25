@@ -1,6 +1,10 @@
 import * as azure from "@pulumi/azure";
-import * as ResourceConfig from "./AzureResourceConfig.json";
+import * as AzureResourceConfig from "./AzureResourceConfig.json";
 import * as _ from "lodash";
+import { BuildSpec } from "@project-furnace/stack-processor/dist/Model";
+import { ResourceConfig } from "../Types";
+import AzureProcessor from "./AzureProcessor";
+import Base64Util from "../Util/Base64Util";
 
 export default class AzureResourceFactory {
   static getResource(name: string, type: string, config: any): [any, any] {
@@ -34,10 +38,57 @@ export default class AzureResourceFactory {
   private static getResourceConfig(name: string, type: string, config: any): any {
     const newConfig = _.cloneDeep(config);
 
-    const nameProp = (ResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
+    const nameProp = (AzureResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
     newConfig[nameProp] = name;
     newConfig.name = name;
 
     return newConfig;
+  }
+
+  static getNativeResourceConfig(component: BuildSpec, processor: AzureProcessor): ResourceConfig[] {
+    const name = component.meta!.identifier
+      , { type, config, componentType } = component
+      ;
+  
+    switch(type) {
+      case "Table":
+        config.storageAccountName = processor.storageAccount.name;
+        const tableName = name.replace(/[^A-Za-z0-9]/g, '');
+        return [processor.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource', {resourceGroup: processor.resourceGroup}, {}, componentType)];
+  
+      case 'ActiveConnector':
+        // if the output is passed as a var we need to get the resource name so we can still use vars on the yaml config
+        const resourceName = (config.output.source.startsWith('${') ? config.output.source.substring(0, config.output.source.length - 6).substring(2) : config.output.source);
+        const output = {
+          name: "azure-event-hubs",
+          options: {
+            connection: '${' + resourceName + '-rule.primaryConnectionString}',
+            eventHub: processor.resourceUtil.global.stack.name + '-' + resourceName + '-' + processor.resourceUtil.global.stack.environment
+          }
+        };
+  
+        const acConfig = {
+          containers: [{
+              name: name,
+              image: 'projectfurnace/active-connectors:latest',
+              memory: 1,
+              cpu: 1,
+              // TODO: we do not really want ports, but terraform does not allow to specify this bit without ports (while azure does)
+              ports: [{
+                port: 65534,
+                protocol: "TCP",
+              }],
+              environmentVariables: {
+                INPUT: Base64Util.toBase64(JSON.stringify(config.input)),
+                OUTPUT: 'base64::' + JSON.stringify(output),
+              }
+          }],
+          osType: 'Linux'
+        };
+        return [processor.resourceUtil.configure(name, 'azure.containerservice.Group', acConfig, 'resource', {resourceGroup: processor.resourceGroup}, {}, componentType)];
+  
+      default:
+        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+    }
   }
 }

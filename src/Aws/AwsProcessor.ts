@@ -12,6 +12,7 @@ import * as util from "util";
 export default class AwsProcessor implements PlatformProcessor {
 
   resourceUtil: ResourceUtil;
+  readonly PLATFORM: string = 'aws';
 
   constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
     this.validate();
@@ -47,7 +48,7 @@ export default class AwsProcessor implements PlatformProcessor {
       }
     });
 
-    const routingDefs = this.getRoutingDefinitions();
+    const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
     const routingResourceConfigs = routingDefs
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config))
 
@@ -59,7 +60,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
-      .map(flow => this.createNativeResourceComponent(flow));
+      .map(flow => AwsResourceFactory.getNativeResourceConfig(flow, this));
 
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...nativeResourceConfs);
@@ -68,7 +69,6 @@ export default class AwsProcessor implements PlatformProcessor {
     const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
 
     let pendingModuleConfigs:ResourceConfig[] = [];
-
     let resources;
 
     for (const component of moduleComponents) {
@@ -83,7 +83,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (resources)
       registeredResources.push(...resources);
-    
+
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, registeredResources);
 
     return [
@@ -91,48 +91,6 @@ export default class AwsProcessor implements PlatformProcessor {
       ...resourceResources,
       ...([] as RegisteredResource[]).concat(...moduleResources) // flatten the moduleResources
     ]
-  }
-
-  getRoutingDefinitions(): any[] {
-    const routingDefs = [];
-    
-    const routingComponents = this.flows
-      .filter(flow => ["source", "tap", "pipeline-module"].includes(flow.component));
-
-    for (let component of routingComponents) {
-      if (component.component === "source") {
-        const existing = routingDefs.find(r => r.name === component.meta!.identifier);
-        if (!existing) {
-          routingDefs.push({
-            name: component.meta!.identifier,
-            mechanism: component.type,
-            config: (component.config && component.config.aws) || {}
-          });
-        }
-      } else {
-        if (component.meta!.output) {
-          const existing = routingDefs.find(r => r.name === component.meta!.output);
-          if (!existing) {
-            routingDefs.push({
-              name: component.meta!.output!,
-              mechanism: undefined,
-              config: (component.config && component.config.aws) || {}
-            });
-          }
-        }
-        for (let source of component.meta!.sources!) {
-          const existing = routingDefs.find(r => r.name === source);
-          if (!existing) {
-            routingDefs.push({
-              name: source!,
-              mechanism: undefined,
-              config: (component.config && component.config.aws) || {}
-            });
-          }
-        }
-      }
-    }
-    return routingDefs;
   }
 
   async createModuleResource(component: BuildSpec, inputResources: RegisteredResource[], accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
@@ -161,7 +119,7 @@ export default class AwsProcessor implements PlatformProcessor {
   //   const role = new aws.iam.Role("mylambda-role", {
   //     assumeRolePolicy: aws.iam.assumeRolePolicyForPrincipal({ "Service": ["lambda.amazonaws.com"] }),
   // });
-    const functionRoleConfig = this.resourceUtil.configure(`${identifier}-role`, "aws.iam.Role", {
+    const functionRoleConfig = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'role'), "aws.iam.Role", {
       assumeRolePolicy: JSON.stringify({
         "Version": "2012-10-17",
         "Statement": [
@@ -213,12 +171,12 @@ export default class AwsProcessor implements PlatformProcessor {
       }
     };
     
-    const rolePolicyConf = this.resourceUtil.configure(`${identifier}-policy`, "aws.iam.RolePolicy", rolePolicyDef, 'resource');
+    const rolePolicyConf = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'policy'), "aws.iam.RolePolicy", rolePolicyDef, 'resource');
     resources.push(this.resourceUtil.register(rolePolicyConf));
 
     if (component.policies) {
       for (let p of component.policies) {
-        const rolePolicyAttachResourceConfig = this.resourceUtil.configure(`${identifier}-${p}`, "aws.iam.RolePolicyAttachment", {
+        const rolePolicyAttachResourceConfig = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, p), "aws.iam.RolePolicyAttachment", {
           role,
           policyArn: `arn:aws:iam::aws:policy/${p}`
         } as aws.iam.RolePolicyAttachmentArgs, 'resource');
@@ -256,7 +214,7 @@ export default class AwsProcessor implements PlatformProcessor {
     }, 'module'));
 
     for (let inputResource of inputResources) {
-      resourceConfigs.push(this.resourceUtil.configure(identifier + "-source" + inputResources.indexOf(inputResource), "aws.lambda.EventSourceMapping", {
+      resourceConfigs.push(this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'source' + inputResources.indexOf(inputResource)), "aws.lambda.EventSourceMapping", {
         eventSourceArn: (inputResource.resource as any).arn,
         functionName: identifier,
         enabled: true,
@@ -290,26 +248,6 @@ export default class AwsProcessor implements PlatformProcessor {
     return this.resourceUtil.configure(name, type!, finalConfig, 'resource', {}, component.outputs, componentType);
   }
 
-  createNativeResourceComponent(component: BuildSpec): ResourceConfig[] {
-    const name = component.meta!.identifier
-      , { type, config, componentType } = component
-      ;
-
-    switch(type) {
-      case "Table":
-        config.attributes = [{name: config.primaryKey, type: config.primaryKeyType.charAt(0).toUpperCase()}];
-        config.hashKey = config.primaryKey;
-        config.writeCapacity = 1;
-        config.readCapacity = 1;
-        delete config.primaryKey;
-        delete config.primaryKeyType;
-        return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
-  
-      default:
-        return [this.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
-    }
-  }
-
   createRoutingComponent(name: string, mechanism: string | undefined, config: any): ResourceConfig {
     const awsConfig = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
       , defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream"
@@ -327,15 +265,7 @@ export default class AwsProcessor implements PlatformProcessor {
   }
 
   getResource(config: ResourceConfig): [any, any] {
-    let provider, newConfig;
-
-    switch (config.componentType) {
-      case "NativeResource":
-        [provider, newConfig] = AwsResourceFactory.getNativeResource(config.name, config.type, config.config);
-        break;
-      default:
-        [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
-    }
+    const [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
 
     return [provider, newConfig];
   }

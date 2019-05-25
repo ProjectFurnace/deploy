@@ -1,8 +1,9 @@
 const logic = require('./index');
 
-module.exports = async function (context, eventInput) {
-  if (process.env.DEBUG)
-    context.log('node EventHub trigger function processed a request.', eventInput);
+module.exports.processEvent = async function processEvent(context, eventInput) {
+  if (process.env.DEBUG) {
+    context.log('EventHub trigger processed an event', eventInput);
+  }
 
   const output = await logic.handler(eventInput, context);
 

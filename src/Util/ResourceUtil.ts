@@ -4,6 +4,7 @@ import * as _ from "lodash";
 import * as pulumi from "@pulumi/pulumi";
 import { PlatformProcessor } from "../IPlatformProcessor";
 import * as util from "util";
+import Base64Util from "../Util/Base64Util";
 
 export default class ResourceUtil {
   global:any = {};
@@ -16,6 +17,59 @@ export default class ResourceUtil {
       return items.find(item => item.name === name);
     }
     return false;
+  }
+
+  static injectInName(name:string, inject:string): string {
+    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
+    const name_bits = REGEX.exec(name);
+
+    let rulename = name + '-' + inject;
+    if (name_bits )
+      rulename = `${name_bits[1]}-${name_bits[2]}-${inject}-${name_bits[3]}`;
+    
+    return rulename;
+  }
+
+  static getRoutingDefinitions(flows: any, platform: string): any[] {
+    const routingDefs = [];
+    
+    const routingComponents = flows
+      .filter((flow: any) => ["source", "tap", "pipeline-module"].includes(flow.component));
+
+    for (let component of routingComponents) {
+      if (component.component === "source") {
+        const existing = routingDefs.find(r => r.name === component.meta!.identifier);
+        if (!existing) {
+          routingDefs.push({
+            name: component.meta!.identifier,
+            mechanism: component.type,
+            config: (component.config && component.config[platform]) || {}
+          });
+        }
+      } else {
+        if (component.meta!.output) {
+          const existing = routingDefs.find(r => r.name === component.meta!.output);
+          if (!existing) {
+            routingDefs.push({
+              name: component.meta!.output!,
+              mechanism: undefined,
+              config: (component.config && component.config[platform]) || {}
+            });
+          }
+        }
+        for (let source of component.meta!.sources!) {
+          const existing = routingDefs.find(r => r.name === source);
+          if (!existing) {
+            routingDefs.push({
+              name: source!,
+              mechanism: undefined,
+              config: (component.config && component.config[platform]) || {}
+            });
+          }
+        }
+      }
+    }
+    return routingDefs;
   }
 
   setGlobal(global: any) {
@@ -39,6 +93,11 @@ export default class ResourceUtil {
 
   static flattenResourceArray(resources: RegisteredResource[][]): RegisteredResource[] {
     return [...([] as RegisteredResource[]).concat(...resources)];
+  }
+
+  static getBits(name: string): any {
+    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
+    return REGEX.exec(name);
   }
 
   register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
@@ -81,7 +140,12 @@ export default class ResourceUtil {
           else if ( isObjectBind ) {
             _.set(newConfig, propertyWithVars.property, dependencies[0]);
           } else {
-            _.set(newConfig, propertyWithVars.property, pulumi.concat(...toConcat));
+            if ((typeof toConcat[0] === 'string' || toConcat[0] instanceof String) && toConcat[0].startsWith('base64::')) {
+              toConcat[0] = toConcat[0].substring(8);
+              _.set(newConfig, propertyWithVars.property, pulumi.all(toConcat).apply((toConcat) => Base64Util.toBase64(toConcat.join(''))));
+            } else
+              _.set(newConfig, propertyWithVars.property, pulumi.concat(...toConcat));
+            
           }
         }
       }

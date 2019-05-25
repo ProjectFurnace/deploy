@@ -21,6 +21,7 @@ export default class AzureModuleBuilder extends ModuleBuilderBase {
     this.blobService = storage.createBlobService(this.connectionString);
   }
 
+  //TODO: the azure module needs a bit of double checking as packages create different hashes each time for some reason and they are always uploaded
   async preProcess(def: any) {
     super.preProcess(def);
 

@@ -7,6 +7,10 @@ if [ -n "$GIT_TOKEN" ]; then
   export GIT_TOKEN="$GIT_TOKEN"
 fi
 
+if [ -n "$SOPS_KMS_ID" ]; then
+  SOPS_KMS_ID="projects/$GCP_PROJECT/locations/$LOCATION/keyRings/$KEYRING_ID/cryptoKeys/$SOPS_KMS_ID"
+fi
+
 # avoid pulumi update warnings
 export PULUMI_SKIP_UPDATE_CHECK=1
 
@@ -81,13 +85,20 @@ if pulumi stack init $STACK_NAME-$STACK_ENV; then
     echo "Found previous stack state..."
     if [ -n "$SOPS_KMS_ID" ]; then
       echo 'Decrypting stack state...'
-      if ! sops --gcp-kms $SOPS_KMS_ID -d -i /tmp/pulumi-prev-config/config.checkpoint.json; then
+      SOPS_OUTPUT="$(sops --gcp-kms $SOPS_KMS_ID -d -i /tmp/pulumi-prev-config/config.checkpoint.json 2>&1)"
+      if [ $? -ne 0 ] && [ "$SOPS_OUTPUT" != "sops metadata not found" ]; then
         echo 'Decrypting state file failed. Exiting...'
         curl -o /dev/null -d '{"state":"failure","description":"Deployment failed"}' -H 'Content-Type: application/json' -H "Authorization: Bearer $GIT_TOKEN" -sS "https://api.github.com/repos/$GIT_OWNER/$GIT_REPO/deployments/$DEPLOYMENT_ID/statuses"
         exit 1
+      elif [ "$SOPS_OUTPUT" = "sops metadata not found" ]; then
+        echo 'State file was not encrypted. It will be encrypted when pushed to git at the end of deployment.'
       fi
     fi
     echo "Proceeding to import state file..."
+    if pulumi stack import --file /tmp/pulumi-prev-config/config.checkpoint.json; then
+      echo "Selecting stack $STACK_NAME-$STACK_ENV..."
+      pulumi stack select $STACK_NAME-$STACK_ENV
+    fi
   fi
 fi
 
@@ -112,7 +123,6 @@ if [ $? -eq 0 ]; then
       echo "Encrypting checkpoint file"
       if ! sops --gcp-kms $SOPS_KMS_ID -e -i /tmp/pulumi-prev-config/config.checkpoint.json; then
         echo "Issue encrypting state file. Not saving to git..."
-        exit 1
       fi
     fi
   else

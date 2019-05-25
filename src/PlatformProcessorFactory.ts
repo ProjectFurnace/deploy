@@ -48,7 +48,7 @@ export default class PlatformProcessorFactory {
         requiredVars = [ "STORAGE_CONNECTION_STRING" ]
         break;
       case "gcp":
-        requiredVars = [ "GCP_PROJECT" ]
+        requiredVars = [ "GCLOUD_PROJECT" ]
         break;
     }
 
