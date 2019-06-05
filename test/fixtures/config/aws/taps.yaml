@@ -1,0 +1,14 @@
+- name: flowlogs-tap
+  module: aws-vpcfl
+  source: flowlogs
+  aws:
+    shards: 1
+  config:
+    param-id: val
+
+# - name: test-module2
+#   version: 1.2.0
+#   enabled: true
+#   shards: 2
+#   config:
+#     param-id: val

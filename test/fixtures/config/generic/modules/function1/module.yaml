@@ -1,0 +1,12 @@
+id: function1
+version: 1.0.0
+runtime: nodejs8.10
+category: ingest
+meta:
+  name: Passthrough test module
+  description: This module just passes data through it without any alteration
+  keywords: [passthrough]
+  website: https://furnace.org
+author:
+  name: Furnace Collective
+license: MIT

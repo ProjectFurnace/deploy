@@ -1,0 +1,5 @@
+{
+  "nameProperties": {
+    "azure.core.ResourceGroup": "resourceGroupName"
+  }
+}

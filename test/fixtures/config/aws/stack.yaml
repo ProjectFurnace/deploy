@@ -1,0 +1,10 @@
+name: fscratch
+platform:
+  aws:
+    defaultBatchSize: 10
+state:
+  repo: https://github.com/ProjectFurnace/dev-stack-state
+environments:
+  - dev
+  - staging
+  - production

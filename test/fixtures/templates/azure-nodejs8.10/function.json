@@ -1,0 +1,5 @@
+{
+  "disabled": false,
+  "scriptFile": "handler.js",
+  "entryPoint": "processEvent"
+}

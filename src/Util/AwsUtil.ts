@@ -1,7 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
 import { SecretsManager } from "aws-sdk";
-import { Resource } from "../Model/Config";
+
 import { FirehoseDeliveryStreamArgs } from "@pulumi/aws/kinesis";
 
 export default class awsUtil {
@@ -38,7 +38,6 @@ export default class awsUtil {
                 ))
             })
         };
-
         return new aws.iam.RolePolicy(name, def);
     }
 
@@ -60,39 +59,6 @@ export default class awsUtil {
       
         const sm = new SecretsManager({region: aws.config.region});
         return sm.getSecretValue(params).promise();
-      }
-
-    static async createResource(resourceName: string, type: string, config: any, stackName: string, environment: string): Promise<any> {
-        switch (type) {
-            case 'elasticsearch.Domain':
-                config.domainName = resourceName;
-                return new aws.elasticsearch.Domain(resourceName, config);
-            
-            case 'redshift.Cluster':
-                config.clusterIdentifier = resourceName;
-
-                const secretName = `${process.env.FURNACE_INSTANCE}/${stackName}-${config.masterPasswordSecret}-${environment}`;
-                try {
-                    const secret = await this.getSecret(secretName);
-
-                    config.masterPassword = secret.SecretString;
-
-                    return new aws.redshift.Cluster(resourceName, config);
-                } catch(e) {
-                    throw new Error(`unable to find secret ${secretName} specified in resource ${resourceName}`);
-                }
-
-            case 'dynamodb.Table':
-                config.name = resourceName;
-                return new aws.dynamodb.Table(resourceName, config);
-            
-            case 'elasticache.Cluster':
-                config.clusterId = resourceName;
-                return new aws.elasticache.Cluster(resourceName, config);
-
-            default:
-                throw new Error(`unknown resource type ${type}`)
-        }
     }
 
     static createFirehosePolicy(params: any[]) {
@@ -144,7 +110,7 @@ export default class awsUtil {
         return JSON.stringify(policy);
     }
 
-    static async createFirehose(resourceName: string, createdResource: any | undefined, config: any, source: aws.kinesis.Stream): Promise<aws.kinesis.FirehoseDeliveryStream> {
+    static async createFirehose(resourceName: string, createdResource: any | undefined, config: any, sourceArn: pulumi.Output<string>): Promise<aws.kinesis.FirehoseDeliveryStream> {
 
         const failureBucket = new aws.s3.Bucket(`${resourceName}-Bucket`, {});
 
@@ -180,15 +146,16 @@ export default class awsUtil {
 
         const def = {
             role: role.id,
-            policy: pulumi.all([source.arn, failureBucket.bucket, (config.elasticsearchConfiguration ? config.elasticsearchConfiguration.domainArn : null)]).apply(this.createFirehosePolicy)
+            policy: pulumi.all([sourceArn, failureBucket.bucket, (config.elasticsearchConfiguration ? config.elasticsearchConfiguration.domainArn : null)]).apply(this.createFirehosePolicy)
         };
 
-        const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, {parent: role, dependsOn: [source]});
+        // const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, {parent: role, dependsOn: [source]});
+        const policy = new aws.iam.RolePolicy(`${resourceName}-Policy`, def, { parent: role });
 
         let parameters: aws.kinesis.FirehoseDeliveryStreamArgs = {
             name: resourceName,
             kinesisSourceConfiguration: {
-                kinesisStreamArn: source.arn,
+                kinesisStreamArn: sourceArn,
                 roleArn: role.arn,
 
             },
@@ -204,7 +171,6 @@ export default class awsUtil {
         }
 
         const firehose = new aws.kinesis.FirehoseDeliveryStream(resourceName, parameters);
-
         return firehose;
     }
 }

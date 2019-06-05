@@ -1,8 +1,0 @@
-- tap: flowlogs
-  pipeline: enrichment
-
-- pipeline: enrichment
-  sink: elasticsearch
-
-- pipeline: enrichment
-  sink: firehose

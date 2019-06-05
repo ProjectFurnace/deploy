@@ -1,13 +1,13 @@
-import Processor from "./src/Processor";
-import ConfigUtil from "./src/Util/ConfigUtil";
 import * as gitUtils from "@project-furnace/gitutils";
-import { FurnaceConfig } from "./src/Model/Config";
 import * as pulumi from "@pulumi/pulumi";
-import { Config } from "@pulumi/pulumi";
 import * as tmp from "tmp";
 import * as fsUtils from "@project-furnace/fsutils";
-import Build from "./src/Build";
 import * as path from "path";
+import { Processor as StackProcessor } from "@project-furnace/stack-processor";
+import { RegisteredResource } from "./src/Types";
+import * as _ from "lodash";
+import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
+import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
 
 (async () => {
       let gitRemote = process.env.GIT_REMOTE
@@ -15,7 +15,7 @@ import * as path from "path";
         , gitUsername = process.env.GIT_USERNAME
         , gitToken = process.env.GIT_TOKEN
         , buildBucket = process.env.BUILD_BUCKET
-        , environment = pulumi.getStack().split("-").pop()
+        , environment = process.env.ENVIRONMENT || pulumi.getStack().split("-").pop()
         , platform = process.env.PLATFORM
         , repoDir = process.env.REPO_DIR || "/tmp/stack/"
         , modulesDir = path.join(repoDir, "modules")
@@ -24,26 +24,67 @@ import * as path from "path";
         , isLocal = process.env.FURNACE_LOCAL ? true : false
         ;
 
-        if (!isLocal) {
-            if (!gitRemote) throw new Error(`GIT_REMOTE not set`);
-            if (!gitTag) throw new Error(`GIT_TAG not set`);
-            // if (!gitUsername) throw new Error(`GIT_USERNAME not set`);
-            // if (!gitToken) throw new Error(`GIT_TOKEN not set`);
-            if (!platform) throw new Error(`PLATFORM not set`);
-            if (!environment) throw new Error(`unable to extract environment`);
-            
-            if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
-            
-            //TODO: check AWS_ACCESS_KEY_ID AWS_SECRET_ACCESS_KEY if platform is aws
-            
-            await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
-        } else console.log("executing local mode...")
+        if (!platform) throw new Error(`PLATFORM not set`);
+        if (!buildBucket) throw new Error(`BUILD_BUCKET not set`);
+        if (!environment) throw new Error(`unable to extract environment`);
+        if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
 
-        const furnaceConfig: FurnaceConfig = await ConfigUtil.getConfig(repoDir, templateRepoDir, environment!, platform!);
-        
-        Build.buildStack(repoDir, templateRepoDir, buildBucket!, platform!);
-        
-        const processor = new Processor();
-        processor.process(furnaceConfig, environment!, buildBucket!);
+        if (!isLocal) {
+            console.log("pulling templates...")
+            await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
+        } else console.log("executing local mode...");
+
+        const processor = new StackProcessor(repoDir, templateRepoDir);
+
+        const config = processor.getConfig()
+            , flows = await processor.getFlowsWithBuildSpec(environment!, platform)
+            ;
+
+        // dumpFlows(flows);
+        // Build.buildStack(repoDir, templateRepoDir, buildBucket!, platform!);
+
+        console.log(`deploying stack '${config.stack.name}' in env '${environment}' for platform '${platform}'`)
+
+        const platformProcessor = await PlatformProcessorFactory.getProcessor(
+            platform, 
+            flows, 
+            config.stack, 
+            environment, 
+            buildBucket, 
+            repoDir, 
+            templateRepoDir
+            );
+
+        await platformProcessor.preProcess();
+
+        const resources = await platformProcessor.process();
+        // dumpResources(resources);
 })();
 
+function dumpFlows(flows: BuildSpec[]) {
+    let currentType = null;
+
+    const sorted = _.orderBy(flows, "component");
+
+    for (let flow of flows) {
+        if (currentType !== flow.component) {
+            console.log(flow.component);
+            currentType = flow.component;
+        }
+        console.log(`  ${flow.meta!.identifier} <- ${flow.meta!.sources}`);
+    }
+}
+
+function dumpResources(resources: RegisteredResource[]) {
+    let currentType = null;
+
+    const sorted = _.orderBy(resources, "type");
+
+    for (let resource of resources) {
+        if (currentType !== resource.type) {
+            console.log(resource.type);
+            currentType = resource.type;
+        }
+        console.log(`  ${resource.name}`);
+    }
+}

@@ -1,0 +1,5 @@
+- name: table1
+  type: Table
+  config:
+    primaryKey: "Id"
+    primaryKeyType: "string"
