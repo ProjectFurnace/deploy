@@ -16,6 +16,7 @@ describe.skip('processModule', () => {
       name: 'pt',
       config: { },
       inputs: [],
+      outputs: new Map<string, string>(),
       parameters: new Map<string, string>(),
       componentType: 'Module',
       component: 'pipeline-module',
@@ -24,12 +25,13 @@ describe.skip('processModule', () => {
       module: 'passthrough',
       meta:
       {
-        source: 'test-stack-flowlogs-test',
+        sources: ['test-stack-flowlogs-test'],
         identifier: 'test-stack-pt-test',
         output: 'test-stack-pt-test-out'
       },
       moduleSpec: {
-        runtime: "nodejs8.10"
+        runtime: "nodejs8.10",
+        eventType: ''
       }
     }
 
