@@ -5,6 +5,7 @@ import * as pulumi from "@pulumi/pulumi";
 import * as azure from "@pulumi/azure";
 import * as mocks from "../mocks/pulumi";
 import { RegisteredResource } from "../../src/Types";
+import ResourceUtil from "../../src/Util/ResourceUtil";
 
 beforeAll(() => {
   mocks.stubCustomResource();
@@ -22,6 +23,7 @@ const spec: BuildSpec = {
   name: 'flowlogs-tap',
   config: { aws: { shards: 1 } },
   inputs: [],
+  outputs: new Map<string, string>(),
   parameters: new Map<string, string>(),
   componentType: 'Module',
   component: 'tap',
@@ -30,12 +32,13 @@ const spec: BuildSpec = {
   module: 'aws-vpcfl',
   meta:
   {
-    source: 'test-stack-flowlogs-test',
+    sources: ['test-stack-flowlogs-test'],
     identifier: 'test-stack-flowlogs-tap-test',
     output: 'test-stack-flowlogs-tap-test-out'
   },
   moduleSpec: {
-    runtime: "nodejs8.10"
+    runtime: "nodejs8.10",
+    eventType: ""
   }
 }
 
@@ -81,6 +84,7 @@ describe.skip('AzureProcessor', () => {
         name: 'asource',
         config: { },
         inputs: [],
+        outputs: new Map<string, string>(),
         parameters: new Map<string, string>(),
         componentType: 'Resource',
         component: 'source',
@@ -90,21 +94,25 @@ describe.skip('AzureProcessor', () => {
         meta:
         {
           identifier: 'test-stack-asource',
-          source: undefined,
+          sources: undefined,
           output: undefined
         },
         moduleSpec: {
-          runtime: "nodejs8.10"
+          runtime: "nodejs8.10",
+          eventType: ""
         }
       }
 
-      const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure");
+      const builder = new AzureModuleBuilder("test/fixtures/config", "test/fixtures/templates", "test-bucket", "azure", {});
       const p = new AzureProcessor([source], stack, "test", "testBucket", {}, builder);
       
       await p.preProcess();
 
-      const resources = await p.createRoutingComponent(spec);
-      expect(resources).toHaveLength(2);
+      const routingDefs = ResourceUtil.getRoutingDefinitions([source], 'azure');
+
+      const routingResources = ResourceUtil.flattenResourceArray( routingDefs
+        .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
+      expect(routingResources).toHaveLength(2);
 
     });
   })

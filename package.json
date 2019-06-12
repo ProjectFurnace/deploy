@@ -1,13 +1,13 @@
 {
   "name": "typescript",
   "scripts": {
-    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=furnace-build-test3 REPO_DIR=../../stacks/azctdl-connector TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=dm-fur-2-us-west-1-furnace-artifacts-8itf1s REPO_DIR=../../stacks/soar TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "dev_azure": "STACK_REGION=uksouth FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=azgm15artifactsc REPO_DIR=../../stacks/azctdl-connector TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "dev_gcp": "GCLOUD_REGION=asia-northeast1 FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test GCLOUD_PROJECT=furnace-scratch BUILD_BUCKET=furnace-scratch REPO_DIR=../../stacks/azctdl-connector TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {
-    "@types/jest": "^23.3.9",
+    "@types/jest": "^24.0.13",
     "@types/lodash": "^4.14.120",
     "@types/md5-file": "^4.0.0",
     "@types/node": "latest",
@@ -15,10 +15,10 @@
     "@types/tmp": "0.0.33",
     "@types/yamljs": "^0.2.30",
     "dotenv": "^7.0.0",
-    "jest": "^23.6.0",
-    "jest-config": "^23.6.0",
+    "jest": "^24.8.0",
+    "jest-config": "^24.8.0",
     "sinon": "^7.3.1",
-    "ts-jest": "^23.10.4"
+    "ts-jest": "^24.0.2"
   },
   "dependencies": {
     "@google-cloud/kms": "^0.4.0",
@@ -45,7 +45,7 @@
     "randomstring": "^1.1.5",
     "simple-git": "^1.107.0",
     "tmp": "0.0.33",
-    "util.merge-packages": "0.0.15",
+    "util.merge-packages": "0.0.17",
     "yamljs": "^0.3.0"
   },
   "jest": {
