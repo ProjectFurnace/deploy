@@ -86,7 +86,7 @@ export default class AwsResourceFactory {
             name: (config.input.name + '_' + item).toUpperCase().replace(/-/g, '_'),
             // if we were doing params on different regions we'd need the full ARN
             // valueFrom: `arn:aws:ssm:${processor.resourceUtil.global.stack.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}-${item}-${processor.resourceUtil.global.stack.environment}`
-            valueFrom: `/${process.env.FURNACE_INSTANCE}/activeconnector/${config.input.name}/${processor.resourceUtil.global.stack.name}-${item}-${processor.resourceUtil.global.stack.environment}`
+            valueFrom: `/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/${item}`
           });
         }
 
@@ -114,7 +114,7 @@ export default class AwsResourceFactory {
           {
             Effect: "Allow",
             Action: ["ssm:GetParameters"],
-            Resource: [`arn:aws:ssm:${aws.config.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/activeconnector/*`]
+            Resource: [`arn:aws:ssm:${aws.config.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/*`]
           }
         ];
     
@@ -137,17 +137,20 @@ export default class AwsResourceFactory {
 
         // build the container with the right connector
         //TODO: Validate config.input.name to avoid security issues
-        const inputConnector = config.input.package || `@project-furnace/${config.input.name}-connector`;
-        const outputConnector = config.output.package || `@project-furnace/aws-kinesis-stream-connector`;
+        const inputPackage = config.input.package || `@project-furnace/${config.input.name}-connector`;
+        const outputPackage = config.output.package || `@project-furnace/aws-kinesis-stream-connector`;
 
         const dockerRepoUrl = `${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`;
         if (!pulumi.runtime.isDryRun()) {
           const dockerBuildPath = await fsUtils.createTempDirectory();
-
+          console.log('Clonning base connector repo...');
           await gitUtils.clone(dockerBuildPath, 'https://github.com/ProjectFurnace/active-connector-base', '', '');
           const dockerUtil = new DockerUtil(`activeconnector/${component.name}`, dockerBuildPath);
           await dockerUtil.getOrCreateRepo('aws');
-          await dockerUtil.build(`--build-arg OUTPUT_CONNECTOR=${outputConnector} --build-arg INPUT_CONNECTOR=${inputConnector}`);
+          console.log('Building connector image...');
+          await dockerUtil.build(`--build-arg OUTPUT_PACKAGE=${outputPackage} --build-arg INPUT_PACKAGE=${inputPackage}`);
+          console.log('Pushing image to ECR...');
+          await dockerUtil.awsAuthenticate(aws.config.region);
           await dockerUtil.push(`${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`);
         }
 
@@ -171,10 +174,10 @@ export default class AwsResourceFactory {
               environment: [
                 { name: "INPUT_OPTIONS", value: Base64Util.toBase64(JSON.stringify(config.input.options)) },
                 { name: "INPUT_NAME", value: config.input.name},
-                { name: "INPUT_PACKAGE", value: inputConnector},
+                { name: "INPUT_PACKAGE", value: inputPackage},
                 { name: "OUTPUT_OPTIONS", value: Base64Util.toBase64(JSON.stringify(outputOptions)) },
                 { name: "OUTPUT_NAME", value: outputName},
-                { name: "OUTPUT_PACKAGE", value: outputConnector}
+                { name: "OUTPUT_PACKAGE", value: outputPackage}
               ]    
             } as awsx.ecs.Container,
           },
