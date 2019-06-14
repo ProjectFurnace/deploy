@@ -12,7 +12,8 @@ RUN apt-get update && \
         jq \
         apt-transport-https \
         lsb-release \
-        gpg
+        gpg \
+        docker.io
 
 RUN curl -sL https://deb.nodesource.com/setup_10.x | bash - && \
     apt-get install -y nodejs

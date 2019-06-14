@@ -19,6 +19,10 @@ export default class DockerUtil {
     await execPromise(`docker push ${repoUrl}/${this.image}:${this.tag}`, { cwd: this.buildPath, env: process.env });
   }
 
+  async awsAuthenticate(region:string) {
+    await execPromise(`$(aws ecr get-login --no-include-email --region ${region})`, { cwd: this.buildPath, env: process.env });
+  }
+
   async getOrCreateRepo(platform:string) {
     switch(platform) {
       case 'aws':
