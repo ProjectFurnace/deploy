@@ -9,14 +9,14 @@ export default class DockerUtil {
 
   async build(buildArgs:string) {
     //docker build -t project-furnace/base:latest --build-arg OUTPUT_CONNECTOR=@project-furnace/aws-kinesis-stream-connector --build-arg INPUT_CONNECTOR=@project-furnace/salesforce-connector .
-    await execPromise(`docker build -t ${this.image}:${this.tag} ${buildArgs} .`, { cwd: this.buildPath, env: process.env });
+    return await execPromise(`docker build -t ${this.image}:${this.tag} ${buildArgs} .`, { cwd: this.buildPath, env: process.env });
   }
 
   async push(repoUrl:string) {
     //docker tag project-furnace/base:latest XXXXXXXXXX.dkr.ecr.eu-west-1.amazonaws.com/project-furnace/base:latest
     //docker push XXXXXXXXXX.dkr.ecr.eu-west-1.amazonaws.com/project-furnace/base:latest
     await execPromise(`docker tag ${this.image}:${this.tag} ${repoUrl}/${this.image}:${this.tag}`, { cwd: this.buildPath, env: process.env });
-    await execPromise(`docker push ${repoUrl}/${this.image}:${this.tag}`, { cwd: this.buildPath, env: process.env });
+    return await execPromise(`docker push ${repoUrl}/${this.image}:${this.tag}`, { cwd: this.buildPath, env: process.env });
   }
 
   async awsAuthenticate(region:string) {

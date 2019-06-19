@@ -148,10 +148,12 @@ export default class AwsResourceFactory {
           const dockerUtil = new DockerUtil(`activeconnector/${component.name}`, dockerBuildPath);
           await dockerUtil.getOrCreateRepo('aws');
           console.log('Building connector image...');
-          await dockerUtil.build(`--build-arg OUTPUT_PACKAGE=${outputPackage} --build-arg INPUT_PACKAGE=${inputPackage}`);
+          const buildOut = await dockerUtil.build(`--build-arg OUTPUT_PACKAGE=${outputPackage} --build-arg INPUT_PACKAGE=${inputPackage}`);
+          console.log(buildOut);
           console.log('Pushing image to ECR...');
           await dockerUtil.awsAuthenticate(aws.config.region);
-          await dockerUtil.push(`${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`);
+          const pushOut = await dockerUtil.push(`${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`);
+          console.log(pushOut);
         }
 
         const outputName = config.output.name || 'aws-kinesis-stream';
