@@ -18,7 +18,7 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
         , environment = process.env.ENVIRONMENT || pulumi.getStack().split("-").pop()
         , platform = process.env.PLATFORM
         , repoDir = process.env.REPO_DIR || "/tmp/stack/"
-        , modulesDir = path.join(repoDir, "modules")
+        , functionsDir = path.join(repoDir, "src")
         , templateRepoRemote = "https://github.com/ProjectFurnace/function-templates"
         , templateRepoDir = process.env.TEMPLATE_REPO_DIR || tmp.dirSync().name
         , isLocal = process.env.FURNACE_LOCAL ? true : false
@@ -27,7 +27,7 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
         if (!platform) throw new Error(`PLATFORM not set`);
         if (!buildBucket) throw new Error(`BUILD_BUCKET not set`);
         if (!environment) throw new Error(`unable to extract environment`);
-        if (!fsUtils.exists(modulesDir)) throw new Error(`stack must have a modules directory`);
+        if (!fsUtils.exists(functionsDir)) throw new Error(`stack must have a functions directory`);
 
         if (!isLocal) {
             console.log("pulling templates...")

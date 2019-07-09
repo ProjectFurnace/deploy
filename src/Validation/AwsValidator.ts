@@ -5,7 +5,7 @@ export default class AwsValidator {
         let errors: string[] = [];
 
         for (let flow of flows) {
-            if (flow.type === "Module" && !flow.buildSpec!.hash) errors.push(`module ${flow.module} has no hash`);
+            if (flow.type === "Function" && !flow.buildSpec!.hash) errors.push(`function ${flow.function} has no hash`);
         }
         return errors;
     }

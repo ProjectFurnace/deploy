@@ -3,11 +3,11 @@ import * as azurestorage from "azure-storage";
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { RegisteredResource, ResourceConfig } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
-import ModuleBuilderBase from "../ModuleBuilderBase";
+import FunctionBuilderBase from "../FunctionBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
 import AzureResourceFactory from "./AzureResourceFactory";
 import * as _ from "lodash";
-import AzureModuleBuilder from "./AzureModuleBuilder";
+import AzureFunctionBuilder from "./AzureFunctionBuilder";
 
 export default class AzureProcessor implements PlatformProcessor {
 
@@ -19,7 +19,7 @@ export default class AzureProcessor implements PlatformProcessor {
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'azure';
 
-  constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
+  constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private functionBuilder: FunctionBuilderBase | null) {
     this.validate();
     this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
   }
@@ -112,10 +112,10 @@ export default class AzureProcessor implements PlatformProcessor {
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
-    const moduleResources: RegisteredResource[] = [];
-    const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
+    const functionResources: RegisteredResource[] = [];
+    const functionComponents = this.flows.filter(flow => flow.componentType === "Function")
 
-    for (const component of moduleComponents) {
+    for (const component of functionComponents) {
       //TODO: right now we only support one source for Azure
       if (component.meta!.sources!.length > 1) throw new Error(`Only one source is currently supported for Azure at: ${component.name}`);
       const inputResource = routingResources.find(r => r.name === ResourceUtil.injectInName(component.meta!.sources![0], 'rule'));
@@ -129,13 +129,13 @@ export default class AzureProcessor implements PlatformProcessor {
         outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
       }
 
-      const resources = await this.createModuleResource(component, inputRule, outputRule);
-      resources.forEach(resource => moduleResources.push(resource));
+      const resources = await this.createFunctionResource(component, inputRule, outputRule);
+      resources.forEach(resource => functionResources.push(resource));
     }
 
     return [
       ...resourceResources,
-      ...moduleResources,
+      ...functionResources,
       ...routingResources
     ];
 
@@ -177,24 +177,24 @@ export default class AzureProcessor implements PlatformProcessor {
 
   }
 
-  async createModuleResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule | undefined) {
+  async createFunctionResource(component: BuildSpec, inputRule: azure.eventhub.EventHubAuthorizationRule, outputRule: azure.eventhub.EventHubAuthorizationRule | undefined) {
     const resources: RegisteredResource[] = [];
 
-    await this.moduleBuilder!.initialize();
-    const buildDef = await this.moduleBuilder!.processModule(component, true);
+    await this.functionBuilder!.initialize();
+    const buildDef = await this.functionBuilder!.processFunction(component, true);
 
     const { identifier } = component.meta!;
 
-    const blobName = `${component.module!}/${component.buildSpec!.hash}`
-    await this.moduleBuilder!.uploadArtifcat(this.buildBucket, blobName, buildDef.buildArtifact)
+    const blobName = `${component.function!}/${component.buildSpec!.hash}`
+    await this.functionBuilder!.uploadArtifcat(this.buildBucket, blobName, buildDef.buildArtifact)
 
     // generate code blob
-    const codeBlobUrl = this.signedBlobReadUrl(blobName, (this.moduleBuilder! as AzureModuleBuilder).connectionString, this.buildBucket);
+    const codeBlobUrl = this.signedBlobReadUrl(blobName, (this.functionBuilder! as AzureFunctionBuilder).connectionString, this.buildBucket);
 
     // Create App insights
     const functionAppAIConfig = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'ai'), "azure.appinsights.Insights", {
       applicationType: 'Web'
-    } as azure.appinsights.InsightsArgs, 'module', {resourceGroup: this.resourceGroup});
+    } as azure.appinsights.InsightsArgs, 'function', {resourceGroup: this.resourceGroup});
     const functionAppAIResource = this.resourceUtil.register(functionAppAIConfig)
     resources.push(functionAppAIResource);
 
@@ -225,13 +225,13 @@ export default class AzureProcessor implements PlatformProcessor {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       enabled: true,
-      storageConnectionString: (this.moduleBuilder! as AzureModuleBuilder).connectionString,   
+      storageConnectionString: (this.functionBuilder! as AzureFunctionBuilder).connectionString,   
       version: '~2',
       appSettings: appSettings,
       siteConfig: {
         alwaysOn: true
       }
-    } as azure.appservice.FunctionAppArgs, 'module', {resourceGroup: this.resourceGroup});
+    } as azure.appservice.FunctionAppArgs, 'function', {resourceGroup: this.resourceGroup});
     resources.push(this.resourceUtil.register(functionAppConfig));
 
     return resources;

@@ -2,7 +2,7 @@ import * as gcp from "@pulumi/gcp"
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { RegisteredResource, ResourceConfig } from "../Types";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
-import ModuleBuilderBase from "../ModuleBuilderBase";
+import FunctionBuilderBase from "../FunctionBuilderBase";
 import GcpResourceFactory from "./GcpResourceFactory";
 import ResourceUtil from "../Util/ResourceUtil";
 import Base64Util from "../Util/Base64Util";
@@ -14,7 +14,7 @@ export default class GcpProcessor implements PlatformProcessor {
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'gcp';
 
-  constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
+  constructor(private flows: Array<BuildSpec>, protected stackConfig: Stack, protected environment: string, private buildBucket: string, private initialConfig: any, private functionBuilder: FunctionBuilderBase | null) {
     this.validate();
     this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
   }
@@ -73,22 +73,22 @@ export default class GcpProcessor implements PlatformProcessor {
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
-    const moduleResources: RegisteredResource[] = [];
-    const moduleComponents = this.flows.filter(flow => flow.componentType === "Module")
+    const functionResources: RegisteredResource[] = [];
+    const functionComponents = this.flows.filter(flow => flow.componentType === "Function")
 
-    for (const component of moduleComponents) {
+    for (const component of functionComponents) {
       //TODO: right now we only support one source for GCP
       if (component.meta!.sources!.length > 1) throw new Error(`Only one source is currently supported for GCP at: ${component.name}`);
       const routingResource = routingResources.find(r => r.name === component.meta!.sources![0])
       if (!routingResource) throw new Error(`unable to find routing resource ${component.meta!.sources![0]} in flow ${component.name}`);
 
-      const resources = await this.createModuleResource(component, routingResource);
-      resources.forEach(resource => moduleResources.push(resource));
+      const resources = await this.createFunctionResource(component, routingResource);
+      resources.forEach(resource => functionResources.push(resource));
     }
 
     return [
       ...resourceResources,
-      ...moduleResources,
+      ...functionResources,
       ...routingResources
     ];
 
@@ -123,17 +123,17 @@ export default class GcpProcessor implements PlatformProcessor {
 
   }
 
-  async createModuleResource(component: BuildSpec, inputResource: RegisteredResource) {
+  async createFunctionResource(component: BuildSpec, inputResource: RegisteredResource) {
     const resources: RegisteredResource[] = [];
 
-    await this.moduleBuilder!.initialize();
-    const buildDef = await this.moduleBuilder!.processModule(component);
+    await this.functionBuilder!.initialize();
+    const buildDef = await this.functionBuilder!.processFunction(component);
 
     const { identifier } = component.meta!;
 
-    const objectName = `${component.module!}/${component.buildSpec!.hash}`;
+    const objectName = `${component.function!}/${component.buildSpec!.hash}`;
 
-    await this.moduleBuilder!.uploadArtifcat(this.buildBucket, objectName, buildDef.buildArtifact);
+    await this.functionBuilder!.uploadArtifcat(this.buildBucket, objectName, buildDef.buildArtifact);
 
     const envVars: { [key: string]: string } = {
       STREAM_NAME: component.meta!.output!,
@@ -149,7 +149,7 @@ export default class GcpProcessor implements PlatformProcessor {
     if (component.logging === "debug") envVars.DEBUG = '1';
 
     let runtime = 'nodejs8'
-    if (component.moduleSpec.runtime == 'python3.6')
+    if (component.functionSpec.runtime == 'python3.6')
       runtime = 'python37'
 
     // Create an App Service Function
