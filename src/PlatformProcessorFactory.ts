@@ -1,11 +1,11 @@
 import AwsProcessor from "./Aws/AwsProcessor";
-import AwsModuleBuilder from "./Aws/AwsModuleBuilder";
+import AwsFunctionBuilder from "./Aws/AwsFunctionBuilder";
 
 import AzureProcessor from "./Azure/AzureProcessor";
-import AzureModuleBuilder from "./Azure/AzureModuleBuilder";
+import AzureFunctionBuilder from "./Azure/AzureFunctionBuilder";
 
 import GcpProcessor from "./Gcp/GcpProcessor";
-import GcpModuleBuilder from "./Gcp/GcpModuleBuilder";
+import GcpFunctionBuilder from "./Gcp/GcpFunctionBuilder";
 
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import { PlatformProcessor } from "./IPlatformProcessor";
@@ -20,15 +20,15 @@ export default class PlatformProcessorFactory {
     switch (platform) {
       case "aws":
         const identity = await aws.getCallerIdentity();
-        const awsBuilder = new AwsModuleBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
+        const awsBuilder = new AwsFunctionBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
         return new AwsProcessor(flows, stack, environment, buildBucket, { identity }, awsBuilder);
 
       case "azure":
-        const azureBuilder = new AzureModuleBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
+        const azureBuilder = new AzureFunctionBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
         return new AzureProcessor(flows, stack, environment, buildBucket, {}, azureBuilder);
 
       case "gcp":
-        const gcpBuilder = new GcpModuleBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
+        const gcpBuilder = new GcpFunctionBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
         return new GcpProcessor(flows, stack, environment, buildBucket, {}, gcpBuilder);
 
       default:

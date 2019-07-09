@@ -5,7 +5,7 @@ import { PlatformProcessor } from "../IPlatformProcessor";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
 import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
-import ModuleBuilderBase from "../ModuleBuilderBase";
+import FunctionBuilderBase from "../FunctionBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
 import * as util from "util";
 
@@ -14,7 +14,7 @@ export default class AwsProcessor implements PlatformProcessor {
   resourceUtil: ResourceUtil;
   readonly PLATFORM: string = 'aws';
 
-  constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private moduleBuilder: ModuleBuilderBase | null) {
+  constructor(private flows: Array<BuildSpec>, private stackConfig: Stack, private environment: string, private buildBucket: string, private initialConfig: any, private functionBuilder: FunctionBuilderBase | null) {
     this.validate();
     this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
   }
@@ -65,20 +65,20 @@ export default class AwsProcessor implements PlatformProcessor {
     for(const nativeResourceConfs of nativeResourceConfigs)
       resourceConfigs.push(...await nativeResourceConfs);
   
-    const moduleResources: RegisteredResource[] = [];
-    const moduleComponents = this.flows.filter(flow => flow.componentType === "Module");
+    const functionResources: RegisteredResource[] = [];
+    const functionComponents = this.flows.filter(flow => flow.componentType === "Function");
 
-    let pendingModuleConfigs:ResourceConfig[] = [];
+    let pendingFunctionConfigs:ResourceConfig[] = [];
     let resources;
 
-    for (const component of moduleComponents) {
+    for (const component of functionComponents) {
       const routingResources = registeredResources.filter(r => component.meta!.sources!.includes(r.name));
       // console.log(component.name, component.meta!.sources, routingResources);
       // if (routingResources.length === 0 && component.component !== "function") throw new Error(`unable to find routing resources in component ${component.name}`);
 
-      [resources, pendingModuleConfigs] = await this.createModuleResource(component, routingResources, identity.accountId);
-      resources.forEach(resource => moduleResources.push(resource));
-      pendingModuleConfigs.forEach(moduleConfig => resourceConfigs.push(moduleConfig));
+      [resources, pendingFunctionConfigs] = await this.createFunctionResource(component, routingResources, identity.accountId);
+      resources.forEach(resource => functionResources.push(resource));
+      pendingFunctionConfigs.forEach(functionConfig => resourceConfigs.push(functionConfig));
     }
 
     if (resources)
@@ -89,11 +89,11 @@ export default class AwsProcessor implements PlatformProcessor {
     return [
       ...registeredResources,
       ...resourceResources,
-      ...([] as RegisteredResource[]).concat(...moduleResources) // flatten the moduleResources
+      ...([] as RegisteredResource[]).concat(...functionResources) // flatten the functionResources
     ]
   }
 
-  async createModuleResource(component: BuildSpec, inputResources: RegisteredResource[], accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
+  async createFunctionResource(component: BuildSpec, inputResources: RegisteredResource[], accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
       , { componentType } = component
@@ -107,13 +107,13 @@ export default class AwsProcessor implements PlatformProcessor {
       , defaultStartingPosition = platformConfig.defaultStartingPosition || "LATEST"
       ;
 
-    if (!component.moduleSpec || !component.moduleSpec.runtime) throw new Error(`module component ${component.name} has no runtime set`);
+    if (!component.functionSpec || !component.functionSpec.runtime) throw new Error(`function component ${component.name} has no runtime set`);
 
-    await this.moduleBuilder!.initialize();
-    const buildDef = await this.moduleBuilder!.processModule(component);
+    await this.functionBuilder!.initialize();
+    const buildDef = await this.functionBuilder!.processFunction(component);
 
-    const s3Key = `${component.module!}/${component.buildSpec!.hash}`
-    await this.moduleBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
+    const s3Key = `${component.function!}/${component.buildSpec!.hash}`
+    await this.functionBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
 
   // TODO: use role helper below
   //   const role = new aws.iam.Role("mylambda-role", {
@@ -205,13 +205,13 @@ export default class AwsProcessor implements PlatformProcessor {
       name: identifier,
       handler: "handler.handler",
       role: (functionRoleResource.resource as aws.iam.Role).arn,
-      runtime: AwsUtil.runtimeFromString(component.moduleSpec.runtime ? component.moduleSpec.runtime : "nodejs8.10"),
+      runtime: AwsUtil.runtimeFromString(component.functionSpec.runtime ? component.functionSpec.runtime : "nodejs8.10"),
       s3Bucket: this.buildBucket,
       s3Key,
       memorySize: 256,
       timeout: 60,
       environment: { variables }
-    }, 'module'));
+    }, 'function'));
 
     for (let inputResource of inputResources) {
       resourceConfigs.push(this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'source' + inputResources.indexOf(inputResource)), "aws.lambda.EventSourceMapping", {

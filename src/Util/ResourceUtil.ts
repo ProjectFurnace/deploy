@@ -34,7 +34,7 @@ export default class ResourceUtil {
     const routingDefs = [];
     
     const routingComponents = flows
-      .filter((flow: any) => ["source", "tap", "pipeline-module"].includes(flow.component));
+      .filter((flow: any) => ["source", "tap", "pipeline-function"].includes(flow.component));
 
     for (let component of routingComponents) {
       if (component.component === "source") {
