@@ -24,7 +24,6 @@ export default abstract class FunctionBuilder {
   }
 
   async processFunction(buildSpec: BuildSpec, alwaysBuild: Boolean = false) {
-
     const def = await this.getFunctionDef(buildSpec);
 
     if (this.functions.includes(def.name) && !alwaysBuild) {
@@ -33,6 +32,7 @@ export default abstract class FunctionBuilder {
     }
 
     await this.preProcess(def);
+    // TODO: Build only when its not preview. No point in building during preview
     await this.buildFunction(def);
     await this.postBuild(def);
     if (alwaysBuild) {
@@ -57,45 +57,101 @@ export default abstract class FunctionBuilder {
       // if eventType is raw, we don't copy over a template
       fsUtils.cp(def.templatePath, def.buildPath);
     }
-    fsUtils.cp(def.codePath, def.buildPath);
+    
+    if (def.codePaths){
+      const combined = Object.keys(def.codePaths).length > 1 ? true : false;
+      for (const key in def.codePaths) {
+        const codePath = def.codePaths[key];
+        // if we have more than one function, place the code inside folders
+        if (combined)
+          fsUtils.cp(codePath, path.join(def.buildPath, 'combined', key));
+        else
+          fsUtils.cp(codePath, def.buildPath);
+      }
+    }
   }
 
   async postBuild(def: any) {}
 
   getFunctionDef(buildSpec: BuildSpec): any {
+    let name = '';
 
-    const name = buildSpec.function!
-        , functionRoot = path.join(this.repoDir, "src", name)
-        , infoPath = path.join(functionRoot, "function.yaml")
-        , configPath = path.join(functionRoot, "config.yaml")
-        ;
+    // if we have more than one function in our array this is a combined function
+    if (buildSpec.functionSpec.functions.length > 1) {
+      // use the meta identifier if that is the case
+      name = buildSpec.meta!.identifier;
+    } else {
+      // otherwise use the function name
+      name = buildSpec.functionSpec.functions[0].function!;
+    }
 
-    if (!fsUtils.stat(functionRoot).isDirectory()) throw new Error(`unable to find function directory at ${functionRoot}`);
-    if (!fsUtils.exists(infoPath)) throw new Error(`unable to find function definition at ${infoPath}`);
+    const functionRoot = path.join(this.repoDir, 'src', name);
 
-    const info = yaml.load(infoPath);;
+    let codePaths:any = {};
+
+    for (const func of buildSpec.functionSpec.functions) {
+      const fncRoot = path.join(this.repoDir, 'src', func.function);
+      if (!fsUtils.stat(fncRoot).isDirectory()) throw new Error(`unable to find function directory at ${fncRoot}`);
+
+      if( !Object.keys(codePaths).includes(func.function) ) {
+        codePaths[func.function] = path.join(fncRoot, 'src');
+      }
+    }
 
     const { identifier, sources, output } = buildSpec.meta!;
-    const { eventType } = buildSpec.functionSpec;
+    const { eventType, runtime } = buildSpec.functionSpec;
+
+    const buildPath = path.join(this.buildPath, name);
 
     let def = {
       name,
-      runtime: info.runtime,
-      functionRoot,
-      infoPath,
-      configPath,
-      info,
-      templatePath: `${this.templateRepoDir}/${this.platform}-${info.runtime}`,
-      codePath: `${functionRoot}/src`,
-      buildPath: path.join(this.buildPath, name),
-      buildArtifact: "",
+      runtime,
+      //functionRoot,
+      //infoPath,
+      //configPath,
+      //info,
+      templatePath: `${this.templateRepoDir}/${this.platform}-${runtime}`,
+      codePaths,
+      buildPath: buildPath,
+      buildArtifact: buildPath + '.zip',
       identifier,
       sources,
       output,
       eventType
     };
 
-    def.buildArtifact = def.buildPath + ".zip"
+    //const infoPath = path.join(functionRoot, "function.yaml");
+    //const configPath = path.join(functionRoot, 'config.yaml');
+
+    //if (!fsUtils.stat(functionRoot).isDirectory()) throw new Error(`unable to find function directory at ${functionRoot}`);
+
+    //if (!fsUtils.exists(infoPath)) throw new Error(`unable to find function definition at ${infoPath}`);
+
+    // info will be different depending on the function, but do we really need it?
+    //const info = yaml.load(infoPath);
+
+    // these properties do not change regardless of whether this is a combined function or not
+    /*const { identifier, sources, output } = buildSpec.meta!;
+    const { eventType, runtime } = buildSpec.functionSpec;
+
+    const buildPath = path.join(this.buildPath, name);
+
+    let def = {
+      name,
+      runtime,
+      functionRoot,
+      //infoPath,
+      //configPath,
+      //info,
+      templatePath: `${this.templateRepoDir}/${this.platform}-${runtime}`,
+      codePath: `${functionRoot}/src`,
+      buildPath: buildPath,
+      buildArtifact: buildPath + '.zip',
+      identifier,
+      sources,
+      output,
+      eventType
+    };*/
 
     return def;
   }
@@ -105,13 +161,19 @@ export default abstract class FunctionBuilder {
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
       case 'nodejs8.10':
-        //in case we have 2 package.json files we need to merge them. if it's only one or none, nothing to worry about
-        if (fsUtils.exists(path.join(def.templatePath, 'package.json')) && fsUtils.exists(path.join(def.codePath, 'package.json'))) {
-          var dst = fsUtils.readFile(path.join(def.codePath, 'package.json'));
-          var src = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
+        //in case we have more than one package.json file we need to merge them. if it's only one or none, nothing to worry about
+        var templatePackage = '{}';
+        if (fsUtils.exists(path.join(def.templatePath, 'package.json')))
+          templatePackage = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
 
-          fsUtils.writeFile(path.join(def.buildPath, 'package.json'), merge(dst, src));
+        for(const key in def.codePaths) {
+          if (fsUtils.exists(path.join(def.codePaths[key], 'package.json'))) {
+            var functionPackage = fsUtils.readFile(path.join(def.codePaths[key], 'package.json'));
+            
+            templatePackage = merge(functionPackage, templatePackage)
+          }
         }
+        fsUtils.writeFile(path.join(def.buildPath, 'package.json'), templatePackage);
         await this.buildNode(def.name, def.buildPath);
         break;
 
@@ -183,16 +245,4 @@ export default abstract class FunctionBuilder {
   }
 
   abstract async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any>;
-
-  validateFunctionMetadata(functionDef: any) {
-    let errors = [];
-
-    //TODO: more validation required
-    if (!functionDef.info.runtime) {
-      errors.push(`runtime must be specified in the function definition file`)
-    }
-
-    return errors;
-  }
-
 }

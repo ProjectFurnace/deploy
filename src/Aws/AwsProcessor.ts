@@ -49,13 +49,23 @@ export default class AwsProcessor implements PlatformProcessor {
     });
 
     const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
+
     const routingResourceConfigs = routingDefs
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config))
 
     let registeredResources = this.resourceUtil.batchRegister(routingResourceConfigs);
 
-    const resourceConfigs = this.flows
-      .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
+    const resourceConfigsPromises = this.flows
+      .filter(flow => ['resource', 'connector'].includes(flow.construct))
+      .map(flow => AwsResourceFactory.getResourceConfig(flow, this));
+
+    const resourceConfigs = [];
+
+    for(const resourceConfigsPromise of resourceConfigsPromises)
+      resourceConfigs.push(...await resourceConfigsPromise);
+
+    /*const resourceConfigs = this.flows
+      .filter(flow => flow.construct === "resource")
       .map(flow => this.createResourceComponent(flow))
 
     const nativeResourceConfigs = this.flows
@@ -63,10 +73,10 @@ export default class AwsProcessor implements PlatformProcessor {
       .map(async flow => await AwsResourceFactory.getNativeResourceConfig(flow, this));
 
     for(const nativeResourceConfs of nativeResourceConfigs)
-      resourceConfigs.push(...await nativeResourceConfs);
+      resourceConfigs.push(...await nativeResourceConfs);*/
   
     const functionResources: RegisteredResource[] = [];
-    const functionComponents = this.flows.filter(flow => flow.componentType === "Function");
+    const functionComponents = this.flows.filter(flow => flow.functionSpec !== undefined);
 
     let pendingFunctionConfigs:ResourceConfig[] = [];
     let resources;
@@ -94,9 +104,9 @@ export default class AwsProcessor implements PlatformProcessor {
   }
 
   async createFunctionResource(component: BuildSpec, inputResources: RegisteredResource[], accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
+    //console.log('COMPONENT', component);
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
-      , { componentType } = component
       , awsConfig = component.config.aws || {}
       , platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {}
 
@@ -112,7 +122,7 @@ export default class AwsProcessor implements PlatformProcessor {
     await this.functionBuilder!.initialize();
     const buildDef = await this.functionBuilder!.processFunction(component);
 
-    const s3Key = `${component.function!}/${component.buildSpec!.hash}`
+    const s3Key = `${component.meta!.identifier}/${component.buildSpec!.hash}`
     await this.functionBuilder!.uploadArtifcat(this.buildBucket, s3Key, buildDef.buildArtifact)
 
   // TODO: use role helper below
@@ -190,11 +200,24 @@ export default class AwsProcessor implements PlatformProcessor {
       "FURNACE_INSTANCE": process.env.FURNACE_INSTANCE || "unknown"
     };
 
-    for (let param of component.parameters) {
+    //console.log(component.functionSpec.functions[0]);
+
+    // we have a combined function
+    if (component.functionSpec.functions.length > 1) {
+      variables["COMBINE"] = '';
+
+      for( const func of component.functionSpec.functions) {
+        variables["COMBINE"] = variables["COMBINE"].concat(func.function, ',');
+      }
+      // remove last comma - there's probably a fancier way to do this...
+      variables["COMBINE"] = variables["COMBINE"].substring(0, variables["COMBINE"].length - 1);
+    }
+
+    for (let param of component.functionSpec.functions[0].parameters) {
       variables[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1];
     }
 
-    if (component.component !== "sink") {
+    if (component.construct !== "sink") {
       variables["STREAM_NAME"] = component.meta!.output!;
       variables["PARTITION_KEY"] = (awsConfig.partitionKey) || "DEFAULT";
     }
@@ -227,11 +250,10 @@ export default class AwsProcessor implements PlatformProcessor {
   }
 
   createResourceComponent(component: BuildSpec): ResourceConfig {
-    const name = component.meta!.identifier
-        , stackName = this.stackConfig.name
-        , { type, config, componentType } = component
-        , finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {}
-        ;
+    const name = component.meta!.identifier;
+    const stackName = this.stackConfig.name;
+    const { type, config } = component;
+    //const finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {};
 
     // TODO: can we wrap secrets into a generic mechanism
     switch (type) {
@@ -245,7 +267,7 @@ export default class AwsProcessor implements PlatformProcessor {
           throw new Error(`unable to find secret ${secretName} specified in resource ${name}`);
         }
     }
-    return this.resourceUtil.configure(name, type!, finalConfig, 'resource', {}, component.outputs, componentType);
+    return this.resourceUtil.configure(name, type!, config, 'resource', {}, component.outputs);
   }
 
   createRoutingComponent(name: string, mechanism: string | undefined, config: any): ResourceConfig {
@@ -258,16 +280,20 @@ export default class AwsProcessor implements PlatformProcessor {
     if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
     if (mechanism === "aws.kinesis.Stream") {
-      if (!config.shardCount) config.shardCount = defaultRoutingShards || 1; // TODO: allow shards to be set in config
+      if (!config.shardCount) config.shardCount = defaultRoutingShards; // TODO: allow shards to be set in config
     }
 
     return this.resourceUtil.configure(name, mechanism, config, 'resource');
   }
 
-  getResource(config: ResourceConfig): [any, any] {
-    const [provider, newConfig] = AwsResourceFactory.getResource(config.name, config.type, config.config);
+  /*getResource(config: ResourceConfig): [any, any] {
+    const [provider, newConfig] = AwsResourceFactory.getResource(config, this);
 
     return [provider, newConfig];
+  }*/
+
+  getResource(config: ResourceConfig): any {
+    return AwsResourceFactory.getResourceProvider(config.type);
   }
 
   processOutputs(name: string, resource: any, outputs: any) {

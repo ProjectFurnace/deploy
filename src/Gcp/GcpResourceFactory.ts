@@ -2,7 +2,7 @@ import * as gcp from "@pulumi/gcp"
 import * as GcpResourceConfig from "./GcpResourceConfig.json";
 import * as _ from "lodash";
 import GcpProcessor from "./GcpProcessor";
-import { BuildSpec } from "@project-furnace/stack-processor/dist/Model";
+import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import { ResourceConfig } from "../Types";
 import Base64Util from "../Util/Base64Util";
 
@@ -44,7 +44,7 @@ export default class GcpResourceFactory {
 
   static getNativeResourceConfig(component: BuildSpec, processor: GcpProcessor): ResourceConfig[] {
     const name = component.meta!.identifier
-      , { type, config, componentType } = component
+      , { type, config } = component
       ;
 
     const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
@@ -119,10 +119,10 @@ export default class GcpResourceFactory {
           zone: gcp.config.region + '-a',
           name: name
         }
-        return [processor.resourceUtil.configure(name, 'gcp.compute.Instance', acConfig, 'resource', {}, {}, componentType)];
+        return [processor.resourceUtil.configure(name, 'gcp.compute.Instance', acConfig, 'resource', {}, {})];
 
       default:
-        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {})];
     }
   }
 }

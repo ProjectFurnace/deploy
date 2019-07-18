@@ -1,29 +1,32 @@
-const AWS = require('aws-sdk');
-const ks = require('./kinesis');
-const logic = require('./index');
+const furnaceSDK = require('@project-furnace/sdk');
+const handlerUtils = require('./handlerUtils');
 
-if (logic.setup) logic.setup();
+let logic;
 
-const client = new AWS.Kinesis({ region: process.env.REGION });
+if (!process.env.COMBINE) {
+  // eslint-disable-next-line global-require
+  logic = require('../index');
 
-if (logic.unpackAndProcess) ks.unpackAndProcess = logic.unpackAndProcess;
+  if (logic.setup) logic.setup();
+}
 
-exports.handler = async function handler(ksEvents, context, callback) {
+const processorFactory = require('./processorFactory');
+
+let processor = null;
+
+exports.handler = async (payload, context, callback) => {
+  if (!processor) {
+    processor = processorFactory.createInstance(payload);
+    if (!process.env.COMBINE && logic.receive) processor.receive = logic.receive;
+  }
   try {
-    if (ksEvents && ksEvents.Records) {
-      const outputEvents = await ks.unpackAndProcess(ksEvents.Records);
-
-      if (process.env.STREAM_NAME && outputEvents.length > 0) {
-        const out = await ks.send(client, outputEvents);
-        callback(null, out);
-      } else if (process.env.DEBUG) {
-        // eslint-disable-next-line no-console
-        console.log('No output stream defined or no events to output');
-      }
-    } else if (process.env.DEBUG) {
-      // eslint-disable-next-line no-console
-      console.log('No property "Records" in Kinesis received data');
-    }
+    const out = furnaceSDK.fp.pipe(
+      handlerUtils.validatePayload,
+      processor.receive,
+      handlerUtils.validateEvents,
+      processor.send,
+    )(payload);
+    callback(null, out);
   } catch (e) {
     if (process.env.DEBUG) {
       // eslint-disable-next-line no-console
