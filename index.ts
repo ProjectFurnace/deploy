@@ -67,9 +67,9 @@ function dumpFlows(flows: BuildSpec[]) {
     const sorted = _.orderBy(flows, "component");
 
     for (let flow of flows) {
-        if (currentType !== flow.component) {
-            console.log(flow.component);
-            currentType = flow.component;
+        if (currentType !== flow.construct) {
+            console.log(flow.construct);
+            currentType = flow.construct;
         }
         console.log(`  ${flow.meta!.identifier} <- ${flow.meta!.sources}`);
     }

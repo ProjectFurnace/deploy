@@ -10,6 +10,7 @@ export interface PlatformProcessorConstructor {
 export interface PlatformProcessor {
   process(): Promise<Array<RegisteredResource>>
   preProcess(): Promise<Array<RegisteredResource>>
-  getResource(config:ResourceConfig): [any, any]
+  //getResource(config:ResourceConfig): [any, any]
+  getResource(config:ResourceConfig): any
   processOutputs(name:string, resource:any, outputs:any): void
 }

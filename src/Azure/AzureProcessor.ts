@@ -100,20 +100,20 @@ export default class AzureProcessor implements PlatformProcessor {
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
     const resourceConfigs = this.flows
-      .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
+      .filter(flow => flow.construct === "resource" )
       .map(flow => this.resourceUtil.configure(flow.meta!.identifier, flow.type!, flow.config, 'resource', {resourceGroup: this.resourceGroup}));
 
-    const nativeResourceConfigs = this.flows
+    /*const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => AzureResourceFactory.getNativeResourceConfig(flow, this));
 
     for(const nativeResourceConfs of nativeResourceConfigs)
-      resourceConfigs.push(...nativeResourceConfs);
+      resourceConfigs.push(...nativeResourceConfs);*/
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
     const functionResources: RegisteredResource[] = [];
-    const functionComponents = this.flows.filter(flow => flow.componentType === "Function")
+    const functionComponents = this.flows.filter(flow => flow.functionSpec)
 
     for (const component of functionComponents) {
       //TODO: right now we only support one source for Azure
@@ -123,7 +123,7 @@ export default class AzureProcessor implements PlatformProcessor {
       const inputRule = inputResource.resource as azure.eventhub.EventHubAuthorizationRule;
 
       let outputRule = undefined;
-      if (component.component !== 'sink') {
+      if (component.construct !== 'sink') {
         const outputResource = routingResources.find(r => r.name === ResourceUtil.injectInName(component.meta!.output!, 'rule'));
         if (!outputResource) throw new Error(`unable to find EventHubAuthorizationRule for Output ${component.meta!.output} in flow ${component.name}`);
         outputRule = outputResource.resource as azure.eventhub.EventHubAuthorizationRule;
@@ -185,7 +185,7 @@ export default class AzureProcessor implements PlatformProcessor {
 
     const { identifier } = component.meta!;
 
-    const blobName = `${component.function!}/${component.buildSpec!.hash}`
+    const blobName = `${component.functionSpec.functions[0].name!}/${component.buildSpec!.hash}`
     await this.functionBuilder!.uploadArtifcat(this.buildBucket, blobName, buildDef.buildArtifact)
 
     // generate code blob
@@ -212,7 +212,7 @@ export default class AzureProcessor implements PlatformProcessor {
 
     if (component.logging === 'debug') appSettings['DEBUG'] = '1';
 
-    for (let param of component.parameters) {
+    for (let param of component.functionSpec.functions[0].parameters) {
       appSettings[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1]; 
     }
 

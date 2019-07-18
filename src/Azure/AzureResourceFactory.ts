@@ -1,7 +1,7 @@
 import * as azure from "@pulumi/azure";
 import * as AzureResourceConfig from "./AzureResourceConfig.json";
 import * as _ from "lodash";
-import { BuildSpec } from "@project-furnace/stack-processor/dist/Model";
+import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import { ResourceConfig } from "../Types";
 import AzureProcessor from "./AzureProcessor";
 import Base64Util from "../Util/Base64Util";
@@ -47,14 +47,14 @@ export default class AzureResourceFactory {
 
   static getNativeResourceConfig(component: BuildSpec, processor: AzureProcessor): ResourceConfig[] {
     const name = component.meta!.identifier
-      , { type, config, componentType } = component
+      , { type, config } = component
       ;
   
     switch(type) {
       case "Table":
         config.storageAccountName = processor.storageAccount.name;
         const tableName = name.replace(/[^A-Za-z0-9]/g, '');
-        return [processor.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource', {resourceGroup: processor.resourceGroup}, {}, componentType)];
+        return [processor.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource', {resourceGroup: processor.resourceGroup}, {})];
   
       case 'ActiveConnector':
         // if the output is passed as a var we need to get the resource name so we can still use vars on the yaml config
@@ -85,10 +85,10 @@ export default class AzureResourceFactory {
           }],
           osType: 'Linux'
         };
-        return [processor.resourceUtil.configure(name, 'azure.containerservice.Group', acConfig, 'resource', {resourceGroup: processor.resourceGroup}, {}, componentType)];
+        return [processor.resourceUtil.configure(name, 'azure.containerservice.Group', acConfig, 'resource', {resourceGroup: processor.resourceGroup}, {})];
   
       default:
-        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {}, componentType)];
+        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {})];
     }
   }
 }

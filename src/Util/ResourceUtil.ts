@@ -34,10 +34,10 @@ export default class ResourceUtil {
     const routingDefs = [];
     
     const routingComponents = flows
-      .filter((flow: any) => ["source", "tap", "pipeline-function"].includes(flow.component));
+      .filter((flow: any) => ['source', 'tap', 'pipeline-function'].includes(flow.construct));
 
     for (let component of routingComponents) {
-      if (component.component === "source") {
+      if (component.construct === 'source') {
         const existing = routingDefs.find(r => r.name === component.meta!.identifier);
         if (!existing) {
           routingDefs.push({
@@ -76,8 +76,10 @@ export default class ResourceUtil {
     this.global = global;
   }
 
-  configure(name: string, type: string, config: any, scope: string, options: any = {}, outputs: any = {}, componentType: string = 'Resource', ): ResourceConfig {
+  configure(name: string, type: string, config: any, scope: string, options: any = {}, outputs: any = {}): ResourceConfig {
     const propertiesWithVars = VarUtil.process(config, scope);
+
+    config.name = name;
 
     return {
       name,
@@ -85,7 +87,6 @@ export default class ResourceUtil {
       scope,
       options,
       outputs,
-      componentType,
       propertiesWithVars,
       config
     }
@@ -102,7 +103,9 @@ export default class ResourceUtil {
 
   register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
     try {
-      const [provider, newConfig] = this.processor.getResource(config);
+      //const [provider, newConfig] = this.processor.getResource(config);
+      const provider = this.processor.getResource(config);
+      const newConfig = _.cloneDeep(config.config);
       //console.log(util.inspect(newConfig, false, null, true))
 
       const dependencies = [];

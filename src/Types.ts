@@ -6,7 +6,6 @@ export type ResourceConfig = {
   scope: string
   options: any
   outputs: any
-  componentType: string
   propertiesWithVars: any[]
   config: any
 }

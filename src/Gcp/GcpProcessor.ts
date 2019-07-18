@@ -61,20 +61,20 @@ export default class GcpProcessor implements PlatformProcessor {
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
     const resourceConfigs = this.flows
-      .filter(flow => flow.componentType === "Resource" && flow.component !== "source")
+      .filter(flow => flow.construct === "resource")
       .map(flow => this.resourceUtil.configure(flow.meta!.identifier, flow.type!, flow.config, 'resource'));
 
-    const nativeResourceConfigs = this.flows
+    /*const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
       .map(flow => GcpResourceFactory.getNativeResourceConfig(flow, this));
 
     for(const nativeResourceConfs of nativeResourceConfigs)
-      resourceConfigs.push(...nativeResourceConfs);
+      resourceConfigs.push(...nativeResourceConfs);*/
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
     const functionResources: RegisteredResource[] = [];
-    const functionComponents = this.flows.filter(flow => flow.componentType === "Function")
+    const functionComponents = this.flows.filter(flow => flow.functionSpec)
 
     for (const component of functionComponents) {
       //TODO: right now we only support one source for GCP
@@ -131,7 +131,7 @@ export default class GcpProcessor implements PlatformProcessor {
 
     const { identifier } = component.meta!;
 
-    const objectName = `${component.function!}/${component.buildSpec!.hash}`;
+    const objectName = `${component.functionSpec.functions[0].name!}/${component.buildSpec!.hash}`;
 
     await this.functionBuilder!.uploadArtifcat(this.buildBucket, objectName, buildDef.buildArtifact);
 
@@ -142,7 +142,7 @@ export default class GcpProcessor implements PlatformProcessor {
       FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || "unknown"
     };
 
-    for (let param of component.parameters) {
+    for (let param of component.functionSpec.functions[0].parameters) {
       envVars[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1]; 
     }
 
