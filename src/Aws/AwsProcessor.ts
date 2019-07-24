@@ -68,8 +68,6 @@ export default class AwsProcessor implements PlatformProcessor {
 
     for (const component of functionComponents) {
       const routingResources = registeredResources.filter(r => component.meta!.sources!.includes(r.name));
-      // console.log(component.name, component.meta!.sources, routingResources);
-      // if (routingResources.length === 0 && component.component !== "function") throw new Error(`unable to find routing resources in component ${component.name}`);
 
       [resources, pendingFunctionConfigs] = await this.createFunctionResource(component, routingResources, identity.accountId);
       resources.forEach(resource => functionResources.push(resource));
@@ -89,7 +87,6 @@ export default class AwsProcessor implements PlatformProcessor {
   }
 
   async createFunctionResource(component: BuildSpec, inputResources: RegisteredResource[], accountId: string): Promise<[Array<RegisteredResource>, Array<ResourceConfig>]> {
-    //console.log('COMPONENT', component);
     const stackName = this.stackConfig.name
       , { identifier } = component.meta!
       , awsConfig = component.config.aws || {}
