@@ -42,20 +42,20 @@ export default class PlatformProcessorFactory {
 
     switch (platform) {
       case "aws":
-        requiredVars = []
+        requiredVars = [];
         break;
       case "azure":
-        requiredVars = [ "STORAGE_CONNECTION_STRING" ]
+        requiredVars = [ "STORAGE_CONNECTION_STRING" ];
         break;
       case "gcp":
-        requiredVars = [ "GCLOUD_PROJECT" ]
+        requiredVars = [ "GCLOUD_PROJECT" ];
         break;
     }
 
     const passedVars = Object.keys(process.env);
 
-    if (!requiredVars.every(v => passedVars.includes(v))) {
-      throw new Error(`you must provide ${requiredVars.join(",")} for platform ${platform}`);
+    if (!requiredVars.every((v) => passedVars.includes(v))) {
+      throw new Error(`you must provide ${requiredVars.join(',')} for platform ${platform}`);
     }
 
   }
@@ -64,12 +64,12 @@ export default class PlatformProcessorFactory {
     switch (platform) {
       case "azure":
         return {
-          storageConnectionString: process.env.STORAGE_CONNECTION_STRING
-        }
+          storageConnectionString: process.env.STORAGE_CONNECTION_STRING,
+        };
       case "gcp":
         return {
-          project: process.env.GCP_PROJECT
-        }
+          project: process.env.GCP_PROJECT,
+        };
       default:
         return {};
     }

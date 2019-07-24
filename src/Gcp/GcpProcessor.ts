@@ -59,8 +59,6 @@ export default class GcpProcessor implements PlatformProcessor {
     const routingResources = ResourceUtil.flattenResourceArray( routingDefs
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
-    console.log(this.flows);
-
     const nestedResourceConfigs = this.flows
       .filter(flow => ['resource', 'connector'].includes(flow.construct))
       .map(flow => GcpResourceFactory.getResourceConfig(flow, this));

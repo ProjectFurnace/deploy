@@ -1,5 +1,4 @@
 import * as aws from "@pulumi/aws";
-import * as pulumi from "@pulumi/pulumi";
 import AwsUtil from "../Util/AwsUtil";
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { BuildSpec, Stack } from "@project-furnace/stack-processor/src/Model";
