@@ -1,0 +1,20 @@
+{
+  "name": "elasticsearch",
+  "version": "1.0.0",
+  "description": "Furnace module to output events to Elasticsearch",
+  "main": "index.js",
+  "scripts": {
+    "test": "jest"
+  },
+  "dependencies": {
+    "elasticsearch": "^15.2.0",
+    "http-aws-es": "^6.0.0"
+  },
+  "keywords": [
+    "elastic",
+    "elasticsearch"
+  ],
+  "author": "Guillem Mateos <guillem.mateos@furnace.org>",
+  "license": "Apache-2.0",
+  "homepage": "https://furnace.org"
+}
