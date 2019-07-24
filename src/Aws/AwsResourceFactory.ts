@@ -8,16 +8,10 @@ import * as _ from "lodash";
 import Base64Util from "../Util/Base64Util";
 import AwsProcessor from "./AwsProcessor";
 import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
-import { ResourceConfig } from "../Types";
 import ResourceUtil from "../Util/ResourceUtil";
 import DockerUtil from "../Util/DockerUtil";
 
 export default class AwsResourceFactory {
-
-  /*static getResource(name: string, type: string, config: any): [any, any] {
-    return [ this.getResourceProvider(type), this.getResourceConfig(name, type) ];
-  }*/
-
   static getResourceProvider(type: string) {
     const providers: { [key: string]: any } = {
       "aws.elasticsearch.Domain": aws.elasticsearch.Domain,
@@ -43,29 +37,10 @@ export default class AwsResourceFactory {
     if (!provider) throw new Error(`unknown resource type ${type}`);
     return provider;
   }
-/*
-  private static getResourceConfig(name: string, type: string, config: any): any {
-    const newConfig = _.cloneDeep(config);
 
-    const nameProp = (AwsResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
-    newConfig[nameProp] = name;
-
-    return newConfig;
-  }
-*/
-  /*static translateResourceConfig(type: string, config: any) {
-    const newConfig = _.cloneDeep(config);
-
-    switch (type) {
-      default:
-        return newConfig;
-    }
-  }*/
-  
   static async getResourceConfig(component: BuildSpec, processor: AwsProcessor) {
-    const name = component.meta!.identifier
-      , { type, config } = component
-      ;
+    const name = component.meta!.identifier;
+    const { type, config } = component;
 
     switch(type) {
       case 'Table':
@@ -75,7 +50,7 @@ export default class AwsResourceFactory {
         config.readCapacity = 1;
         delete config.primaryKey;
         delete config.primaryKeyType;
-        return [processor.resourceUtil.configure(name, 'aws.dynamodb.Table', config, 'resource', {}, {})];
+        return [processor.resourceUtil.configure(name, 'aws.dynamodb.Table', config, 'resource')];
   
       case 'ActiveConnector':
         // create a list of the credentials for the activeconnector
@@ -198,20 +173,13 @@ export default class AwsResourceFactory {
         } as unknown as awsx.ecs.ClusterArgs;
 
         //processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'vpc'), 'awsx.ec2.Vpc', vpcConfig, 'resource', {}, {}, componentType)
-        return [processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'cluster'), 'awsx.ecs.Cluster', clusterConfig, 'resource', {}, {}),
-                processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'container'), 'awsx.ecs.FargateService', fargateConfig, 'resource', {}, {})];
+        return [processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'cluster'), 'awsx.ecs.Cluster', clusterConfig, 'resource'),
+                processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'container'), 'awsx.ecs.FargateService', fargateConfig, 'resource')];
 
       default:
-          /*const newConfig = _.cloneDeep(config);
-
-          const nameProp = (AwsResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
-          newConfig[nameProp] = name;
-      
-          return newConfig;*/
-
         const nameProp = (AwsResourceConfig.nameProperties as { [key: string]: string })[type!] || "name";
         config.config[nameProp] = name;
-        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {})];
+        return [processor.resourceUtil.configure(name, type!, config, 'resource')];
     }
   }
 }

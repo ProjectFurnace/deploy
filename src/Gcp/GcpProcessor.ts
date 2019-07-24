@@ -57,12 +57,20 @@ export default class GcpProcessor implements PlatformProcessor {
     });
 
     const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
+
     const routingResources = ResourceUtil.flattenResourceArray( routingDefs
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
-    const resourceConfigs = this.flows
-      .filter(flow => flow.construct === "resource")
-      .map(flow => this.resourceUtil.configure(flow.meta!.identifier, flow.type!, flow.config, 'resource'));
+    console.log(this.flows);
+
+    const nestedResourceConfigs = this.flows
+      .filter(flow => ['resource', 'connector'].includes(flow.construct))
+      .map(flow => GcpResourceFactory.getResourceConfig(flow, this));
+
+    const resourceConfigs = []
+
+    for(const nestedResourceConfs of nestedResourceConfigs)
+      resourceConfigs.push(...nestedResourceConfs);
 
     /*const nativeResourceConfigs = this.flows
       .filter(flow => flow.componentType === "NativeResource")
@@ -95,7 +103,7 @@ export default class GcpProcessor implements PlatformProcessor {
   }
 
   createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource[] {
-    const defaultRoutingMechanism = "gcp.pubsub.Topic";
+    const defaultRoutingMechanism = 'gcp.pubsub.Topic';
 
     if (!mechanism) mechanism = defaultRoutingMechanism;
     if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
@@ -146,6 +154,17 @@ export default class GcpProcessor implements PlatformProcessor {
       envVars[param[0].toUpperCase().replace(/'/g, '').replace(/-/g, '_')] = param[1]; 
     }
 
+    // we have a combined function
+    if (component.functionSpec.functions.length > 1) {
+      envVars['COMBINE'] = '';
+
+      for( const func of component.functionSpec.functions) {
+        envVars['COMBINE'] = envVars['COMBINE'].concat(func.function, ',');
+      }
+      // remove last comma - there's probably a fancier way to do this...
+      envVars['COMBINE'] = envVars['COMBINE'].substring(0, envVars['COMBINE'].length - 1);
+    }
+
     if (component.logging === "debug") envVars.DEBUG = '1';
 
     let runtime = 'nodejs8'
@@ -166,17 +185,18 @@ export default class GcpProcessor implements PlatformProcessor {
         eventType: 'google.pubsub.topic.publish',
         resource: inputResource.name
       }
-    } as gcp.cloudfunctions.FunctionArgs, 'resource', { options: {dependsOn: [this.cloudfunctionsService]}});
+    } as gcp.cloudfunctions.FunctionArgs, 'resource', { dependsOn: [this.cloudfunctionsService]});
 
     resources.push(this.resourceUtil.register(cloudFunctionConfig));
 
     return resources;
   }
 
-  getResource(config:ResourceConfig): [any, any] {
-    const [provider, newConfig] = GcpResourceFactory.getResource(config.name, config.type, config.config);
+  getResource(config:ResourceConfig): any {
+    /*const [provider, newConfig] = GcpResourceFactory.getResource(config.name, config.type, config.config);
 
-    return [provider, newConfig];
+    return [provider, newConfig];*/
+    return GcpResourceFactory.getResourceProvider(config.type);
   }
 
   processOutputs(name: string, resource: any, outputs: any) {}

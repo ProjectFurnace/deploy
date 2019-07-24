@@ -7,11 +7,7 @@ import AzureProcessor from "./AzureProcessor";
 import Base64Util from "../Util/Base64Util";
 
 export default class AzureResourceFactory {
-  static getResource(name: string, type: string, config: any): [any, any] {
-    return [ this.getResourceProvider(type), this.getResourceConfig(name, type, config) ];
-  }
-
-  private static getResourceProvider(type: string) {
+  public static getResourceProvider(type: string) {
 
     const providers: { [key: string]: any } = {
       "azure.eventhub.EventHub": azure.eventhub.EventHub,
@@ -35,26 +31,17 @@ export default class AzureResourceFactory {
     return provider;
   }
 
-  private static getResourceConfig(name: string, type: string, config: any): any {
-    const newConfig = _.cloneDeep(config);
-
-    const nameProp = (AzureResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
-    newConfig[nameProp] = name;
-    newConfig.name = name;
-
-    return newConfig;
-  }
-
-  static getNativeResourceConfig(component: BuildSpec, processor: AzureProcessor): ResourceConfig[] {
-    const name = component.meta!.identifier
-      , { type, config } = component
-      ;
+  static getResourceConfig(component: BuildSpec, processor: AzureProcessor): ResourceConfig[] {
+    const name = component.meta!.identifier;
+    const { type, config } = component;
   
     switch(type) {
-      case "Table":
+      case 'Table':
         config.storageAccountName = processor.storageAccount.name;
+        config.location = processor.resourceGroup.location;
+        config.resourceGroupName = processor.resourceGroup.name;
         const tableName = name.replace(/[^A-Za-z0-9]/g, '');
-        return [processor.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource', {resourceGroup: processor.resourceGroup}, {})];
+        return [processor.resourceUtil.configure(`${tableName}`, 'azure.storage.Table', config, 'resource')];
   
       case 'ActiveConnector':
         // if the output is passed as a var we need to get the resource name so we can still use vars on the yaml config
@@ -83,12 +70,21 @@ export default class AzureResourceFactory {
                 OUTPUT: 'base64::' + JSON.stringify(output),
               }
           }],
-          osType: 'Linux'
+          osType: 'Linux',
+          resourceGroupName: processor.resourceGroup.name,
+          location: processor.resourceGroup.location
         };
-        return [processor.resourceUtil.configure(name, 'azure.containerservice.Group', acConfig, 'resource', {resourceGroup: processor.resourceGroup}, {})];
+        return [processor.resourceUtil.configure(name, 'azure.containerservice.Group', acConfig, 'resource')];
   
       default:
-        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {})];
+        const nameProp = (AzureResourceConfig.nameProperties as { [key: string]: string })[type!] || "name";
+        config.config[nameProp] = name;
+        if (type != 'azure.eventhub.EventHubAuthorizationRule' && type != 'azure.eventhub.EventHub') {
+          config.location = processor.resourceGroup.location;
+          config.resourceGroupName = processor.resourceGroup.name;
+        }
+
+        return [processor.resourceUtil.configure(name, type!, config, 'resource')];
     }
   }
 }

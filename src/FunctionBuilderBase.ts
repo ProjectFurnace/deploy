@@ -58,10 +58,12 @@ export default abstract class FunctionBuilder {
       fsUtils.cp(def.templatePath, def.buildPath);
     }
     
+    console.log('PRE_PROC', def)
     if (def.codePaths){
       const combined = Object.keys(def.codePaths).length > 1 ? true : false;
       for (const key in def.codePaths) {
         const codePath = def.codePaths[key];
+        console.log('path', path.join(codePath, 'src'));
         // if we have more than one function, place the code inside folders
         if (combined)
           fsUtils.cp(codePath, path.join(def.buildPath, 'combined', key));
@@ -179,12 +181,27 @@ export default abstract class FunctionBuilder {
 
       case 'python3.6':
         //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
-        if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')) && fsUtils.exists(path.join(def.codePath, 'requirements.txt'))) {
+        /*if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')) && fsUtils.exists(path.join(def.codePath, 'requirements.txt'))) {
           var dst = fsUtils.readFile(path.join(def.codePath, 'requirements.txt'));
           var src = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
 
           fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), src + "\n" + dst);
+        }*/
+        var templateRequirements = '';
+        if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
+          templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
+
+        for(const key in def.codePaths) {
+          if (fsUtils.exists(path.join(def.codePaths[key], 'requirements.txt'))) {
+            var functionRequirements = fsUtils.readFile(path.join(def.codePaths[key], 'requirements.txt'));
+            // if we are combining functions we need them to be treated as modules
+            if (def.codePaths.length > 1)
+              fsUtils.writeFile(path.join(def.codePaths[key], '__init__.py'),'');
+            
+            templateRequirements = templateRequirements + "\n" + functionRequirements;
+          }
         }
+        fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), templateRequirements);
         await this.buildPython(def.name, def.buildPath);
         break;
 

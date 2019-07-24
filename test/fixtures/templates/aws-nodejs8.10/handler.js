@@ -5,7 +5,7 @@ let logic;
 
 if (!process.env.COMBINE) {
   // eslint-disable-next-line global-require
-  logic = require('../index');
+  logic = require('./index');
 
   if (logic.setup) logic.setup();
 }

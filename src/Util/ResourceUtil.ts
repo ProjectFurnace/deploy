@@ -34,7 +34,7 @@ export default class ResourceUtil {
     const routingDefs = [];
     
     const routingComponents = flows
-      .filter((flow: any) => ['source', 'tap', 'pipeline-function'].includes(flow.construct));
+      .filter((flow: any) => ['source', 'tap', 'pipeline-function', 'pipeline-combined-function'].includes(flow.construct));
 
     for (let component of routingComponents) {
       if (component.construct === 'source') {
@@ -153,7 +153,7 @@ export default class ResourceUtil {
         }
       }
       
-      const instance = new provider(config.name, newConfig, _.merge({dependesOn: dependencies}, (config.options.options ? config.options.options : {}) )) as pulumi.CustomResource;
+      const instance = new provider(config.name, newConfig, _.merge({dependesOn: dependencies}, (config.options ? config.options : {}) )) as pulumi.CustomResource;
 
       if (config.outputs)
         this.processor.processOutputs(config.name, instance, config.outputs);

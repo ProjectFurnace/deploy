@@ -7,11 +7,11 @@ import { ResourceConfig } from "../Types";
 import Base64Util from "../Util/Base64Util";
 
 export default class GcpResourceFactory {
-  static getResource(name: string, type: string, config: any): [any, any] {
+  /*static getResource(name: string, type: string, config: any): [any, any] {
     return [ this.getResourceProvider(type), this.getResourceConfig(name, type, config) ];
-  }
+  }*/
 
-  private static getResourceProvider(type: string) {
+  public static getResourceProvider(type: string) {
 
     const providers: { [key: string]: any } = {
       "gcp.storage.Bucket": gcp.storage.Bucket,
@@ -32,7 +32,7 @@ export default class GcpResourceFactory {
     return provider;
   }
 
-  private static getResourceConfig(name: string, type: string, config: any): any {
+  /*private static getResourceConfig(name: string, type: string, config: any): any {
     const newConfig = _.cloneDeep(config);
 
     const nameProp = (GcpResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
@@ -40,18 +40,17 @@ export default class GcpResourceFactory {
     newConfig.name = name;
 
     return newConfig;
-  }
+  }*/
 
-  static getNativeResourceConfig(component: BuildSpec, processor: GcpProcessor): ResourceConfig[] {
-    const name = component.meta!.identifier
-      , { type, config } = component
-      ;
+  static getResourceConfig(component: BuildSpec, processor: GcpProcessor): ResourceConfig[] {
+    const name = component.meta!.identifier;
+    const { type, config } = component;
 
-    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
-    const name_bits = REGEX.exec(name);
+//    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
+  //  const name_bits = REGEX.exec(name);
 
-    if( !name_bits) 
-      throw new Error('Unable to destructure name while creating native resource');
+    //if( !name_bits) 
+      //throw new Error('Unable to destructure name while creating native resource');
 
     switch(type) {
       case 'Table':
@@ -119,10 +118,12 @@ export default class GcpResourceFactory {
           zone: gcp.config.region + '-a',
           name: name
         }
-        return [processor.resourceUtil.configure(name, 'gcp.compute.Instance', acConfig, 'resource', {}, {})];
+        return [processor.resourceUtil.configure(name, 'gcp.compute.Instance', acConfig, 'resource')];
 
       default:
-        return [processor.resourceUtil.configure(name, type!, config, 'resource', {}, {})];
+        const nameProp = (GcpResourceConfig.nameProperties as { [key: string]: string })[type!] || "name";
+        config.config[nameProp] = name;
+        return [processor.resourceUtil.configure(name, type!, config, 'resource')];
     }
   }
 }
