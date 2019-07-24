@@ -1,11 +1,9 @@
 import * as fsUtils from "@project-furnace/fsutils";
 import * as path from "path";
 import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
-import * as yaml from "yamljs";
 import * as zipUtils from "@project-furnace/ziputils";
 import merge from "util.merge-packages";
 import { execPromise } from "./Util/ProcessUtil";
-import * as randomstring from "randomstring";
 import HashUtil from "./Util/HashUtil";
 
 export default abstract class FunctionBuilder {
@@ -58,12 +56,10 @@ export default abstract class FunctionBuilder {
       fsUtils.cp(def.templatePath, def.buildPath);
     }
     
-    console.log('PRE_PROC', def)
     if (def.codePaths){
       const combined = Object.keys(def.codePaths).length > 1 ? true : false;
       for (const key in def.codePaths) {
         const codePath = def.codePaths[key];
-        console.log('path', path.join(codePath, 'src'));
         // if we have more than one function, place the code inside folders
         if (combined)
           fsUtils.cp(codePath, path.join(def.buildPath, 'combined', key));
@@ -108,10 +104,6 @@ export default abstract class FunctionBuilder {
     let def = {
       name,
       runtime,
-      //functionRoot,
-      //infoPath,
-      //configPath,
-      //info,
       templatePath: `${this.templateRepoDir}/${this.platform}-${runtime}`,
       codePaths,
       buildPath: buildPath,
@@ -121,39 +113,6 @@ export default abstract class FunctionBuilder {
       output,
       eventType
     };
-
-    //const infoPath = path.join(functionRoot, "function.yaml");
-    //const configPath = path.join(functionRoot, 'config.yaml');
-
-    //if (!fsUtils.stat(functionRoot).isDirectory()) throw new Error(`unable to find function directory at ${functionRoot}`);
-
-    //if (!fsUtils.exists(infoPath)) throw new Error(`unable to find function definition at ${infoPath}`);
-
-    // info will be different depending on the function, but do we really need it?
-    //const info = yaml.load(infoPath);
-
-    // these properties do not change regardless of whether this is a combined function or not
-    /*const { identifier, sources, output } = buildSpec.meta!;
-    const { eventType, runtime } = buildSpec.functionSpec;
-
-    const buildPath = path.join(this.buildPath, name);
-
-    let def = {
-      name,
-      runtime,
-      functionRoot,
-      //infoPath,
-      //configPath,
-      //info,
-      templatePath: `${this.templateRepoDir}/${this.platform}-${runtime}`,
-      codePath: `${functionRoot}/src`,
-      buildPath: buildPath,
-      buildArtifact: buildPath + '.zip',
-      identifier,
-      sources,
-      output,
-      eventType
-    };*/
 
     return def;
   }
@@ -181,12 +140,6 @@ export default abstract class FunctionBuilder {
 
       case 'python3.6':
         //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
-        /*if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')) && fsUtils.exists(path.join(def.codePath, 'requirements.txt'))) {
-          var dst = fsUtils.readFile(path.join(def.codePath, 'requirements.txt'));
-          var src = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
-
-          fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), src + "\n" + dst);
-        }*/
         var templateRequirements = '';
         if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
           templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));

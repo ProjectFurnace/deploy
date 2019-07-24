@@ -22,8 +22,6 @@ export default class GcpProcessor implements PlatformProcessor {
   validate() {
     if (!this.flows) throw new Error("flows must be set");
     if (!this.stackConfig) throw new Error("stackConfig must be set");
-    // const errors = AwsValidator.validate(config, flows);
-    // if (errors.length > 0) throw new Error(JSON.stringify(errors));
   }
 
   async preProcess(): Promise<Array<RegisteredResource>> {
@@ -71,13 +69,6 @@ export default class GcpProcessor implements PlatformProcessor {
 
     for(const nestedResourceConfs of nestedResourceConfigs)
       resourceConfigs.push(...nestedResourceConfs);
-
-    /*const nativeResourceConfigs = this.flows
-      .filter(flow => flow.componentType === "NativeResource")
-      .map(flow => GcpResourceFactory.getNativeResourceConfig(flow, this));
-
-    for(const nativeResourceConfs of nativeResourceConfigs)
-      resourceConfigs.push(...nativeResourceConfs);*/
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
@@ -193,9 +184,6 @@ export default class GcpProcessor implements PlatformProcessor {
   }
 
   getResource(config:ResourceConfig): any {
-    /*const [provider, newConfig] = GcpResourceFactory.getResource(config.name, config.type, config.config);
-
-    return [provider, newConfig];*/
     return GcpResourceFactory.getResourceProvider(config.type);
   }
 

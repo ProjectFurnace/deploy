@@ -7,12 +7,7 @@ import { ResourceConfig } from "../Types";
 import Base64Util from "../Util/Base64Util";
 
 export default class GcpResourceFactory {
-  /*static getResource(name: string, type: string, config: any): [any, any] {
-    return [ this.getResourceProvider(type), this.getResourceConfig(name, type, config) ];
-  }*/
-
   public static getResourceProvider(type: string) {
-
     const providers: { [key: string]: any } = {
       "gcp.storage.Bucket": gcp.storage.Bucket,
       "gcp.storage.BucketObject": gcp.storage.BucketObject,
@@ -32,46 +27,12 @@ export default class GcpResourceFactory {
     return provider;
   }
 
-  /*private static getResourceConfig(name: string, type: string, config: any): any {
-    const newConfig = _.cloneDeep(config);
-
-    const nameProp = (GcpResourceConfig.nameProperties as { [key: string]: string })[type] || "name";
-    newConfig[nameProp] = name;
-    newConfig.name = name;
-
-    return newConfig;
-  }*/
-
   static getResourceConfig(component: BuildSpec, processor: GcpProcessor): ResourceConfig[] {
     const name = component.meta!.identifier;
     const { type, config } = component;
 
-//    const REGEX = /(\w+)-([\w_-]+)-(\w+)/;
-  //  const name_bits = REGEX.exec(name);
-
-    //if( !name_bits) 
-      //throw new Error('Unable to destructure name while creating native resource');
-
     switch(type) {
       case 'Table':
-        //BigQuery is not really the perfect match for a document store. Migrating to use Firestore
-        /*const datasetId = `${name_bits[1].replace(/-/g, '_')}_${name_bits[2].replace(/-/g, '_')}_dataset_${name_bits[3].replace(/-/g, '_')}`;
-        const tableId = `${name_bits[1].replace(/-/g, '_')}_${name_bits[2].replace(/-/g, '_')}_${name_bits[3].replace(/-/g, '_')}`;
-        const datasetConfig = {
-          datasetId: datasetId,
-          location: gcp.config.region
-        };
-        const tableConfig = {
-            datasetId: '${' + name_bits[2] + '_dataset' + '.datasetId}',
-            schema: '[{"name": "' + config.primaryKey + '", "type": "' + config.primaryKeyType.toUpperCase() + '", "mode": "NULLABLE"}]',
-            tableId: tableId,
-            timePartitioning: {
-                type: "DAY"
-            }
-        };
-        const dataset = processor.resourceUtil.configure(`${name_bits[1]}-${name_bits[2]}_dataset-${name_bits[3]}`, 'gcp.bigquery.Dataset', datasetConfig, 'resource', {}, {}, componentType);
-        const table = processor.resourceUtil.configure(name, 'gcp.bigquery.Table', tableConfig, 'resource', {}, {}, componentType);
-        return [dataset, table];*/
         const cloudfunctionsServiceConfig = processor.resourceUtil.configure(`${processor.resourceUtil.global.stack.name}-firestore-${processor.resourceUtil.global.stack.environment}`, 'gcp.projects.Service', {
           project: processor.resourceUtil.global.account.project,
           service: 'firestore.googleapis.com',
