@@ -2,8 +2,8 @@
   "name": "typescript",
   "scripts": {
     "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=dwf-eu-west-1-furnace-artifacts-5y1fq1 REPO_DIR=../../stacks/azctdl-connector-v0.2 TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
-    "dev_azure": "STACK_REGION=uksouth FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=azgm15artifactsc REPO_DIR=../../stacks/azctdl-connector TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
-    "dev_gcp": "GCLOUD_REGION=asia-northeast1 FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test GCLOUD_PROJECT=furnace-scratch BUILD_BUCKET=furnace-scratch REPO_DIR=../../stacks/azctdl-connector TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_azure": "STACK_REGION=uksouth FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=azgm21artifactsc REPO_DIR=../../stacks/azctdl-connector-v0.2 TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
+    "dev_gcp": "GCLOUD_REGION=asia-northeast1 FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test GCLOUD_PROJECT=furnace-scratch BUILD_BUCKET=furnace-scratch REPO_DIR=../../stacks/azctdl-connector-v0.2 TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
   },
   "devDependencies": {

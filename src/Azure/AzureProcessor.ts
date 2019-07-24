@@ -25,8 +25,8 @@ export default class AzureProcessor implements PlatformProcessor {
   }
 
   validate() {
-    if (!this.flows) throw new Error("flows must be set");
-    if (!this.stackConfig) throw new Error("stackConfig must be set");
+    if (!this.flows) throw new Error('flows must be set');
+    if (!this.stackConfig) throw new Error('stackConfig must be set');
   }
 
   async preProcess(): Promise<Array<RegisteredResource>> {
@@ -34,12 +34,12 @@ export default class AzureProcessor implements PlatformProcessor {
     const resources: RegisteredResource[] = [];
     const stackName = this.stackConfig.name;
 
-    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}-rg-${this.environment}`, "azure.core.ResourceGroup", { location: process.env.STACK_REGION }, 'resource');
+    const resourceGroupConfig = this.resourceUtil.configure(`${stackName}-rg-${this.environment}`, 'azure.core.ResourceGroup', { location: process.env.STACK_REGION }, 'resource');
     const resourceGroupResource = this.resourceUtil.register(resourceGroupConfig);
     resources.push(resourceGroupResource);
     this.resourceGroup = resourceGroupResource.resource as azure.core.ResourceGroup;
 
-    const eventHubNamespaceConfig = this.resourceUtil.configure(`${stackName}-hubns-${this.environment}`, "azure.eventhub.EventHubNamespace", {
+    const eventHubNamespaceConfig = this.resourceUtil.configure(`${stackName}-hubns-${this.environment}`, 'azure.eventhub.EventHubNamespace', {
       capacity: 1,
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
@@ -47,34 +47,32 @@ export default class AzureProcessor implements PlatformProcessor {
       tags: {
         environment: 'Production',
       },
-    }, 'resource', {resourceGroup: this.resourceGroup});
+    }, 'resource');
     const eventHubNamespaceResource = this.resourceUtil.register(eventHubNamespaceConfig);
-    //TODO: Should we push the event hub also here? Discuss with Danny
-    //resources.push(instantiatedeventHubNamespace);
     this.eventHubNamespace = eventHubNamespaceResource.resource as azure.eventhub.EventHubNamespace;
 
     // create the storage account
     const saName = `${stackName}sa${this.environment}`.replace(/[^A-Za-z0-9]/g, '');
-    const storageAccountConfig = this.resourceUtil.configure(saName, "azure.storage.Account", {
+    const storageAccountConfig = this.resourceUtil.configure(saName, 'azure.storage.Account', {
       resourceGroupName: this.resourceGroup.name,
       location: this.resourceGroup.location,
-      accountKind: "StorageV2",
-      accountTier: "Standard",
-      accountReplicationType: "LRS"
-    } as azure.storage.AccountArgs, 'resource', {resourceGroup: this.resourceGroup});
+      accountKind: 'StorageV2',
+      accountTier: 'Standard',
+      accountReplicationType: 'LRS'
+    } as azure.storage.AccountArgs, 'resource');
     const storageAccountResource = this.resourceUtil.register(storageAccountConfig);
     resources.push(storageAccountResource);
     this.storageAccount = storageAccountResource.resource as azure.storage.Account;
 
     // Create an App Service Plan
-    const appServicePlanConfig = this.resourceUtil.configure(`${stackName}-plan-${this.environment}`, "azure.appservice.Plan", {
+    const appServicePlanConfig = this.resourceUtil.configure(`${stackName}-plan-${this.environment}`, 'azure.appservice.Plan', {
       location: this.resourceGroup.location,
       resourceGroupName: this.resourceGroup.name,
       sku: {
-        size: "S1",
-        tier: "Standard",
+        size: 'S1',
+        tier: 'Standard',
       },
-    }, 'resource', {resourceGroup: this.resourceGroup});
+    }, 'resource');
     const appServicePlanResource = this.resourceUtil.register(appServicePlanConfig);
     resources.push(appServicePlanResource);
     this.appservicePlan = appServicePlanResource.resource as azure.appservice.Plan;
@@ -96,24 +94,23 @@ export default class AzureProcessor implements PlatformProcessor {
     });
     
     const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
+    
     const routingResources = ResourceUtil.flattenResourceArray( routingDefs
       .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
 
-    const resourceConfigs = this.flows
-      .filter(flow => flow.construct === "resource" )
-      .map(flow => this.resourceUtil.configure(flow.meta!.identifier, flow.type!, flow.config, 'resource', {resourceGroup: this.resourceGroup}));
+    const nestedResourceConfigs = this.flows
+      .filter(flow => ['resource', 'connector'].includes(flow.construct))
+      .map(flow => AzureResourceFactory.getResourceConfig(flow, this));
 
-    /*const nativeResourceConfigs = this.flows
-      .filter(flow => flow.componentType === "NativeResource")
-      .map(flow => AzureResourceFactory.getNativeResourceConfig(flow, this));
+    const resourceConfigs = []
 
-    for(const nativeResourceConfs of nativeResourceConfigs)
-      resourceConfigs.push(...nativeResourceConfs);*/
+    for(const nestedResourceConfs of nestedResourceConfigs)
+      resourceConfigs.push(...nestedResourceConfs);
 
     const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
     const functionResources: RegisteredResource[] = [];
-    const functionComponents = this.flows.filter(flow => flow.functionSpec)
+    const functionComponents = this.flows.filter(flow => flow.functionSpec !== undefined)
 
     for (const component of functionComponents) {
       //TODO: right now we only support one source for Azure
@@ -156,18 +153,18 @@ export default class AzureProcessor implements PlatformProcessor {
 
     if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
-    const eventHubConfig = this.resourceUtil.configure(name, mechanism, config, 'resource', {resourceGroup: this.resourceGroup});
+    const eventHubConfig = this.resourceUtil.configure(name, mechanism, config, 'resource');
     const eventHubResource = this.resourceUtil.register(eventHubConfig);
     const eventHub = eventHubResource.resource as azure.eventhub.EventHub;
 
-    const eventHubAuthorizationRuleConfig = this.resourceUtil.configure(ResourceUtil.injectInName(name, 'rule'), "azure.eventhub.EventHubAuthorizationRule", {
+    const eventHubAuthorizationRuleConfig = this.resourceUtil.configure(ResourceUtil.injectInName(name, 'rule'), 'azure.eventhub.EventHubAuthorizationRule', {
       eventhubName: eventHub.name,
       listen: true,
       manage: false,
       namespaceName: this.eventHubNamespace.name,
       resourceGroupName: this.resourceGroup.name,
       send: true,
-    }, 'resource', {resourceGroup: this.resourceGroup});
+    }, 'resource');
     const eventHubAuthorizationRuleResource = this.resourceUtil.register(eventHubAuthorizationRuleConfig);
 
     return [
@@ -193,8 +190,10 @@ export default class AzureProcessor implements PlatformProcessor {
 
     // Create App insights
     const functionAppAIConfig = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'ai'), "azure.appinsights.Insights", {
-      applicationType: 'Web'
-    } as azure.appinsights.InsightsArgs, 'function', {resourceGroup: this.resourceGroup});
+      applicationType: 'Web',
+      location: this.resourceGroup.location,
+      resourceGroupName: this.resourceGroup.name
+    } as azure.appinsights.InsightsArgs, 'function');
     const functionAppAIResource = this.resourceUtil.register(functionAppAIConfig)
     resources.push(functionAppAIResource);
 
@@ -208,6 +207,17 @@ export default class AzureProcessor implements PlatformProcessor {
       AZURE_STORAGE_CONNECTION_STRING: this.storageAccount.primaryConnectionString,
       inputEventHubConnectionAppSetting: inputRule.primaryConnectionString,
       APPINSIGHTS_INSTRUMENTATIONKEY: (functionAppAIResource.resource as azure.appinsights.Insights).instrumentationKey
+    }
+
+    // we have a combined function
+    if (component.functionSpec.functions.length > 1) {
+      appSettings['COMBINE'] = '';
+
+      for( const func of component.functionSpec.functions) {
+        appSettings['COMBINE'] = appSettings['COMBINE'].concat(func.function, ',');
+      }
+      // remove last comma - there's probably a fancier way to do this...
+      appSettings['COMBINE'] = appSettings['COMBINE'].substring(0, appSettings['COMBINE'].length - 1);
     }
 
     if (component.logging === 'debug') appSettings['DEBUG'] = '1';
@@ -231,7 +241,7 @@ export default class AzureProcessor implements PlatformProcessor {
       siteConfig: {
         alwaysOn: true
       }
-    } as azure.appservice.FunctionAppArgs, 'function', {resourceGroup: this.resourceGroup});
+    } as azure.appservice.FunctionAppArgs, 'function');
     resources.push(this.resourceUtil.register(functionAppConfig));
 
     return resources;
@@ -261,16 +271,8 @@ export default class AzureProcessor implements PlatformProcessor {
     return blobService.getUrl(container, blobName, signature);
   }
 
-  getResource(config:ResourceConfig): [any, any] {
-
-    const [provider, newConfig] = AzureResourceFactory.getResource(config.name, config.type, config.config);
-    if (config.options.resourceGroup) {
-      newConfig.resourceGroupName = config.options.resourceGroup.name;
-      if (config.type != 'azure.eventhub.EventHubAuthorizationRule' && config.type != 'azure.eventhub.EventHub')
-        newConfig.location = config.options.resourceGroup.location;
-    }
-
-    return [provider, newConfig];
+  getResource(config:ResourceConfig): any {
+    return AzureResourceFactory.getResourceProvider(config.type);
   }
 
   processOutputs(name: string, resource: any, outputs: any) {}

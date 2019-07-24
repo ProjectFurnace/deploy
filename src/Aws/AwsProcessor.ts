@@ -7,7 +7,6 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsResourceFactory from "./AwsResourceFactory";
 import FunctionBuilderBase from "../FunctionBuilderBase";
 import ResourceUtil from "../Util/ResourceUtil";
-import * as util from "util";
 
 export default class AwsProcessor implements PlatformProcessor {
 
@@ -24,9 +23,6 @@ export default class AwsProcessor implements PlatformProcessor {
     if (!this.stackConfig) throw new Error("stackConfig must be set");
     if (!this.environment) throw new Error("environment must be set");
     if (!this.buildBucket) throw new Error("buildBucket must be set");
-
-    // const errors = AwsValidator.validate(config, flows);
-    // if (errors.length > 0) throw new Error(JSON.stringify(errors));
   }
 
   async preProcess(): Promise<Array<RegisteredResource>> {
@@ -63,17 +59,6 @@ export default class AwsProcessor implements PlatformProcessor {
 
     for(const resourceConfigsPromise of resourceConfigsPromises)
       resourceConfigs.push(...await resourceConfigsPromise);
-
-    /*const resourceConfigs = this.flows
-      .filter(flow => flow.construct === "resource")
-      .map(flow => this.createResourceComponent(flow))
-
-    const nativeResourceConfigs = this.flows
-      .filter(flow => flow.componentType === "NativeResource")
-      .map(async flow => await AwsResourceFactory.getNativeResourceConfig(flow, this));
-
-    for(const nativeResourceConfs of nativeResourceConfigs)
-      resourceConfigs.push(...await nativeResourceConfs);*/
   
     const functionResources: RegisteredResource[] = [];
     const functionComponents = this.flows.filter(flow => flow.functionSpec !== undefined);
@@ -181,7 +166,7 @@ export default class AwsProcessor implements PlatformProcessor {
       }
     };
     
-    const rolePolicyConf = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'policy'), "aws.iam.RolePolicy", rolePolicyDef, 'resource');
+    const rolePolicyConf = this.resourceUtil.configure(ResourceUtil.injectInName(identifier, 'policy'), 'aws.iam.RolePolicy', rolePolicyDef, 'resource');
     resources.push(this.resourceUtil.register(rolePolicyConf));
 
     if (component.policies) {
@@ -195,22 +180,22 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     const variables: { [key: string]: string } = {
-      "STACK_NAME": stackName || "unknown",
-      "STACK_ENV": this.environment || "unknown",
-      "FURNACE_INSTANCE": process.env.FURNACE_INSTANCE || "unknown"
+      STACK_NAME: stackName || 'undefined',
+      STACK_ENV: this.environment || 'undefined',
+      FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || 'undefined'
     };
 
     //console.log(component.functionSpec.functions[0]);
 
     // we have a combined function
     if (component.functionSpec.functions.length > 1) {
-      variables["COMBINE"] = '';
+      variables['COMBINE'] = '';
 
       for( const func of component.functionSpec.functions) {
-        variables["COMBINE"] = variables["COMBINE"].concat(func.function, ',');
+        variables['COMBINE'] = variables["COMBINE"].concat(func.function, ',');
       }
       // remove last comma - there's probably a fancier way to do this...
-      variables["COMBINE"] = variables["COMBINE"].substring(0, variables["COMBINE"].length - 1);
+      variables['COMBINE'] = variables["COMBINE"].substring(0, variables["COMBINE"].length - 1);
     }
 
     for (let param of component.functionSpec.functions[0].parameters) {
@@ -253,7 +238,6 @@ export default class AwsProcessor implements PlatformProcessor {
     const name = component.meta!.identifier;
     const stackName = this.stackConfig.name;
     const { type, config } = component;
-    //const finalConfig = AwsResourceFactory.translateResourceConfig(type!, config) || {};
 
     // TODO: can we wrap secrets into a generic mechanism
     switch (type) {
@@ -279,18 +263,12 @@ export default class AwsProcessor implements PlatformProcessor {
     if (!mechanism) mechanism = defaultRoutingMechanism;
     if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
-    if (mechanism === "aws.kinesis.Stream") {
+    if (mechanism === 'aws.kinesis.Stream') {
       if (!config.shardCount) config.shardCount = defaultRoutingShards; // TODO: allow shards to be set in config
     }
 
     return this.resourceUtil.configure(name, mechanism, config, 'resource');
   }
-
-  /*getResource(config: ResourceConfig): [any, any] {
-    const [provider, newConfig] = AwsResourceFactory.getResource(config, this);
-
-    return [provider, newConfig];
-  }*/
 
   getResource(config: ResourceConfig): any {
     return AwsResourceFactory.getResourceProvider(config.type);

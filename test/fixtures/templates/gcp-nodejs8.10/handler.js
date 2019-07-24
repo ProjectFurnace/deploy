@@ -1,6 +1,28 @@
 // Imports the Google Cloud client library
 const { PubSub } = require('@google-cloud/pubsub');
-const index = require('./index');
+const path = require('path');
+const furnaceSDK = require('@project-furnace/sdk');
+
+const funcArray = [];
+let logic;
+
+if (process.env.COMBINE) {
+  // eslint-disable-next-line global-require
+  const funcs = require('require-all')({
+    dirname: path.join(__dirname, 'combined'),
+    filter: /(index)\.js$/,
+  });
+
+  const funcOrder = process.env.COMBINE.split(',');
+
+  // eslint-disable-next-line no-restricted-syntax
+  for (const func of funcOrder) {
+    funcArray.push(funcs[func].index.handler);
+  }
+} else {
+  // eslint-disable-next-line global-require
+  logic = require('./index');
+}
 
 const pubsub = new PubSub();
 
@@ -14,7 +36,18 @@ module.exports.process = async function processEvent(message, context) {
     console.log(`Processed message: ${event}`);
   }
 
-  const out = await index.handler(event);
+  let out;
+
+  if (!process.env.COMBINE) {
+    // we are using a for loop that allows for async
+    // eslint-disable-next-line no-await-in-loop
+    out = await logic.handler(event);
+  } else {
+    // eslint-disable-next-line no-await-in-loop
+    out = await furnaceSDK.fp.pipe(
+      ...funcArray,
+    )(event);
+  }
 
   // Publishes the message and prints the messageID on console
   if (process.env.STREAM_NAME && out != null) {
