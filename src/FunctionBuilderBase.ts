@@ -5,6 +5,7 @@ import * as zipUtils from "@project-furnace/ziputils";
 import merge from "util.merge-packages";
 import { execPromise } from "./Util/ProcessUtil";
 import HashUtil from "./Util/HashUtil";
+import * as pulumi from "@pulumi/pulumi";
 
 export default abstract class FunctionBuilder {
 
@@ -28,7 +29,6 @@ export default abstract class FunctionBuilder {
       console.log(`function ${def.name} already built, skipping`);
       return def;
     }
-
     await this.preProcess(def);
     // TODO: Build only when its not preview. No point in building during preview
     await this.buildFunction(def);
@@ -122,40 +122,46 @@ export default abstract class FunctionBuilder {
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
       case 'nodejs8.10':
-        //in case we have more than one package.json file we need to merge them. if it's only one or none, nothing to worry about
-        var templatePackage = '{}';
-        if (fsUtils.exists(path.join(def.templatePath, 'package.json')))
-          templatePackage = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
+        // do not build on preview
+        if (!pulumi.runtime.isDryRun()) {
+          //in case we have more than one package.json file we need to merge them. if it's only one or none, nothing to worry about
+          var templatePackage = '{}';
+          if (fsUtils.exists(path.join(def.templatePath, 'package.json')))
+            templatePackage = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
 
-        for(const key in def.codePaths) {
-          if (fsUtils.exists(path.join(def.codePaths[key], 'package.json'))) {
-            var functionPackage = fsUtils.readFile(path.join(def.codePaths[key], 'package.json'));
-            
-            templatePackage = merge(functionPackage, templatePackage)
+          for(const key in def.codePaths) {
+            if (fsUtils.exists(path.join(def.codePaths[key], 'package.json'))) {
+              var functionPackage = fsUtils.readFile(path.join(def.codePaths[key], 'package.json'));
+              
+              templatePackage = merge(functionPackage, templatePackage)
+            }
           }
+          fsUtils.writeFile(path.join(def.buildPath, 'package.json'), templatePackage);
+          await this.buildNode(def.name, def.buildPath);
         }
-        fsUtils.writeFile(path.join(def.buildPath, 'package.json'), templatePackage);
-        await this.buildNode(def.name, def.buildPath);
         break;
 
       case 'python3.6':
-        //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
-        var templateRequirements = '';
-        if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
-          templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
+        // do not build on preview
+        if (!pulumi.runtime.isDryRun()) {
+          //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
+          var templateRequirements = '';
+          if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
+            templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
 
-        for(const key in def.codePaths) {
-          if (fsUtils.exists(path.join(def.codePaths[key], 'requirements.txt'))) {
-            var functionRequirements = fsUtils.readFile(path.join(def.codePaths[key], 'requirements.txt'));
-            // if we are combining functions we need them to be treated as modules
-            if (def.codePaths.length > 1)
-              fsUtils.writeFile(path.join(def.codePaths[key], '__init__.py'),'');
-            
-            templateRequirements = templateRequirements + "\n" + functionRequirements;
+          for(const key in def.codePaths) {
+            if (fsUtils.exists(path.join(def.codePaths[key], 'requirements.txt'))) {
+              var functionRequirements = fsUtils.readFile(path.join(def.codePaths[key], 'requirements.txt'));
+              // if we are combining functions we need them to be treated as modules
+              if (def.codePaths.length > 1)
+                fsUtils.writeFile(path.join(def.codePaths[key], '__init__.py'),'');
+              
+              templateRequirements = templateRequirements + "\n" + functionRequirements;
+            }
           }
+          fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), templateRequirements);
+          await this.buildPython(def.name, def.buildPath);
         }
-        fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), templateRequirements);
-        await this.buildPython(def.name, def.buildPath);
         break;
 
       default:

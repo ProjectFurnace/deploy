@@ -16,7 +16,16 @@
         "noImplicitReturns": true,
         "forceConsistentCasingInFileNames": true,
         "strictNullChecks": true,
-        "resolveJsonModule": true
+        "resolveJsonModule": true,
+        "plugins": [
+            {
+              "name": "typescript-tslint-plugin",
+              "alwaysShowRuleFailuresAsWarnings": false,
+              "ignoreDefinitionFiles": true,
+              "configFile": "tslint.json",
+              "suppressWhileTypeErrorsPresent": false
+            }
+          ]
     },
     "files": [
         "index.ts"

@@ -103,7 +103,6 @@ export default class ResourceUtil {
 
   register(config: ResourceConfig, registeredResources:RegisteredResource[] = []) {
     try {
-      //const [provider, newConfig] = this.processor.getResource(config);
       const provider = this.processor.getResource(config);
       const newConfig = _.cloneDeep(config.config);
       //console.log(util.inspect(newConfig, false, null, true))
