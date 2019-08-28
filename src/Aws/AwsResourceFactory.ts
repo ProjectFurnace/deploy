@@ -1,18 +1,18 @@
-import * as gitUtils from "@project-furnace/gitutils";
 import * as fsUtils from "@project-furnace/fsutils";
+import * as gitUtils from "@project-furnace/gitutils";
+import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import * as aws from "@pulumi/aws";
 import * as awsx from "@pulumi/awsx";
 import * as pulumi from "@pulumi/pulumi";
-import * as AwsResourceConfig from "./AwsResourceConfig.json";
 import * as _ from "lodash";
 import Base64Util from "../Util/Base64Util";
-import AwsProcessor from "./AwsProcessor";
-import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
-import ResourceUtil from "../Util/ResourceUtil";
 import DockerUtil from "../Util/DockerUtil";
+import ResourceUtil from "../Util/ResourceUtil";
+import AwsProcessor from "./AwsProcessor";
+import * as AwsResourceConfig from "./AwsResourceConfig.json";
 
 export default class AwsResourceFactory {
-  static getResourceProvider(type: string) {
+  public static getResourceProvider(type: string) {
     const providers: { [key: string]: any } = {
       "aws.elasticsearch.Domain": aws.elasticsearch.Domain,
       "aws.redshift.Cluster": aws.redshift.Cluster,
@@ -25,13 +25,16 @@ export default class AwsResourceFactory {
       "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping,
       "awsx.apigateway.API": awsx.apigateway.API,
       "aws.ssm.Parameter": aws.ssm.Parameter,
+      "aws.lambda.Permission": aws.lambda.Permission,
       "awsx.ecs.FargateService": awsx.ecs.FargateService,
       "awsx.ecs.Cluster": awsx.ecs.Cluster,
       "awsx.ec2.Vpc": awsx.ec2.Vpc,
       "aws.kinesis.FirehoseDeliveryStream": aws.kinesis.FirehoseDeliveryStream,
       "aws.kinesis.AnalyticsApplication": aws.kinesis.AnalyticsApplication,
-      "aws.dynamodb.Table": aws.dynamodb.Table
-    }
+      "aws.dynamodb.Table": aws.dynamodb.Table,
+      "aws.cloudwatch.EventTarget": aws.cloudwatch.EventTarget,
+      "aws.cloudwatch.EventRule": aws.cloudwatch.EventRule
+    };
 
     const provider = providers[type];
     if (!provider) throw new Error(`unknown resource type ${type}`);
@@ -42,7 +45,7 @@ export default class AwsResourceFactory {
     const name = component.meta!.identifier;
     const { type, config } = component;
 
-    switch(type) {
+    switch (type) {
       case 'Table':
         config.attributes = [{name: config.primaryKey, type: config.primaryKeyType.charAt(0).toUpperCase()}];
         config.hashKey = config.primaryKey;
@@ -51,11 +54,11 @@ export default class AwsResourceFactory {
         delete config.primaryKey;
         delete config.primaryKeyType;
         return [processor.resourceUtil.configure(name, 'aws.dynamodb.Table', config, 'resource')];
-  
+
       case 'ActiveConnector':
         // create a list of the credentials for the activeconnector
         const secrets = [];
-        for( const item of config.input.options.credentials ) {
+        for (const item of config.input.options.credentials) {
           secrets.push({
             name: (config.input.name + '_' + item).toUpperCase().replace(/-/g, '_'),
             // if we were doing params on different regions we'd need the full ARN
