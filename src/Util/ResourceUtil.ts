@@ -21,7 +21,7 @@ export default class ResourceUtil {
           const platformConfig = (component.config && component.config[platform]) || {};
           Object.assign(componentConfig, platformConfig);
           routingDefs.push({
-            config: componentConfig,
+            config: _.cloneDeep(componentConfig),
             mechanism: component.type,
             name: component.meta!.identifier,
           });
@@ -36,7 +36,7 @@ export default class ResourceUtil {
             const platformConfig = (outputComponent && outputComponent.config && outputComponent.config[platform]) || {};
             Object.assign(outputConfig, platformConfig);
             routingDefs.push({
-              config: outputConfig,
+              config: _.cloneDeep(outputConfig),
               //config: (component.config && component.config[platform]) || {},
               mechanism: (outputComponent ? outputComponent.type : undefined),
               name: component.meta!.output!,
@@ -53,7 +53,7 @@ export default class ResourceUtil {
             Object.assign(sourceConfig, platformConfig);
             routingDefs.push({
               //config: (component.config && component.config[platform]) || {},
-              config: sourceConfig,
+              config: _.cloneDeep(sourceConfig),
               mechanism: sourceComponent.type || undefined,
               name: source!,
             });

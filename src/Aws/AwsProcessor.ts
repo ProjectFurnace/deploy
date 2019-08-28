@@ -71,11 +71,12 @@ export default class AwsProcessor implements PlatformProcessor {
 
     for (const component of functionComponents) {
       const routingResources = registeredResources.filter((r) => component.meta!.sources!.includes(r.name));
-      routingResources.push(...registeredResources.filter((r) => component.meta!.output! === r.name));
+      const outputRoutingResources = registeredResources.filter((r) => component.meta!.output! === r.name);
 
       [resources, pendingFunctionConfigs] = await this.createFunctionResource(
         component,
         routingResources,
+        outputRoutingResources,
         identity.accountId,
       );
       resources.forEach((resource) => functionResources.push(resource));
@@ -92,7 +93,7 @@ export default class AwsProcessor implements PlatformProcessor {
       resourceConfigs,
       registeredResources,
     );
-    
+
     return [
       ...registeredResources,
       ...resourceResources,
@@ -106,7 +107,7 @@ export default class AwsProcessor implements PlatformProcessor {
       const nameBits = ResourceUtil.getBits(name);
 
       if (nameBits) {
-        let secretsConfig: ResourceConfig[] = [];
+        const secretsConfig: ResourceConfig[] = [];
         for (const key in outputs) {
           secretsConfig.push(
             this.resourceUtil.configure(
@@ -137,6 +138,7 @@ export default class AwsProcessor implements PlatformProcessor {
   private async createFunctionResource(
     component: BuildSpec,
     inputResources: RegisteredResource[],
+    outputResources: RegisteredResource[],
     accountId: string,
   ): Promise<[RegisteredResource[], ResourceConfig[]]> {
     const stackName = this.stackConfig.name;
@@ -225,7 +227,7 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     if (component.meta!.output) {
-      var outputRes = inputResources.find((r) => r.name === component.meta!.output);
+      var outputRes = outputResources.find((r) => r.name === component.meta!.output);
       if (outputRes) {
         switch (outputRes.type) {
           case "aws.kinesis.Stream":
@@ -306,7 +308,7 @@ export default class AwsProcessor implements PlatformProcessor {
       ResourceUtil.injectInName(identifier, "policy"),
       "aws.iam.RolePolicy",
       rolePolicyDef,
-      "resource"
+      "resource",
     );
     resources.push(this.resourceUtil.register(rolePolicyConf));
 
@@ -362,16 +364,9 @@ export default class AwsProcessor implements PlatformProcessor {
       variables.DEBUG = "1";
     }
 
-    /*if (component.construct === "tap" && (component as Tap).outputType) {
-      if (!["sqs", "kinesis"].includes((component as Tap).outputType.toLowerCase())) {
-        throw new Error(`Unsupported output type ${(component as Tap).outputType} for ${identifier}`);
-      }
-      variables.OUTPUT_TYPE = (component as Tap).outputType;
-    }*/
-
     if (outputRes && component.meta!.output) {
       // if input and output are different, and the input is not a timer
-      if (previousType !== outputRes.type && previousType !== 'aws.cloudwatch.EventRule') {
+      if (previousType !== outputRes.type && previousType !== "aws.cloudwatch.EventRule") {
         variables.OUTPUT_TYPE = outputRes.type;
       }
     }
@@ -403,6 +398,7 @@ export default class AwsProcessor implements PlatformProcessor {
         batchSize: awsConfig.batchSize || defaultBatchSize,
         enabled: true,
         eventSourceArn: (inputResource.resource as any).arn,
+        //eventSourceArn: `arn:aws:sqs:${aws.config.region}:${accountId}:${inputResource.name}`,
         functionName: identifier,
       };
 
