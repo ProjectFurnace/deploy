@@ -1,11 +1,11 @@
 import * as fsUtils from "@project-furnace/fsutils";
-import * as path from "path";
 import { BuildSpec } from "@project-furnace/stack-processor/src/Model";
 import * as zipUtils from "@project-furnace/ziputils";
-import merge from "util.merge-packages";
-import { execPromise } from "./Util/ProcessUtil";
-import HashUtil from "./Util/HashUtil";
 import * as pulumi from "@pulumi/pulumi";
+import * as path from "path";
+import merge from "util.merge-packages";
+import HashUtil from "./Util/HashUtil";
+import { execPromise } from "./Util/ProcessUtil";
 
 export default abstract class FunctionBuilder {
 
@@ -55,7 +55,7 @@ export default abstract class FunctionBuilder {
       // if eventType is raw, we don't copy over a template
       fsUtils.cp(def.templatePath, def.buildPath);
     }
-    
+
     if (def.codePaths){
       const combined = Object.keys(def.codePaths).length > 1 ? true : false;
       for (const key in def.codePaths) {
@@ -72,7 +72,7 @@ export default abstract class FunctionBuilder {
   async postBuild(def: any) {}
 
   getFunctionDef(buildSpec: BuildSpec): any {
-    let name = '';
+    let name = "";
 
     // if we have more than one function in our array this is a combined function
     if (buildSpec.functionSpec.functions.length > 1) {
@@ -83,16 +83,16 @@ export default abstract class FunctionBuilder {
       name = buildSpec.functionSpec.functions[0].function!;
     }
 
-    const functionRoot = path.join(this.repoDir, 'src', name);
+    const functionRoot = path.join(this.repoDir, "src", name);
 
     let codePaths:any = {};
 
     for (const func of buildSpec.functionSpec.functions) {
-      const fncRoot = path.join(this.repoDir, 'src', func.function);
+      const fncRoot = path.join(this.repoDir, "src", func.function);
       if (!fsUtils.stat(fncRoot).isDirectory()) throw new Error(`unable to find function directory at ${fncRoot}`);
 
       if( !Object.keys(codePaths).includes(func.function) ) {
-        codePaths[func.function] = path.join(fncRoot, 'src');
+        codePaths[func.function] = path.join(fncRoot, "src");
       }
     }
 
@@ -107,7 +107,7 @@ export default abstract class FunctionBuilder {
       templatePath: `${this.templateRepoDir}/${this.platform}-${runtime}`,
       codePaths,
       buildPath: buildPath,
-      buildArtifact: buildPath + '.zip',
+      buildArtifact: buildPath + ".zip",
       identifier,
       sources,
       output,
@@ -121,11 +121,11 @@ export default abstract class FunctionBuilder {
 
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
-      case 'nodejs8.10':
+      case "nodejs8.10":
         // do not build on preview
         if (!pulumi.runtime.isDryRun()) {
           //in case we have more than one package.json file we need to merge them. if it's only one or none, nothing to worry about
-          var templatePackage = '{}';
+          var templatePackage = "{}";
           if (fsUtils.exists(path.join(def.templatePath, 'package.json')))
             templatePackage = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
 
@@ -141,7 +141,7 @@ export default abstract class FunctionBuilder {
         }
         break;
 
-      case 'python3.6':
+      case "python3.6":
         // do not build on preview
         if (!pulumi.runtime.isDryRun()) {
           //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
