@@ -5,7 +5,7 @@ RUN pip3 install awscli
 WORKDIR /app
 
 ARG NPM_TOKEN  
-#COPY .npmrc .npmrc 
+#COPY .npmrc .npmrc
 
 COPY package*.json ./
 
