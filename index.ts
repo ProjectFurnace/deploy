@@ -32,6 +32,8 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
         if (!isLocal) {
             console.log("pulling templates...")
             await gitUtils.clone(templateRepoDir, templateRepoRemote, gitUsername!, gitToken!);
+            if (process.env.FN_TEMPLATES_TAG)
+                await gitUtils.checkout(templateRepoDir, process.env.FN_TEMPLATES_TAG);
         } else console.log("executing local mode...");
 
         const processor = new StackProcessor(repoDir, templateRepoDir);

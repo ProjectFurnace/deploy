@@ -6,7 +6,7 @@ export default class AwsFunctionBuilder extends FunctionBuilderBase {
     const artifactExists = await this.artifactExists(bucketName, key);
 
     if (artifactExists) {
-      // console.log(`artifact with ${key} exists, skipping upload...`);
+      console.log(`artifact with ${key} exists, skipping upload...`);
       return Promise.resolve();
     } else {
       return s3Utils.upload(bucketName, key, artifact);

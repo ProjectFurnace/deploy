@@ -1,4 +1,4 @@
-FROM projectfurnace/deploy-base:latest
+FROM project-furnace/deploy-base:latest
 
 RUN pip3 install awscli
 

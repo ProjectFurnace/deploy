@@ -122,44 +122,47 @@ export default abstract class FunctionBuilder {
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
       case "nodejs8.10":
+        // in case we have more than one package.json file we need to merge
+        // them. if it's only one or none, nothing to worry about
+        let templatePackage = "{}";
+        if (fsUtils.exists(path.join(def.templatePath, "package.json"))) {
+          templatePackage = fsUtils.readFile(path.join(def.templatePath, "package.json"));
+        }
+
+        for (const key in def.codePaths) {
+          if (fsUtils.exists(path.join(def.codePaths[key], "package.json"))) {
+            const functionPackage = fsUtils.readFile(path.join(def.codePaths[key], "package.json"));
+
+            templatePackage = merge(functionPackage, templatePackage);
+          }
+        }
+        fsUtils.writeFile(path.join(def.buildPath, "package.json"), templatePackage);
         // do not build on preview
         if (!pulumi.runtime.isDryRun()) {
-          //in case we have more than one package.json file we need to merge them. if it's only one or none, nothing to worry about
-          var templatePackage = "{}";
-          if (fsUtils.exists(path.join(def.templatePath, 'package.json')))
-            templatePackage = fsUtils.readFile(path.join(def.templatePath, 'package.json'));
-
-          for(const key in def.codePaths) {
-            if (fsUtils.exists(path.join(def.codePaths[key], 'package.json'))) {
-              var functionPackage = fsUtils.readFile(path.join(def.codePaths[key], 'package.json'));
-              
-              templatePackage = merge(functionPackage, templatePackage)
-            }
-          }
-          fsUtils.writeFile(path.join(def.buildPath, 'package.json'), templatePackage);
           await this.buildNode(def.name, def.buildPath);
         }
         break;
 
       case "python3.6":
+        //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
+        let templateRequirements = '';
+        if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
+          templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
+
+        for(const key in def.codePaths) {
+          if (fsUtils.exists(path.join(def.codePaths[key], 'requirements.txt'))) {
+            let functionRequirements = fsUtils.readFile(path.join(def.codePaths[key], 'requirements.txt'));
+            // if we are combining functions we need them to be treated as modules
+            if (def.codePaths.length > 1)
+              fsUtils.writeFile(path.join(def.codePaths[key], '__init__.py'),'');
+            
+            templateRequirements = templateRequirements + "\n" + functionRequirements;
+          }
+        }
+        fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), templateRequirements);
+
         // do not build on preview
         if (!pulumi.runtime.isDryRun()) {
-          //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
-          var templateRequirements = '';
-          if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
-            templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
-
-          for(const key in def.codePaths) {
-            if (fsUtils.exists(path.join(def.codePaths[key], 'requirements.txt'))) {
-              var functionRequirements = fsUtils.readFile(path.join(def.codePaths[key], 'requirements.txt'));
-              // if we are combining functions we need them to be treated as modules
-              if (def.codePaths.length > 1)
-                fsUtils.writeFile(path.join(def.codePaths[key], '__init__.py'),'');
-              
-              templateRequirements = templateRequirements + "\n" + functionRequirements;
-            }
-          }
-          fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), templateRequirements);
           await this.buildPython(def.name, def.buildPath);
         }
         break;
@@ -192,7 +195,7 @@ export default abstract class FunctionBuilder {
       }
 
     } catch (err) {
-      throw new Error(`unable to build function ${name}: ${err}`)
+      throw new Error(`unable to build function ${name}: ${err}`);
     }
 
   }
