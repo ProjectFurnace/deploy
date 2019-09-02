@@ -1,5 +1,6 @@
 import { BuildSpec, Stack, Tap } from "@project-furnace/stack-processor/src/Model";
 import * as aws from "@pulumi/aws";
+import * as pulumi from "@pulumi/pulumi";
 import FunctionBuilderBase from "../FunctionBuilderBase";
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { RegisteredResource, ResourceConfig } from "../Types";
@@ -160,11 +161,13 @@ export default class AwsProcessor implements PlatformProcessor {
     const buildDef = await this.functionBuilder!.processFunction(component);
 
     const s3Key = `${component.meta!.identifier}/${component.buildSpec!.hash}`;
-    await this.functionBuilder!.uploadArtifcat(
-      this.buildBucket,
-      s3Key,
-      buildDef.buildArtifact,
-    );
+    if (!pulumi.runtime.isDryRun()) {
+      await this.functionBuilder!.uploadArtifcat(
+        this.buildBucket,
+        s3Key,
+        buildDef.buildArtifact,
+      );
+    }
 
     // TODO: use role helper below
     //   const role = new aws.iam.Role("mylambda-role", {
