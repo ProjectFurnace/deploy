@@ -33,7 +33,9 @@ export default class AwsResourceFactory {
       "aws.kinesis.AnalyticsApplication": aws.kinesis.AnalyticsApplication,
       "aws.dynamodb.Table": aws.dynamodb.Table,
       "aws.cloudwatch.EventTarget": aws.cloudwatch.EventTarget,
-      "aws.cloudwatch.EventRule": aws.cloudwatch.EventRule
+      "aws.cloudwatch.EventRule": aws.cloudwatch.EventRule,
+      "aws.s3.Bucket": aws.s3.Bucket,
+      "aws.s3.BucketNotification": aws.s3.BucketNotification
     };
 
     const provider = providers[type];
