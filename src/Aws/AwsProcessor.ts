@@ -200,6 +200,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     const kinesisResources: any = [];
     const sqsResources: any = [];
+    const s3bucketResources: any = [];
 
     if (component.meta!.sources!) {
       var previousType;
@@ -220,6 +221,7 @@ export default class AwsProcessor implements PlatformProcessor {
               break;
 
             case "aws.cloudwatch.EventRule":
+            case "aws.s3.Bucket":
               break;
 
             default:
@@ -439,7 +441,25 @@ export default class AwsProcessor implements PlatformProcessor {
               principal: "events.amazonaws.com",
               sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
           } as aws.lambda.PermissionArgs, "resource"));
+          break;
 
+        case "aws.s3.Bucket":
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(inputResource.name, "bucketnotification-perm"), "aws.lambda.Permission", {
+              action: "lambda:InvokeFunction",
+              function: (lambda.resource as aws.lambda.Function).arn,
+              principal: "s3.amazonaws.com",
+              sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
+          } as aws.lambda.PermissionArgs, "resource"));
+
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(inputResource.name, "bucketnotification"), "aws.s3.BucketNotification", {
+              bucket: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
+              lambdaFunctions: [{
+                events: ["s3:ObjectCreated:*"],
+                lambdaFunctionArn: (lambda.resource as aws.lambda.Function).arn,
+              }],
+          } as aws.s3.BucketNotificationArgs, "resource"));
           break;
 
         default:
