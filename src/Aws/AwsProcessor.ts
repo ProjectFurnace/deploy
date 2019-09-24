@@ -213,8 +213,8 @@ export default class AwsProcessor implements PlatformProcessor {
           previousType = inputRes.type;
           switch (inputRes.type) {
             case "aws.kinesis.Stream":
-                kinesisResources.push(`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${source}`);
-                break;
+              kinesisResources.push(`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${source}`);
+              break;
 
             case "aws.sqs.Queue":
               sqsResources.push(`arn:aws:sqs:${aws.config.region}:${accountId}:${source}`);
@@ -429,13 +429,13 @@ export default class AwsProcessor implements PlatformProcessor {
 
         case "aws.cloudwatch.EventRule":
           resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(inputResource.name, "eventTarget"), "aws.cloudwatch.EventTarget", {
+            ResourceUtil.injectInName(identifier, "eventTarget"), "aws.cloudwatch.EventTarget", {
               arn: (lambda.resource as aws.lambda.Function).arn,
               rule: inputResource.name,
             } as aws.cloudwatch.EventTargetArgs, "resource"));
 
           resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(inputResource.name, "cloudwatch-perm"), "aws.lambda.Permission", {
+            ResourceUtil.injectInName(identifier, "cloudwatch-perm"), "aws.lambda.Permission", {
               action: "lambda:InvokeFunction",
               function: (lambda.resource as aws.lambda.Function).name,
               principal: "events.amazonaws.com",
@@ -445,7 +445,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
         case "aws.s3.Bucket":
           resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(inputResource.name, "bucketnotification-perm"), "aws.lambda.Permission", {
+            ResourceUtil.injectInName(identifier, "bucketnotification-perm"), "aws.lambda.Permission", {
               action: "lambda:InvokeFunction",
               function: (lambda.resource as aws.lambda.Function).arn,
               principal: "s3.amazonaws.com",
@@ -453,7 +453,7 @@ export default class AwsProcessor implements PlatformProcessor {
           } as aws.lambda.PermissionArgs, "resource"));
 
           resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(inputResource.name, "bucketnotification"), "aws.s3.BucketNotification", {
+            ResourceUtil.injectInName(identifier, "bucketnotification"), "aws.s3.BucketNotification", {
               bucket: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
               lambdaFunctions: [{
                 events: ["s3:ObjectCreated:*"],
