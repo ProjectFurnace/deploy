@@ -183,7 +183,7 @@ export default class AwsResourceFactory {
 
       default:
         const nameProp = (AwsResourceConfig.nameProperties as { [key: string]: string })[type!] || "name";
-        config.config[nameProp] = name;
+        config[nameProp] = name;
         return [processor.resourceUtil.configure(name, type!, config, 'resource')];
     }
   }
