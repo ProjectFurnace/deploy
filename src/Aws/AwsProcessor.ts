@@ -89,7 +89,7 @@ export default class AwsProcessor implements PlatformProcessor {
     if (resources) {
       registeredResources.push(...resources);
     }
-
+    
     const resourceResources = this.resourceUtil.batchRegister(
       resourceConfigs,
       registeredResources,
@@ -395,8 +395,9 @@ export default class AwsProcessor implements PlatformProcessor {
       "function",
     );
 
-    const lambda = this.resourceUtil.register(lambdaConfig);
-    resources.push(lambda);
+    //const lambda = this.resourceUtil.register(lambdaConfig);
+    //resources.push(lambda);
+    resourceConfigs.push(lambdaConfig);
 
     for (const inputResource of inputResources) {
       const sourceMappingConfig: any = {
@@ -430,14 +431,16 @@ export default class AwsProcessor implements PlatformProcessor {
         case "aws.cloudwatch.EventRule":
           resourceConfigs.push(this.resourceUtil.configure(
             ResourceUtil.injectInName(identifier, "eventTarget"), "aws.cloudwatch.EventTarget", {
-              arn: (lambda.resource as aws.lambda.Function).arn,
+              //arn: (lambda.resource as aws.lambda.Function).arn,
+              arn: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}",
               rule: inputResource.name,
             } as aws.cloudwatch.EventTargetArgs, "resource"));
 
           resourceConfigs.push(this.resourceUtil.configure(
             ResourceUtil.injectInName(identifier, "cloudwatch-perm"), "aws.lambda.Permission", {
               action: "lambda:InvokeFunction",
-              function: (lambda.resource as aws.lambda.Function).name,
+              //function: (lambda.resource as aws.lambda.Function).name,
+              function: "${" + ResourceUtil.getBits(identifier)[2] + ".name}",
               principal: "events.amazonaws.com",
               sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
           } as aws.lambda.PermissionArgs, "resource"));
@@ -447,7 +450,8 @@ export default class AwsProcessor implements PlatformProcessor {
           resourceConfigs.push(this.resourceUtil.configure(
             ResourceUtil.injectInName(identifier, "bucketnotification-perm"), "aws.lambda.Permission", {
               action: "lambda:InvokeFunction",
-              function: (lambda.resource as aws.lambda.Function).arn,
+              //function: (lambda.resource as aws.lambda.Function).arn,
+              function: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}",
               principal: "s3.amazonaws.com",
               sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
           } as aws.lambda.PermissionArgs, "resource"));
@@ -457,7 +461,8 @@ export default class AwsProcessor implements PlatformProcessor {
               bucket: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
               lambdaFunctions: [{
                 events: ["s3:ObjectCreated:*"],
-                lambdaFunctionArn: (lambda.resource as aws.lambda.Function).arn,
+                //lambdaFunctionArn: (lambda.resource as aws.lambda.Function).arn,
+                lambdaFunctionArn: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}"
               }],
           } as aws.s3.BucketNotificationArgs, "resource"));
           break;
