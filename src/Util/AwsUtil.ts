@@ -1,6 +1,6 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as aws from "@pulumi/aws";
-import { SecretsManager } from "aws-sdk";
+import { SecretsManager, SSM } from "aws-sdk";
 
 import { FirehoseDeliveryStreamArgs } from "@pulumi/aws/kinesis";
 
@@ -59,6 +59,17 @@ export default class awsUtil {
       
         const sm = new SecretsManager({region: aws.config.region});
         return sm.getSecretValue(params).promise();
+    }
+
+    static async getSecretSM(name: string) {
+        const params = {
+            Name: name,
+            WithDecryption: true
+        };
+
+        const ssm = new SSM({region: aws.config.region});
+        const result = await ssm.getParameter(params).promise();
+        return result.Parameter!.Value;
     }
 
     static createFirehosePolicy(params: any[]) {
