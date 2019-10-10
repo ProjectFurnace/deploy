@@ -86,7 +86,7 @@ export default class AwsResourceFactory {
           })
         }, 'resource');
 
-        const functionRoleResource = processor.resourceUtil.register(functionRoleConfig);
+        const functionRoleResource = await processor.resourceUtil.register(functionRoleConfig);
         const role = (functionRoleResource.resource as aws.iam.Role);
     
         const rolePolicyDefStatement: aws.iam.PolicyStatement[] = [

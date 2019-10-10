@@ -34,7 +34,7 @@ export default class GcpProcessor implements PlatformProcessor {
       project,
       service: "cloudfunctions.googleapis.com",
     }, 'resource');
-    const cloudfunctionsServiceResource = this.resourceUtil.register(cloudfunctionsServiceConfig);
+    const cloudfunctionsServiceResource = await this.resourceUtil.register(cloudfunctionsServiceConfig);
     resources.push(cloudfunctionsServiceResource);
     this.cloudfunctionsService = cloudfunctionsServiceResource.resource as gcp.projects.Service;
 
@@ -56,8 +56,10 @@ export default class GcpProcessor implements PlatformProcessor {
 
     const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
 
-    const routingResources = ResourceUtil.flattenResourceArray( routingDefs
-      .map(def => this.createRoutingComponent(def.name, def.mechanism, def.config)));
+    const routingResources = ResourceUtil.flattenResourceArray(
+      await Promise.all(routingDefs.map(async def => await
+        this.createRoutingComponent(def.name, def.mechanism, def.config)
+    )));
 
     const nestedResourceConfigs = this.flows
       .filter(flow => ['resource', 'connector'].includes(flow.construct))
@@ -68,7 +70,7 @@ export default class GcpProcessor implements PlatformProcessor {
     for(const nestedResourceConfs of nestedResourceConfigs)
       resourceConfigs.push(...nestedResourceConfs);
 
-    const resourceResources = this.resourceUtil.batchRegister(resourceConfigs, routingResources);
+    const resourceResources = await this.resourceUtil.batchRegister(resourceConfigs, routingResources);
 
     const functionResources: RegisteredResource[] = [];
     const functionComponents = this.flows.filter(flow => flow.functionSpec)
@@ -91,7 +93,7 @@ export default class GcpProcessor implements PlatformProcessor {
 
   }
 
-  createRoutingComponent(name: string, mechanism: string | undefined, config: any): RegisteredResource[] {
+  async createRoutingComponent(name: string, mechanism: string | undefined, config: any) {
     const defaultRoutingMechanism = 'gcp.pubsub.Topic';
 
     if (!mechanism) mechanism = defaultRoutingMechanism;
@@ -102,7 +104,7 @@ export default class GcpProcessor implements PlatformProcessor {
     if (!name) throw new Error(`unable to get name for routing resource for component: '${name}'`);
 
     const pubSubTopicConfig = this.resourceUtil.configure(name, mechanism, config, 'resource');
-    const pubSubTopicResource = this.resourceUtil.register(pubSubTopicConfig);
+    const pubSubTopicResource = await this.resourceUtil.register(pubSubTopicConfig);
     const pubSubTopic = pubSubTopicResource.resource as gcp.pubsub.Topic;
 
     const pubSubSubscriptionConfig = this.resourceUtil.configure(ResourceUtil.injectInName(name, 'subscription'), "gcp.pubsub.Subscription", {
@@ -111,7 +113,7 @@ export default class GcpProcessor implements PlatformProcessor {
       retainAckedMessages: true,
       topic: pubSubTopic.name,
     }, 'resource');
-    const pubSubSubscriptionResource = this.resourceUtil.register(pubSubSubscriptionConfig);
+    const pubSubSubscriptionResource = await this.resourceUtil.register(pubSubSubscriptionConfig);
 
     return [
       pubSubTopicResource,
@@ -176,7 +178,7 @@ export default class GcpProcessor implements PlatformProcessor {
       }
     } as gcp.cloudfunctions.FunctionArgs, 'resource', { dependsOn: [this.cloudfunctionsService]});
 
-    resources.push(this.resourceUtil.register(cloudFunctionConfig));
+    resources.push(await this.resourceUtil.register(cloudFunctionConfig));
 
     return resources;
   }
