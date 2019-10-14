@@ -35,7 +35,14 @@ export default class AwsResourceFactory {
       "aws.cloudwatch.EventTarget": aws.cloudwatch.EventTarget,
       "aws.cloudwatch.EventRule": aws.cloudwatch.EventRule,
       "aws.s3.Bucket": aws.s3.Bucket,
-      "aws.s3.BucketNotification": aws.s3.BucketNotification
+      "aws.s3.BucketNotification": aws.s3.BucketNotification,
+      "aws.apigateway.RestApi": aws.apigateway.RestApi,
+      "aws.apigateway.Resource": aws.apigateway.Resource,
+      "aws.apigateway.Method": aws.apigateway.Method,
+      "aws.apigateway.MethodResponse": aws.apigateway.MethodResponse,
+      "aws.apigateway.Integration": aws.apigateway.MethodResponse,
+      "aws.apigateway.IntegrationResponse": aws.apigateway.IntegrationResponse,
+      "aws.apigateway.Deployment": aws.apigateway.Deployment
     };
 
     const provider = providers[type];
