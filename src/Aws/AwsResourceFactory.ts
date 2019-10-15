@@ -40,7 +40,7 @@ export default class AwsResourceFactory {
       "aws.apigateway.Resource": aws.apigateway.Resource,
       "aws.apigateway.Method": aws.apigateway.Method,
       "aws.apigateway.MethodResponse": aws.apigateway.MethodResponse,
-      "aws.apigateway.Integration": aws.apigateway.MethodResponse,
+      "aws.apigateway.Integration": aws.apigateway.Integration,
       "aws.apigateway.IntegrationResponse": aws.apigateway.IntegrationResponse,
       "aws.apigateway.Deployment": aws.apigateway.Deployment,
       "aws.iot.TopicRule": aws.iot.TopicRule,
