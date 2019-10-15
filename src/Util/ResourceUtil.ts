@@ -165,7 +165,7 @@ export default class ResourceUtil {
         }
       }
 
-      const instance = new provider(config.name, newConfig, _.merge({dependesOn: dependencies}, (config.options ? config.options : {}) )) as pulumi.CustomResource;
+      const instance = new provider(config.name, newConfig, _.merge({dependsOn: dependencies}, (config.options ? config.options : {}) )) as pulumi.CustomResource;
 
       if (config.outputs) {
         this.processor.processOutputs(config.name, instance, config.outputs);
