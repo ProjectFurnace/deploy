@@ -174,7 +174,8 @@ export default class GcpProcessor implements PlatformProcessor {
         eventType: 'google.pubsub.topic.publish',
         resource: inputResource.name
       }
-    } as gcp.cloudfunctions.FunctionArgs, 'resource', { dependsOn: [this.cloudfunctionsService]});
+    //} as gcp.cloudfunctions.FunctionArgs, 'resource', { dependsOn: [this.cloudfunctionsService]});
+  } as gcp.cloudfunctions.FunctionArgs, 'resource', ['fs']);
 
     resources.push(this.resourceUtil.register(cloudFunctionConfig));
 
