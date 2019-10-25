@@ -11,8 +11,11 @@ export default abstract class FunctionBuilder {
 
   buildPath: string;
   functions: string[];
+  functionHashes: string[] = [];
 
-  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string, initConfig: any) { this.functions = [] }
+  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string, initConfig: any) {
+    this.functions = [];
+  }
 
   async initialize() {
     if (!this.buildPath) this.buildPath = await fsUtils.createTempDirectory();
@@ -25,15 +28,21 @@ export default abstract class FunctionBuilder {
   async processFunction(buildSpec: BuildSpec, alwaysBuild: Boolean = false) {
     const def = await this.getFunctionDef(buildSpec);
 
-    if (this.functions.includes(def.name) && !alwaysBuild) {
-      console.log('BS',buildSpec.buildSpec)
+    await this.preProcess(def);
+
+    // create function hash when we have already merged the template and compare it to previous ones
+    buildSpec.buildSpec!.functionHash = await HashUtil.getDirectoryHash(def.buildPath);
+    buildSpec.buildSpec!.hash = HashUtil.combineHashes(buildSpec.buildSpec!.functionHash, buildSpec.buildSpec!.templateHash);
+    if (this.functionHashes.includes(buildSpec.buildSpec!.hash)) {
       console.log(`function ${def.name} already built, skipping`);
       return def;
     }
-    await this.preProcess(def);
+
     // TODO: Build only when its not preview. No point in building during preview
     await this.buildFunction(def);
     await this.postBuild(def);
+    // in some cases (mainly Azure) we may need to rebuild the hash after the build. Worth double-checking
+    // if this is still necessary after the latest changes to fix the functionHash after preProcess
     if (alwaysBuild) {
       buildSpec.buildSpec!.functionHash = await HashUtil.getDirectoryHash(def.buildPath);
       buildSpec.buildSpec!.hash = HashUtil.combineHashes(buildSpec.buildSpec!.functionHash, buildSpec.buildSpec!.templateHash);
@@ -42,6 +51,7 @@ export default abstract class FunctionBuilder {
     await this.postProcess(def);
 
     this.functions.push(def.name);
+    this.functionHashes.push(buildSpec.buildSpec!.hash);
 
     return def;
   }
@@ -57,7 +67,7 @@ export default abstract class FunctionBuilder {
       fsUtils.cp(def.templatePath, def.buildPath);
     }
 
-    if (def.codePaths){
+    if (def.codePaths) {
       const combined = Object.keys(def.codePaths).length > 1 ? true : false;
       for (const key in def.codePaths) {
         const codePath = def.codePaths[key];
