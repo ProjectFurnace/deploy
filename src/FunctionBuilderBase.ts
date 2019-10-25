@@ -26,6 +26,7 @@ export default abstract class FunctionBuilder {
     const def = await this.getFunctionDef(buildSpec);
 
     if (this.functions.includes(def.name) && !alwaysBuild) {
+      console.log('BS',buildSpec.buildSpec)
       console.log(`function ${def.name} already built, skipping`);
       return def;
     }

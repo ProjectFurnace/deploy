@@ -42,7 +42,7 @@ export default class AwsProcessor implements PlatformProcessor {
       },
     });
 
-    const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
+    let routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
 
     const routingResourceConfigs = routingDefs.map((def) =>
       this.createRoutingComponent(def.name, def.mechanism, def.config),
@@ -144,6 +144,7 @@ export default class AwsProcessor implements PlatformProcessor {
   ): Promise<[RegisteredResource[], ResourceConfig[]]> {
     const stackName = this.stackConfig.name;
     const { identifier } = component.meta!;
+    const identifierBaseName = ResourceUtil.getBits(identifier)[2];
     const awsConfig = component.config.aws || {};
     const platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
 
@@ -222,6 +223,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
             case "aws.cloudwatch.EventRule":
             case "aws.s3.Bucket":
+            case "aws.apigateway.RestApi":
               break;
 
             default:
@@ -432,7 +434,7 @@ export default class AwsProcessor implements PlatformProcessor {
           resourceConfigs.push(this.resourceUtil.configure(
             ResourceUtil.injectInName(identifier, "eventTarget"), "aws.cloudwatch.EventTarget", {
               //arn: (lambda.resource as aws.lambda.Function).arn,
-              arn: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}",
+              arn: "${" + identifierBaseName + ".arn}",
               rule: inputResource.name,
             } as aws.cloudwatch.EventTargetArgs, "resource"));
 
@@ -440,7 +442,7 @@ export default class AwsProcessor implements PlatformProcessor {
             ResourceUtil.injectInName(identifier, "cloudwatch-perm"), "aws.lambda.Permission", {
               action: "lambda:InvokeFunction",
               //function: (lambda.resource as aws.lambda.Function).name,
-              function: "${" + ResourceUtil.getBits(identifier)[2] + ".name}",
+              function: "${" + identifierBaseName + ".name}",
               principal: "events.amazonaws.com",
               sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
           } as aws.lambda.PermissionArgs, "resource"));
@@ -451,7 +453,7 @@ export default class AwsProcessor implements PlatformProcessor {
             ResourceUtil.injectInName(identifier, "bucketnotification-perm"), "aws.lambda.Permission", {
               action: "lambda:InvokeFunction",
               //function: (lambda.resource as aws.lambda.Function).arn,
-              function: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}",
+              function: "${" + identifierBaseName + ".arn}",
               principal: "s3.amazonaws.com",
               sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
           } as aws.lambda.PermissionArgs, "resource"));
@@ -462,9 +464,56 @@ export default class AwsProcessor implements PlatformProcessor {
               lambdaFunctions: [{
                 events: ["s3:ObjectCreated:*"],
                 //lambdaFunctionArn: (lambda.resource as aws.lambda.Function).arn,
-                lambdaFunctionArn: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}"
+                lambdaFunctionArn: "${" + identifierBaseName + ".arn}"
               }],
           } as aws.s3.BucketNotificationArgs, "resource"));
+          break;
+
+        case "aws.apigateway.RestApi":
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(identifier, "resource"), "aws.apigateway.Resource", {
+              //function: (lambda.resource as aws.lambda.Function).arn,
+              parentId: (inputResource.resource as aws.apigateway.RestApi).rootResourceId,
+              path: component.config.path ? component.config.path : "/",
+              pathPart: component.config.pathPart ? component.config.pathPart : "",
+              restApi: (inputResource.resource as aws.apigateway.RestApi),
+          } as aws.apigateway.ResourceArgs, "resource"));
+
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(identifier, "method"), "aws.apigateway.Method", {
+              //function: (lambda.resource as aws.lambda.Function).arn,
+              resourceId: "${" + identifierBaseName + "-resource.id}",
+              authorization: "NONE",
+              httpMethod: component.config.method,
+              restApi: (inputResource.resource as aws.apigateway.RestApi),
+            } as aws.apigateway.MethodArgs, "resource"));
+
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(identifier, "integration"), "aws.apigateway.Integration", {
+              //function: (lambda.resource as aws.lambda.Function).arn,
+              httpMethod: "${" + identifierBaseName + "-method.httpMethod}",
+              integrationHttpMethod: "POST",
+              resourceId: "${" + identifierBaseName + "-resource.id}",
+              restApi: (inputResource.resource as aws.apigateway.RestApi),
+              type: "AWS_PROXY",
+              uri: "arn:aws:apigateway:${global:stack.region}:lambda:path/2015-03-31/functions/${" + identifierBaseName + ".arn}/invocations"
+            } as aws.apigateway.IntegrationArgs, "resource"));
+
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(identifier, "deployment"), "aws.apigateway.Deployment", {
+              restApi: (inputResource.resource as aws.apigateway.RestApi),
+              stageName: this.environment,
+            } as aws.apigateway.DeploymentArgs, "resource", [identifierBaseName + "-integration"]));
+
+          resourceConfigs.push(this.resourceUtil.configure(
+            ResourceUtil.injectInName(identifier, "gw-perm"), "aws.lambda.Permission", {
+              action: "lambda:InvokeFunction",
+              //function: (lambda.resource as aws.lambda.Function).arn,
+              function: "${" + identifierBaseName + ".arn}",
+              principal: "apigateway.amazonaws.com",
+              //sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
+              sourceArn: "arn:aws:execute-api:${global:stack.region}:${global:account.id}:${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}/" + this.environment + "/${" + identifierBaseName + "-method.httpMethod}" + component.config.path + component.config.pathPart
+          } as aws.lambda.PermissionArgs, "resource"));
           break;
 
         default:
@@ -490,6 +539,7 @@ export default class AwsProcessor implements PlatformProcessor {
       );
     }
 
+    // set some defauls depending on the routing mechanism
     if (mechanism === "aws.kinesis.Stream") {
       if (!config.shardCount) {
         config.shardCount = defaultRoutingShards; // TODO: allow shards to be set in config

@@ -186,7 +186,7 @@ export default class ResourceUtil {
         resource: instance,
         type: config.type,
       };
-    } catch(err) {
+    } catch (err) {
       throw new Error(`Unable to create resource ${config.name} of type ${config.type}: ${err}`);
     }
   }
@@ -212,25 +212,6 @@ export default class ResourceUtil {
           }
         }
         this.registerDependencies(config.name, dependencies, configs, registeredResources);
-        // check if all those dependencies are already registered
-        /*const pendingRegistrationResources = [];
-        for (const dependency of dependencies) {
-          const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
-          if (!ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources)) {
-            pendingRegistrationResources.push(dependencyName);
-          }
-        }
-        // if not, register the necessary dependencies
-        if (pendingRegistrationResources.length > 0) {
-          const pendingConfigs = [];
-          for (const pending of pendingRegistrationResources) {
-            const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending, configs);
-            if (resourceConfig) {
-              pendingConfigs.push( resourceConfig );
-            }
-          }
-          registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, config.name));
-        }*/
       }
       // register user specified dependencies
       if (Array.isArray(config.dependencies) && config.dependencies.length > 0) {
@@ -241,26 +222,6 @@ export default class ResourceUtil {
         }
         this.registerDependencies(config.name, config.dependencies, configs, registeredResources);
       }
-      /*if (config.dependsOn && Array.isArray(config.dependsOn)) {
-        const pendingRegistrationResources = [];
-        // check if all those dependencies are already registered
-        for (const dependency of config.dependsOn) {
-          const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
-          if (!ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources)) {
-            pendingRegistrationResources.push(dependencyName);
-          }
-        }
-        if (pendingRegistrationResources.length > 0) {
-          const pendingConfigs = [];
-          for (const pending of pendingRegistrationResources) {
-            const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending, configs);
-            if (resourceConfig) {
-              pendingConfigs.push( resourceConfig );
-            }
-          }
-          registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, config.name));
-        }
-      }*/
       // finally register the pertinent resource unless it has already been registered previously
       if (!ResourceUtil.findResourceOrConfigByName(config.name, registeredResources)) {
         registeredResources.push(this.register(config, registeredResources));
