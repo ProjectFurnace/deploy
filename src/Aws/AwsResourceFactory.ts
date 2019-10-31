@@ -43,6 +43,7 @@ export default class AwsResourceFactory {
       "aws.apigateway.Integration": aws.apigateway.Integration,
       "aws.apigateway.IntegrationResponse": aws.apigateway.IntegrationResponse,
       "aws.apigateway.Deployment": aws.apigateway.Deployment,
+      "aws.apigateway.Authorizer": aws.apigateway.Authorizer,
       "aws.iot.TopicRule": aws.iot.TopicRule,
       "aws.iot.Certificate": aws.iot.Certificate,
       "aws.iot.Thing": aws.iot.Thing,
