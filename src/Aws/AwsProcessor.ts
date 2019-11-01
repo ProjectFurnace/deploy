@@ -378,11 +378,6 @@ export default class AwsProcessor implements PlatformProcessor {
       }
     }
 
-    // if it's an api gateway, we want to output events from the template
-    if (previousType === "aws.apigateway.RestApi") {
-      variables.CALLBACK_OUTPUT = "events";
-    }
-
     const lambdaConfig = this.resourceUtil.configure(
       identifier,
       "aws.lambda.Function",
