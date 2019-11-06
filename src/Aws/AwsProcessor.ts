@@ -59,8 +59,8 @@ export default class AwsProcessor implements PlatformProcessor {
       this.createRoutingComponent(def.name, def.mechanism, def.config)
     );
 
-    const registeredResources = this.resourceUtil.batchRegister(
-      routingResourceConfigs
+    const registeredResources = await this.resourceUtil.batchRegister(
+      routingResourceConfigs,
     );
 
     const resourceConfigsPromises = this.flows
@@ -105,7 +105,7 @@ export default class AwsProcessor implements PlatformProcessor {
       registeredResources.push(...resources);
     }
 
-    const resourceResources = this.resourceUtil.batchRegister(
+    const resourceResources = await this.resourceUtil.batchRegister(
       resourceConfigs,
       registeredResources
     );
@@ -209,7 +209,7 @@ export default class AwsProcessor implements PlatformProcessor {
       },
       "resource"
     );
-    const functionRoleResource = this.resourceUtil.register(functionRoleConfig);
+    const functionRoleResource = await this.resourceUtil.register(functionRoleConfig);
 
     resources.push(functionRoleResource);
     const role = functionRoleResource.resource as aws.iam.Role;
@@ -352,7 +352,7 @@ export default class AwsProcessor implements PlatformProcessor {
       rolePolicyDef,
       "resource"
     );
-    resources.push(this.resourceUtil.register(rolePolicyConf));
+    resources.push(await this.resourceUtil.register(rolePolicyConf));
 
     if (component.policies) {
       for (const p of component.policies) {
@@ -366,7 +366,7 @@ export default class AwsProcessor implements PlatformProcessor {
           "resource"
         );
         resources.push(
-          this.resourceUtil.register(rolePolicyAttachResourceConfig)
+          await this.resourceUtil.register(rolePolicyAttachResourceConfig)
         );
       }
     }
