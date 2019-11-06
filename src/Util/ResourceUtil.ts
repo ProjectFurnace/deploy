@@ -221,7 +221,7 @@ export default class ResourceUtil {
             }
           }
         }
-        this.registerDependencies(config.name, dependencies, configs, registeredResources);
+        await this.registerDependencies(config.name, dependencies, configs, registeredResources);
       }
       // register user specified dependencies
       if (Array.isArray(config.dependencies) && config.dependencies.length > 0) {
@@ -230,7 +230,7 @@ export default class ResourceUtil {
             throw new Error(`Circular dependency error: ${callingResource} and ${dependency} depend each on the other`);
           }
         }
-        this.registerDependencies(config.name, config.dependencies, configs, registeredResources);
+        await this.registerDependencies(config.name, config.dependencies, configs, registeredResources);
       }
       // finally register the pertinent resource unless it has already been registered previously
       if (!ResourceUtil.findResourceOrConfigByName(config.name, registeredResources)) {
@@ -240,7 +240,7 @@ export default class ResourceUtil {
     return registeredResources;
   }
 
-  registerDependencies(name: string, dependencies: any, configs: ResourceConfig[], registeredResources: RegisteredResource[]) {
+  async registerDependencies(name: string, dependencies: any, configs: ResourceConfig[], registeredResources: RegisteredResource[]) {
     // check if all those dependencies are already registered
     const pendingRegistrationResources = [];
     for (const dependency of dependencies) {
@@ -258,7 +258,7 @@ export default class ResourceUtil {
           pendingConfigs.push( resourceConfig );
         }
       }
-      registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, name));
+      registeredResources.push(...await this.batchRegister(pendingConfigs, registeredResources, name));
     }
   }
 }
