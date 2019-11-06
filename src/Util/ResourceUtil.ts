@@ -1,6 +1,7 @@
 import * as pulumi from "@pulumi/pulumi";
 import * as _ from "lodash";
 import { PlatformProcessor } from "../IPlatformProcessor";
+import AwsUtil from "../Util/AwsUtil";
 import { RegisteredResource, ResourceConfig } from "../Types";
 import Base64Util from "../Util/Base64Util";
 import VarUtil from "../Util/VarUtil";
@@ -115,7 +116,7 @@ export default class ResourceUtil {
     };
   }
 
-  public register(config: ResourceConfig, registeredResources: RegisteredResource[] = []) {
+  public async register(config: ResourceConfig, registeredResources: RegisteredResource[] = []) {
     try {
       const provider = this.processor.getResource(config);
       const newConfig = _.cloneDeep(config.config);
@@ -130,6 +131,15 @@ export default class ResourceUtil {
             if (VarUtil.isObject(fragment)) {
               if (fragment.scope === "global") {
                 toConcat.push(_.get(this.global[fragment.resource], fragment.bindTo, fragment.default));
+              } else if (fragment.scope === "secret") {
+                const secretName = `/${process.env.FURNACE_INSTANCE}/${this.stackName}/${this.environment}/${fragment.resource}`;
+
+                try {
+                  const secret = await AwsUtil.getSecretSM(secretName);
+                  toConcat.push(secret)
+                } catch (e) {
+                  throw new Error(`Secret ${fragment.resource} not found! Please make sure to add the secret with the CLI first`);
+                }
               } else {
                 const dependencyName = `${this.stackName}-${fragment.resource}-${this.environment}`;
                 const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
@@ -181,7 +191,7 @@ export default class ResourceUtil {
     }
   }
 
-  public batchRegister(configs: ResourceConfig[], existingResources: RegisteredResource[] = [], callingResource: string = '') {
+  public async batchRegister(configs: ResourceConfig[], existingResources: RegisteredResource[] = [], callingResource: string = '') {
     let registeredResources:RegisteredResource[] = existingResources;
 
     for (const config of configs) {
@@ -218,12 +228,12 @@ export default class ResourceUtil {
               pendingConfigs.push( resourceConfig );
             }
           }
-          registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, config.name));
+          registeredResources.push(...await this.batchRegister(pendingConfigs, registeredResources, config.name));
         }
       }
       // finally register the pertinent resource unless it has already been registered previously
       if (!ResourceUtil.findResourceOrConfigByName(config.name, registeredResources)) {
-        registeredResources.push(this.register(config, registeredResources));
+        registeredResources.push(await this.register(config, registeredResources));
       }
     }
     return registeredResources;

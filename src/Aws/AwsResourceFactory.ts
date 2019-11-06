@@ -102,32 +102,25 @@ export default class AwsResourceFactory {
         }
 
         // create a specific role that allows access to parameter store for the credentials
-        const functionRoleConfig = processor.resourceUtil.configure(
-          ResourceUtil.injectInName(name, "executionRole"),
-          "aws.iam.Role",
-          {
-            assumeRolePolicy: JSON.stringify({
-              Version: "2012-10-17",
-              Statement: [
-                {
-                  Action: "sts:AssumeRole",
-                  Principal: {
-                    Service: "ecs-tasks.amazonaws.com"
-                  },
-                  Effect: "Allow",
-                  Sid: ""
-                }
-              ]
-            })
-          },
-          "resource"
-        );
+        const functionRoleConfig = processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'executionRole'), "aws.iam.Role", {
+          assumeRolePolicy: JSON.stringify({
+            "Version": "2012-10-17",
+            "Statement": [
+              {
+                "Action": "sts:AssumeRole",
+                "Principal": {
+                  "Service": "ecs-tasks.amazonaws.com",
+                },
+                "Effect": "Allow",
+                "Sid": "",
+              },
+            ],
+          })
+        }, 'resource');
 
-        const functionRoleResource = processor.resourceUtil.register(
-          functionRoleConfig
-        );
-        const role = functionRoleResource.resource as aws.iam.Role;
-
+        const functionRoleResource = await processor.resourceUtil.register(functionRoleConfig);
+        const role = (functionRoleResource.resource as aws.iam.Role);
+    
         const rolePolicyDefStatement: aws.iam.PolicyStatement[] = [
           {
             Effect: "Allow",
