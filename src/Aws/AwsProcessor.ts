@@ -1,4 +1,8 @@
-import { BuildSpec, Stack, Tap } from "@project-furnace/stack-processor/src/Model";
+import {
+  BuildSpec,
+  Stack,
+  Tap
+} from "@project-furnace/stack-processor/src/Model";
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
 import FunctionBuilderBase from "../FunctionBuilderBase";
@@ -18,10 +22,14 @@ export default class AwsProcessor implements PlatformProcessor {
     private environment: string,
     private buildBucket: string,
     private initialConfig: any,
-    private functionBuilder: FunctionBuilderBase | null,
+    private functionBuilder: FunctionBuilderBase | null
   ) {
     this.validate();
-    this.resourceUtil = new ResourceUtil(this, this.stackConfig.name, this.environment);
+    this.resourceUtil = new ResourceUtil(
+      this,
+      this.stackConfig.name,
+      this.environment
+    );
   }
 
   public async preProcess(): Promise<RegisteredResource[]> {
@@ -33,19 +41,22 @@ export default class AwsProcessor implements PlatformProcessor {
 
     this.resourceUtil.setGlobal({
       account: {
-        id: identity.accountId,
+        id: identity.accountId
       },
       stack: {
         environment: this.environment,
         name: this.stackConfig.name,
-        region: aws.config.region,
-      },
+        region: aws.config.region
+      }
     });
 
-    const routingDefs = ResourceUtil.getRoutingDefinitions(this.flows, this.PLATFORM);
+    let routingDefs = ResourceUtil.getRoutingDefinitions(
+      this.flows,
+      this.PLATFORM
+    );
 
-    const routingResourceConfigs = routingDefs.map((def) =>
-      this.createRoutingComponent(def.name, def.mechanism, def.config),
+    const routingResourceConfigs = routingDefs.map(def =>
+      this.createRoutingComponent(def.name, def.mechanism, def.config)
     );
 
     const registeredResources = await this.resourceUtil.batchRegister(
@@ -53,8 +64,8 @@ export default class AwsProcessor implements PlatformProcessor {
     );
 
     const resourceConfigsPromises = this.flows
-      .filter((flow) => ["resource", "connector"].includes(flow.construct))
-      .map((flow) => AwsResourceFactory.getResourceConfig(flow, this));
+      .filter(flow => ["resource", "connector"].includes(flow.construct))
+      .map(flow => AwsResourceFactory.getResourceConfig(flow, this));
 
     const resourceConfigs = [];
 
@@ -64,41 +75,45 @@ export default class AwsProcessor implements PlatformProcessor {
 
     const functionResources: RegisteredResource[] = [];
     const functionComponents = this.flows.filter(
-      (flow) => flow.functionSpec !== undefined,
+      flow => flow.functionSpec !== undefined
     );
 
     let pendingFunctionConfigs: ResourceConfig[] = [];
     let resources;
 
     for (const component of functionComponents) {
-      const routingResources = registeredResources.filter((r) => component.meta!.sources!.includes(r.name));
-      const outputRoutingResources = registeredResources.filter((r) => component.meta!.output! === r.name);
+      const routingResources = registeredResources.filter(r =>
+        component.meta!.sources!.includes(r.name)
+      );
+      const outputRoutingResources = registeredResources.filter(
+        r => component.meta!.output! === r.name
+      );
 
       [resources, pendingFunctionConfigs] = await this.createFunctionResource(
         component,
         routingResources,
         outputRoutingResources,
-        identity.accountId,
+        identity.accountId
       );
-      resources.forEach((resource) => functionResources.push(resource));
-      pendingFunctionConfigs.forEach((functionConfig) =>
-        resourceConfigs.push(functionConfig),
+      resources.forEach(resource => functionResources.push(resource));
+      pendingFunctionConfigs.forEach(functionConfig =>
+        resourceConfigs.push(functionConfig)
       );
     }
 
     if (resources) {
       registeredResources.push(...resources);
     }
-    
+
     const resourceResources = await this.resourceUtil.batchRegister(
       resourceConfigs,
-      registeredResources,
+      registeredResources
     );
 
     return [
       ...registeredResources,
       ...resourceResources,
-      ...([] as RegisteredResource[]).concat(...functionResources), // flatten the functionResources
+      ...([] as RegisteredResource[]).concat(...functionResources) // flatten the functionResources
     ];
   }
 
@@ -112,14 +127,10 @@ export default class AwsProcessor implements PlatformProcessor {
         for (const key in outputs) {
           secretsConfig.push(
             this.resourceUtil.configure(
-              `/${process.env.FURNACE_INSTANCE}/${nameBits[1]}/${
-              nameBits[2]
-              }.${key}/${nameBits[3]}`,
+              `/${process.env.FURNACE_INSTANCE}/${nameBits[1]}/${nameBits[2]}.${key}/${nameBits[3]}`,
               "aws.ssm.Parameter",
               {
-                name: `/${process.env.FURNACE_INSTANCE}/${nameBits[1]}/${
-                  nameBits[2]
-                  }.${key}/${nameBits[3]}`,
+                name: `/${process.env.FURNACE_INSTANCE}/${nameBits[1]}/${nameBits[2]}.${key}/${nameBits[3]}`,
                 type: "SecureString",
                 value: resource[outputs[key]]
               },
@@ -140,21 +151,26 @@ export default class AwsProcessor implements PlatformProcessor {
     component: BuildSpec,
     inputResources: RegisteredResource[],
     outputResources: RegisteredResource[],
-    accountId: string,
+    accountId: string
   ): Promise<[RegisteredResource[], ResourceConfig[]]> {
     const stackName = this.stackConfig.name;
     const { identifier } = component.meta!;
+    const identifierBaseName = ResourceUtil.getBits(identifier)[2];
     const awsConfig = component.config.aws || {};
-    const platformConfig: any = (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
+    const platformConfig: any =
+      (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
 
     const resources: RegisteredResource[] = [];
     const resourceConfigs: ResourceConfig[] = [];
 
     const defaultBatchSize = platformConfig.defaultBatchSize || 10;
-    const defaultStartingPosition = platformConfig.defaultStartingPosition || "LATEST";
+    const defaultStartingPosition =
+      platformConfig.defaultStartingPosition || "LATEST";
 
     if (!component.functionSpec || !component.functionSpec.runtime) {
-      throw new Error(`function component ${component.name} has no runtime set`);
+      throw new Error(
+        `function component ${component.name} has no runtime set`
+      );
     }
 
     await this.functionBuilder!.initialize();
@@ -165,7 +181,7 @@ export default class AwsProcessor implements PlatformProcessor {
       await this.functionBuilder!.uploadArtifcat(
         this.buildBucket,
         s3Key,
-        buildDef.buildArtifact,
+        buildDef.buildArtifact
       );
     }
 
@@ -184,14 +200,14 @@ export default class AwsProcessor implements PlatformProcessor {
               Action: "sts:AssumeRole",
               Effect: "Allow",
               Principal: {
-                Service: "lambda.amazonaws.com",
+                Service: "lambda.amazonaws.com"
               },
-              Sid: "",
-            },
-          ],
-        }),
+              Sid: ""
+            }
+          ]
+        })
       },
-      "resource",
+      "resource"
     );
     const functionRoleResource = await this.resourceUtil.register(functionRoleConfig);
 
@@ -205,46 +221,69 @@ export default class AwsProcessor implements PlatformProcessor {
     if (component.meta!.sources!) {
       var previousType;
       for (const source of component.meta!.sources!) {
-        const inputRes = inputResources.find((r) => r.name === source);
+        const inputRes = inputResources.find(r => r.name === source);
         if (inputRes) {
           if (previousType && previousType !== inputRes.type) {
-            throw new Error(`Component ${identifier} cannot have different source types`);
+            throw new Error(
+              `Component ${identifier} cannot have different source types`
+            );
           }
           previousType = inputRes.type;
           switch (inputRes.type) {
             case "aws.kinesis.Stream":
-              kinesisResources.push(`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${source}`);
+              kinesisResources.push(
+                `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${source}`
+              );
               break;
 
             case "aws.sqs.Queue":
-              sqsResources.push(`arn:aws:sqs:${aws.config.region}:${accountId}:${source}`);
+              sqsResources.push(
+                `arn:aws:sqs:${aws.config.region}:${accountId}:${source}`
+              );
               break;
 
             case "aws.cloudwatch.EventRule":
             case "aws.s3.Bucket":
+            case "aws.apigateway.RestApi":
               break;
 
             default:
-              throw new Error(`Unsupported type ${inputRes.type} for source ${source}`);
+              throw new Error(
+                `Unsupported type ${inputRes.type} for source ${source}`
+              );
           }
         }
       }
     }
 
     if (component.meta!.output) {
-      var outputRes = outputResources.find((r) => r.name === component.meta!.output);
+      var outputRes = outputResources.find(
+        r => r.name === component.meta!.output
+      );
       if (outputRes) {
         switch (outputRes.type) {
           case "aws.kinesis.Stream":
-            kinesisResources.push(`arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${component.meta!.output}`);
+            kinesisResources.push(
+              `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${
+                component.meta!.output
+              }`
+            );
             break;
 
           case "aws.sqs.Queue":
-            sqsResources.push(`arn:aws:sqs:${aws.config.region}:${accountId}:${component.meta!.output}`);
+            sqsResources.push(
+              `arn:aws:sqs:${aws.config.region}:${accountId}:${
+                component.meta!.output
+              }`
+            );
             break;
 
           default:
-            throw new Error(`Unsupported type ${outputRes.type} for output ${component.meta!.output}`);
+            throw new Error(
+              `Unsupported type ${outputRes.type} for output ${
+                component.meta!.output
+              }`
+            );
         }
       }
     }
@@ -255,19 +294,17 @@ export default class AwsProcessor implements PlatformProcessor {
         Action: [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
-          "logs:PutLogEvents",
+          "logs:PutLogEvents"
         ],
-        Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`,
+        Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`
       },
       {
         Effect: "Allow",
         Action: ["ssm:GetParametersByPath"],
         Resource: [
-          `arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${
-          process.env.FURNACE_INSTANCE
-          }/${identifier}/*`,
-        ],
-      },
+          `arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`
+        ]
+      }
     ];
 
     if (kinesisResources.length > 0) {
@@ -278,10 +315,10 @@ export default class AwsProcessor implements PlatformProcessor {
           "kinesis:PutRecords",
           "kinesis:GetShardIterator",
           "kinesis:GetRecords",
-          "kinesis:ListStreams",
+          "kinesis:ListStreams"
         ],
         Effect: "Allow",
-        Resource: kinesisResources,
+        Resource: kinesisResources
       });
     }
 
@@ -294,26 +331,26 @@ export default class AwsProcessor implements PlatformProcessor {
           "sqs:DeleteMessage",
           "sqs:DeleteMessageBatch",
           "sqs:SendMessage",
-          "sqs:SendMessageBatch",
+          "sqs:SendMessageBatch"
         ],
         Effect: "Allow",
-        Resource: sqsResources,
+        Resource: sqsResources
       });
     }
 
     const rolePolicyDef: aws.iam.RolePolicyArgs = {
       policy: {
         Statement: rolePolicyDefStatement,
-        Version: "2012-10-17",
+        Version: "2012-10-17"
       },
-      role: role.id,
+      role: role.id
     };
 
     const rolePolicyConf = this.resourceUtil.configure(
       ResourceUtil.injectInName(identifier, "policy"),
       "aws.iam.RolePolicy",
       rolePolicyDef,
-      "resource",
+      "resource"
     );
     resources.push(await this.resourceUtil.register(rolePolicyConf));
 
@@ -324,9 +361,9 @@ export default class AwsProcessor implements PlatformProcessor {
           "aws.iam.RolePolicyAttachment",
           {
             policyArn: `arn:aws:iam::aws:policy/${p}`,
-            role,
+            role
           } as aws.iam.RolePolicyAttachmentArgs,
-          "resource",
+          "resource"
         );
         resources.push(
           await this.resourceUtil.register(rolePolicyAttachResourceConfig)
@@ -337,7 +374,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const variables: { [key: string]: string } = {
       FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || "undefined",
       STACK_ENV: this.environment || "undefined",
-      STACK_NAME: stackName || "undefined",
+      STACK_NAME: stackName || "undefined"
     };
 
     // we have a combined function
@@ -348,10 +385,13 @@ export default class AwsProcessor implements PlatformProcessor {
         variables.COMBINE = variables.COMBINE.concat(func.function, ",");
       }
       // remove last comma - there's probably a fancier way to do this...
-      variables.COMBINE = variables.COMBINE.substring(0, variables.COMBINE.length - 1);
+      variables.COMBINE = variables.COMBINE.substring(
+        0,
+        variables.COMBINE.length - 1
+      );
     }
 
-    for (const param of component.functionSpec.functions[0].parameters) {
+    for (const param of component.functionSpec.functions[0].parameters || []) {
       variables[
         param[0]
           .toUpperCase()
@@ -371,7 +411,10 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (outputRes && component.meta!.output) {
       // if input and output are different, and the input is not a timer
-      if (previousType !== outputRes.type && previousType !== "aws.cloudwatch.EventRule") {
+      if (
+        previousType !== outputRes.type &&
+        previousType !== "aws.cloudwatch.EventRule"
+      ) {
         variables.OUTPUT_TYPE = outputRes.type;
       }
     }
@@ -384,15 +427,17 @@ export default class AwsProcessor implements PlatformProcessor {
         handler: "handler.handler",
         role: (functionRoleResource.resource as aws.iam.Role).arn,
         runtime: AwsUtil.runtimeFromString(
-          component.functionSpec.runtime ? component.functionSpec.runtime : "nodejs8.10",
+          component.functionSpec.runtime
+            ? component.functionSpec.runtime
+            : "nodejs8.10"
         ),
         s3Bucket: this.buildBucket,
         s3Key,
         memorySize: 256,
         timeout: 60,
-        environment: { variables },
+        environment: { variables }
       },
-      "function",
+      "function"
     );
 
     //const lambda = this.resourceUtil.register(lambdaConfig);
@@ -405,11 +450,12 @@ export default class AwsProcessor implements PlatformProcessor {
         enabled: true,
         eventSourceArn: (inputResource.resource as any).arn,
         //eventSourceArn: `arn:aws:sqs:${aws.config.region}:${accountId}:${inputResource.name}`,
-        functionName: identifier,
+        functionName: identifier
       };
 
       if (inputResource.type === "aws.kinesis.Stream") {
-        sourceMappingConfig.startingPosition = awsConfig.startingPosition || defaultStartingPosition;
+        sourceMappingConfig.startingPosition =
+          awsConfig.startingPosition || defaultStartingPosition;
       }
 
       switch (inputResource.type) {
@@ -419,52 +465,174 @@ export default class AwsProcessor implements PlatformProcessor {
             this.resourceUtil.configure(
               ResourceUtil.injectInName(
                 identifier,
-                "source" + inputResources.indexOf(inputResource),
+                "source" + inputResources.indexOf(inputResource)
               ),
               "aws.lambda.EventSourceMapping",
               sourceMappingConfig,
-              "resource",
-            ),
+              "resource"
+            )
           );
           break;
 
         case "aws.cloudwatch.EventRule":
-          resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(identifier, "eventTarget"), "aws.cloudwatch.EventTarget", {
-              //arn: (lambda.resource as aws.lambda.Function).arn,
-              arn: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}",
-              rule: inputResource.name,
-            } as aws.cloudwatch.EventTargetArgs, "resource"));
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "eventTarget"),
+              "aws.cloudwatch.EventTarget",
+              {
+                //arn: (lambda.resource as aws.lambda.Function).arn,
+                arn: "${" + identifierBaseName + ".arn}",
+                rule: inputResource.name
+              } as aws.cloudwatch.EventTargetArgs,
+              "resource"
+            )
+          );
 
-          resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(identifier, "cloudwatch-perm"), "aws.lambda.Permission", {
-              action: "lambda:InvokeFunction",
-              //function: (lambda.resource as aws.lambda.Function).name,
-              function: "${" + ResourceUtil.getBits(identifier)[2] + ".name}",
-              principal: "events.amazonaws.com",
-              sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
-          } as aws.lambda.PermissionArgs, "resource"));
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "cloudwatch-perm"),
+              "aws.lambda.Permission",
+              {
+                action: "lambda:InvokeFunction",
+                //function: (lambda.resource as aws.lambda.Function).name,
+                function: "${" + identifierBaseName + ".name}",
+                principal: "events.amazonaws.com",
+                sourceArn:
+                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}"
+              } as aws.lambda.PermissionArgs,
+              "resource"
+            )
+          );
           break;
 
         case "aws.s3.Bucket":
-          resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(identifier, "bucketnotification-perm"), "aws.lambda.Permission", {
-              action: "lambda:InvokeFunction",
-              //function: (lambda.resource as aws.lambda.Function).arn,
-              function: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}",
-              principal: "s3.amazonaws.com",
-              sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
-          } as aws.lambda.PermissionArgs, "resource"));
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "bucketnotification-perm"),
+              "aws.lambda.Permission",
+              {
+                action: "lambda:InvokeFunction",
+                //function: (lambda.resource as aws.lambda.Function).arn,
+                function: "${" + identifierBaseName + ".arn}",
+                principal: "s3.amazonaws.com",
+                sourceArn:
+                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}"
+              } as aws.lambda.PermissionArgs,
+              "resource"
+            )
+          );
 
-          resourceConfigs.push(this.resourceUtil.configure(
-            ResourceUtil.injectInName(identifier, "bucketnotification"), "aws.s3.BucketNotification", {
-              bucket: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
-              lambdaFunctions: [{
-                events: ["s3:ObjectCreated:*"],
-                //lambdaFunctionArn: (lambda.resource as aws.lambda.Function).arn,
-                lambdaFunctionArn: "${" + ResourceUtil.getBits(identifier)[2] + ".arn}"
-              }],
-          } as aws.s3.BucketNotificationArgs, "resource"));
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "bucketnotification"),
+              "aws.s3.BucketNotification",
+              {
+                bucket:
+                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
+                lambdaFunctions: [
+                  {
+                    events: ["s3:ObjectCreated:*"],
+                    //lambdaFunctionArn: (lambda.resource as aws.lambda.Function).arn,
+                    lambdaFunctionArn: "${" + identifierBaseName + ".arn}"
+                  }
+                ]
+              } as aws.s3.BucketNotificationArgs,
+              "resource"
+            )
+          );
+          break;
+
+        case "aws.apigateway.RestApi":
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "resource"),
+              "aws.apigateway.Resource",
+              {
+                //function: (lambda.resource as aws.lambda.Function).arn,
+                parentId: (inputResource.resource as aws.apigateway.RestApi)
+                  .rootResourceId,
+                path: component.config.path ? component.config.path : "/",
+                pathPart: component.config.pathPart
+                  ? component.config.pathPart
+                  : "",
+                restApi: inputResource.resource as aws.apigateway.RestApi
+              } as aws.apigateway.ResourceArgs,
+              "resource"
+            )
+          );
+
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "method"),
+              "aws.apigateway.Method",
+              {
+                //function: (lambda.resource as aws.lambda.Function).arn,
+                resourceId: "${" + identifierBaseName + "-resource.id}",
+                authorization: "NONE",
+                httpMethod: component.config.method,
+                restApi: inputResource.resource as aws.apigateway.RestApi
+              } as aws.apigateway.MethodArgs,
+              "resource"
+            )
+          );
+
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "integration"),
+              "aws.apigateway.Integration",
+              {
+                //function: (lambda.resource as aws.lambda.Function).arn,
+                httpMethod: "${" + identifierBaseName + "-method.httpMethod}",
+                integrationHttpMethod: "POST",
+                resourceId: "${" + identifierBaseName + "-resource.id}",
+                restApi: inputResource.resource as aws.apigateway.RestApi,
+                type: "AWS_PROXY",
+                uri:
+                  "arn:aws:apigateway:${global:stack.region}:lambda:path/2015-03-31/functions/${" +
+                  identifierBaseName +
+                  ".arn}/invocations"
+              } as aws.apigateway.IntegrationArgs,
+              "resource"
+            )
+          );
+
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "deployment"),
+              "aws.apigateway.Deployment",
+              {
+                restApi: inputResource.resource as aws.apigateway.RestApi,
+                stageName: this.environment
+              } as aws.apigateway.DeploymentArgs,
+              "resource",
+              [identifierBaseName + "-integration"]
+            )
+          );
+
+          resourceConfigs.push(
+            this.resourceUtil.configure(
+              ResourceUtil.injectInName(identifier, "gw-perm"),
+              "aws.lambda.Permission",
+              {
+                action: "lambda:InvokeFunction",
+                //function: (lambda.resource as aws.lambda.Function).arn,
+                function: "${" + identifierBaseName + ".arn}",
+                principal: "apigateway.amazonaws.com",
+                //sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
+                sourceArn:
+                  "arn:aws:execute-api:${global:stack.region}:${global:account.id}:${" +
+                  ResourceUtil.getBits(inputResource.name)[2] +
+                  ".id}/" +
+                  this.environment +
+                  "/${" +
+                  identifierBaseName +
+                  "-method.httpMethod}" +
+                  component.config.path +
+                  component.config.pathPart
+              } as aws.lambda.PermissionArgs,
+              "resource"
+            )
+          );
           break;
 
         default:
@@ -475,9 +643,15 @@ export default class AwsProcessor implements PlatformProcessor {
     return [resources, resourceConfigs];
   }
 
-  private createRoutingComponent(name: string, mechanism: string | undefined, config: any): ResourceConfig {
-    const awsConfig = (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
-    const defaultRoutingMechanism = awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream";
+  private createRoutingComponent(
+    name: string,
+    mechanism: string | undefined,
+    config: any
+  ): ResourceConfig {
+    const awsConfig =
+      (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
+    const defaultRoutingMechanism =
+      awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream";
     const defaultRoutingShards = awsConfig.defaultRoutingShards || 1;
 
     if (!mechanism) {
@@ -486,10 +660,11 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (!name) {
       throw new Error(
-        `unable to get name for routing resource for component: '${name}'`,
+        `unable to get name for routing resource for component: '${name}'`
       );
     }
 
+    // set some defauls depending on the routing mechanism
     if (mechanism === "aws.kinesis.Stream") {
       if (!config.shardCount) {
         config.shardCount = defaultRoutingShards; // TODO: allow shards to be set in config

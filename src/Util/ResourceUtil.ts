@@ -100,15 +100,15 @@ export default class ResourceUtil {
     this.global = global;
   }
 
-  public configure(name: string, type: string, config: any, scope: string, options: any = {}, outputs: any = {}): ResourceConfig {
+  public configure(name: string, type: string, config: any, scope: string, dependencies: string[] = [], outputs: any = {}): ResourceConfig {
     const propertiesWithVars = VarUtil.process(config, scope);
 
     config.name = name;
 
     return {
       config,
+      dependencies,
       name,
-      options,
       outputs,
       propertiesWithVars,
       scope,
@@ -175,7 +175,17 @@ export default class ResourceUtil {
         }
       }
 
-      const instance = new provider(config.name, newConfig, _.merge({dependsOn: dependencies}, (config.options ? config.options : {}) )) as pulumi.CustomResource;
+      if (Array.isArray(config.dependencies) && config.dependencies.length > 0) {
+        for (const dependency of config.dependencies) {
+          const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
+          const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
+          if (resource) {
+            dependencies.push(resource.resource);
+          }
+        }
+      }
+
+      const instance = new provider(config.name, newConfig, {dependsOn: dependencies}) as pulumi.CustomResource;
 
       if (config.outputs) {
         this.processor.processOutputs(config.name, instance, config.outputs);
@@ -186,7 +196,7 @@ export default class ResourceUtil {
         resource: instance,
         type: config.type,
       };
-    } catch(err) {
+    } catch (err) {
       throw new Error(`Unable to create resource ${config.name} of type ${config.type}: ${err}`);
     }
   }
@@ -195,7 +205,7 @@ export default class ResourceUtil {
     let registeredResources:RegisteredResource[] = existingResources;
 
     for (const config of configs) {
-      // check if we have dependencies fot this item
+      // check and register reference created dependencies
       if (Array.isArray(config.propertiesWithVars) && config.propertiesWithVars.length > 0) {
         // if we do, create an array with all resources this item depends on
         const dependencies = [];
@@ -211,25 +221,16 @@ export default class ResourceUtil {
             }
           }
         }
-        // check if all those dependencies are already registered
-        const pendingRegistrationResources = [];
-        for (const dependency of dependencies) {
-          const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
-          if (!ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources)) {
-            pendingRegistrationResources.push(dependencyName);
+        this.registerDependencies(config.name, dependencies, configs, registeredResources);
+      }
+      // register user specified dependencies
+      if (Array.isArray(config.dependencies) && config.dependencies.length > 0) {
+        for (const dependency of config.dependencies) {
+          if (callingResource && dependency === callingResource) {
+            throw new Error(`Circular dependency error: ${callingResource} and ${dependency} depend each on the other`);
           }
         }
-        // if not, register the necessary dependencies
-        if (pendingRegistrationResources.length > 0) {
-          const pendingConfigs = [];
-          for (const pending of pendingRegistrationResources) {
-            const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending, configs);
-            if (resourceConfig) {
-              pendingConfigs.push( resourceConfig );
-            }
-          }
-          registeredResources.push(...await this.batchRegister(pendingConfigs, registeredResources, config.name));
-        }
+        this.registerDependencies(config.name, config.dependencies, configs, registeredResources);
       }
       // finally register the pertinent resource unless it has already been registered previously
       if (!ResourceUtil.findResourceOrConfigByName(config.name, registeredResources)) {
@@ -237,5 +238,27 @@ export default class ResourceUtil {
       }
     }
     return registeredResources;
+  }
+
+  registerDependencies(name: string, dependencies: any, configs: ResourceConfig[], registeredResources: RegisteredResource[]) {
+    // check if all those dependencies are already registered
+    const pendingRegistrationResources = [];
+    for (const dependency of dependencies) {
+      const dependencyName = `${this.stackName}-${dependency}-${this.environment}`;
+      if (!ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources)) {
+        pendingRegistrationResources.push(dependencyName);
+      }
+    }
+    // if not, register the necessary dependencies
+    if (pendingRegistrationResources.length > 0) {
+      const pendingConfigs = [];
+      for (const pending of pendingRegistrationResources) {
+        const resourceConfig = ResourceUtil.findResourceOrConfigByName(pending, configs);
+        if (resourceConfig) {
+          pendingConfigs.push( resourceConfig );
+        }
+      }
+      registeredResources.push(...this.batchRegister(pendingConfigs, registeredResources, name));
+    }
   }
 }

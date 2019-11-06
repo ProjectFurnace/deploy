@@ -5,7 +5,7 @@ export type ResourceConfig = {
   name: string,
   type: string,
   scope: string,
-  options: any,
+  dependencies: string[],
   outputs: any,
   propertiesWithVars: any[],
   config: any,
