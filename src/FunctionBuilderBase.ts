@@ -13,7 +13,7 @@ export default abstract class FunctionBuilder {
   functions: string[];
   functionHashes: string[] = [];
 
-  constructor(private repoDir: string, private templateRepoDir: string, private bucket: string, private platform: string, initConfig: any) {
+  constructor(private stackRepoDir: string, private templateRepoDir: string, private reposCacheDir: string, private bucket: string, private platform: string, initConfig: any) {
     this.functions = [];
   }
 
@@ -56,33 +56,7 @@ export default abstract class FunctionBuilder {
     return def;
   }
 
-  async postProcess(def: any) {
-    // fsUtils.rimraf(def.buildPath);
-  }
-
-  async preProcess(def: any) {
-    //TODO: We should check that there won't be any files from the function overwritten by the template and viceversa
-    if (def.eventType !== "raw") {
-      // if eventType is raw, we don't copy over a template
-      fsUtils.cp(def.templatePath, def.buildPath);
-    }
-
-    if (def.codePaths) {
-      const combined = Object.keys(def.codePaths).length > 1 ? true : false;
-      for (const key in def.codePaths) {
-        const codePath = def.codePaths[key];
-        // if we have more than one function, place the code inside folders
-        if (combined)
-          fsUtils.cp(codePath, path.join(def.buildPath, 'combined', key));
-        else
-          fsUtils.cp(codePath, def.buildPath);
-      }
-    }
-  }
-
-  async postBuild(def: any) {}
-
-  getFunctionDef(buildSpec: BuildSpec): any {
+  private getFunctionDef(buildSpec: BuildSpec): any {
     let name = "";
 
     // if we have more than one function in our array this is a combined function
@@ -94,15 +68,15 @@ export default abstract class FunctionBuilder {
       name = buildSpec.functionSpec.functions[0].function!;
     }
 
-    const functionRoot = path.join(this.repoDir, "src", name);
-
-    let codePaths:any = {};
+    const codePaths: any = {};
 
     for (const func of buildSpec.functionSpec.functions) {
-      const fncRoot = path.join(this.repoDir, "src", func.function);
-      if (!fsUtils.stat(fncRoot).isDirectory()) throw new Error(`unable to find function directory at ${fncRoot}`);
-
-      if( !Object.keys(codePaths).includes(func.function) ) {
+      // add only to codepaths if we haven't already processed that function
+      if (!Object.keys(codePaths).includes(func.function)) {
+        const fncRoot = func.repo ? path.join(this.reposCacheDir, func.repo, func.function) :  path.join(this.stackRepoDir, "src", func.function);
+        if (!fsUtils.stat(fncRoot).isDirectory()) {
+          throw new Error(`unable to find function directory at ${fncRoot}`);
+        }
         codePaths[func.function] = path.join(fncRoot, "src");
       }
     }
@@ -112,7 +86,7 @@ export default abstract class FunctionBuilder {
 
     const buildPath = path.join(this.buildPath, name);
 
-    let def = {
+    const def = {
       name,
       runtime,
       templatePath: `${this.templateRepoDir}/${this.platform}-${runtime}`,
@@ -128,8 +102,34 @@ export default abstract class FunctionBuilder {
     return def;
   }
 
-  async buildFunction(def: any) {
+  protected async preProcess(def: any) {
+    //TODO: We should check that there won't be any files from the function overwritten by the template and viceversa
+    if (def.eventType !== "raw") {
+      // if eventType is raw, we don't copy over a template
+      fsUtils.cp(def.templatePath, def.buildPath);
+    }
 
+    if (def.codePaths) {
+      const combined = Object.keys(def.codePaths).length > 1 ? true : false;
+      for (const key of Object.keys(def.codePaths)) {
+        const codePath = def.codePaths[key];
+        // if we have more than one function, place the code inside folders
+        if (combined) {
+          fsUtils.cp(codePath, path.join(def.buildPath, 'combined', key));
+        } else {
+          fsUtils.cp(codePath, def.buildPath);
+        }
+      }
+    }
+  }
+
+  protected async postProcess(def: any) {
+    // fsUtils.rimraf(def.buildPath);
+  }
+
+  protected async postBuild(def: any) {}
+
+  private async buildFunction(def: any) {
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
       case "nodejs8.10":

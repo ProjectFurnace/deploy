@@ -11,8 +11,8 @@ export default class AzureFunctionBuilder extends FunctionBuilderBase {
   blobService: storage.BlobService;
   connectionString: string;
 
-  constructor(repoDir: string, templateRepoDir: string, bucket: string, platform: string, initConfig: any) {
-    super(repoDir, templateRepoDir, bucket, platform, initConfig);
+  constructor(repoDir: string, templateRepoDir: string, reposCacheDir: string, bucket: string, platform: string, initConfig: any) {
+    super(repoDir, templateRepoDir, reposCacheDir, bucket, platform, initConfig);
 
     this.connectionString = initConfig.storageConnectionString;
 
