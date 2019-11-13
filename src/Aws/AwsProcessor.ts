@@ -60,7 +60,7 @@ export default class AwsProcessor implements PlatformProcessor {
     );
 
     const registeredResources = await this.resourceUtil.batchRegister(
-      routingResourceConfigs,
+      routingResourceConfigs
     );
 
     const resourceConfigsPromises = this.flows
@@ -174,6 +174,7 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     await this.functionBuilder!.initialize();
+
     const buildDef = await this.functionBuilder!.processFunction(component);
 
     const s3Key = `${component.meta!.identifier}/${component.buildSpec!.hash}`;
@@ -209,7 +210,9 @@ export default class AwsProcessor implements PlatformProcessor {
       },
       "resource"
     );
-    const functionRoleResource = await this.resourceUtil.register(functionRoleConfig);
+    const functionRoleResource = await this.resourceUtil.register(
+      functionRoleConfig
+    );
 
     resources.push(functionRoleResource);
     const role = functionRoleResource.resource as aws.iam.Role;
