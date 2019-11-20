@@ -28,7 +28,8 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
     if (!platform) throw new Error(`PLATFORM not set`);
     if (!buildBucket) throw new Error(`BUILD_BUCKET not set`);
     if (!environment) throw new Error(`unable to extract environment`);
-    if (!fsUtils.exists(functionsDir)) throw new Error(`stack must have a functions 'src' directory`);
+    // not really required anymore - functions may all be in repos
+    //if (!fsUtils.exists(functionsDir)) throw new Error(`stack must have a functions 'src' directory`);
 
     if (!isLocal) {
         console.log("pulling templates...");
