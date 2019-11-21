@@ -8,7 +8,6 @@ import HashUtil from "./Util/HashUtil";
 import { execPromise } from "./Util/ProcessUtil";
 
 export default abstract class FunctionBuilder {
-
   buildPath: string;
   functions: string[];
   functionHashes: string[] = [];
@@ -26,37 +25,73 @@ export default abstract class FunctionBuilder {
   }
 
   async processFunction(buildSpec: BuildSpec, alwaysBuild: Boolean = false) {
+    const isSandbox = process.env.FURNACE_LOCAL ? true : false;
+    const homedir = require("os").homedir();
+    const cacheLocation = `${homedir}/.furnace/cache/sandbox/functions`;
+
+    if (isSandbox && !fsUtils.exists(cacheLocation))
+      fsUtils.mkdir(cacheLocation);
+
     const def = await this.getFunctionDef(buildSpec);
 
     await this.preProcess(def);
 
     // create function hash when we have already merged the template and compare it to previous ones
-    buildSpec.buildSpec!.functionHash = await HashUtil.getDirectoryHash(def.buildPath);
-    buildSpec.buildSpec!.hash = HashUtil.combineHashes(buildSpec.buildSpec!.functionHash, buildSpec.buildSpec!.templateHash);
+    buildSpec.buildSpec!.functionHash = await HashUtil.getDirectoryHash(
+      def.buildPath
+    );
+    buildSpec.buildSpec!.hash = HashUtil.combineHashes(
+      buildSpec.buildSpec!.functionHash,
+      buildSpec.buildSpec!.templateHash
+    );
     if (this.functionHashes.includes(buildSpec.buildSpec!.hash)) {
       console.log(`function ${def.name} already built, skipping`);
       return def;
     }
 
-    // TODO: Build only when its not preview. No point in building during preview
-    await this.buildFunction(def);
-    await this.postBuild(def);
-    // in some cases (mainly Azure) we may need to rebuild the hash after the build. Worth double-checking
-    // if this is still necessary after the latest changes to fix the functionHash after preProcess
-    if (alwaysBuild) {
-      buildSpec.buildSpec!.functionHash = await HashUtil.getDirectoryHash(def.buildPath);
-      buildSpec.buildSpec!.hash = HashUtil.combineHashes(buildSpec.buildSpec!.functionHash, buildSpec.buildSpec!.templateHash);
+    const functionCacheLocation = `${cacheLocation}/${
+      buildSpec.buildSpec!.hash
+    }.zip`;
+
+    if (fsUtils.exists(functionCacheLocation)) {
+      // now copy the cached version
+      fsUtils.cp(functionCacheLocation, def.buildArtifact);
+    } else {
+      // TODO: Build only when its not preview. No point in building during preview
+      await this.buildFunction(def);
+      await this.postBuild(def);
+      // in some cases (mainly Azure) we may need to rebuild the hash after the build. Worth double-checking
+      // if this is still necessary after the latest changes to fix the functionHash after preProcess
+      if (alwaysBuild) {
+        buildSpec.buildSpec!.functionHash = await HashUtil.getDirectoryHash(
+          def.buildPath
+        );
+        buildSpec.buildSpec!.hash = HashUtil.combineHashes(
+          buildSpec.buildSpec!.functionHash,
+          buildSpec.buildSpec!.templateHash
+        );
+      }
+      await this.packageFunction(def);
+      await this.postProcess(def);
     }
-    await this.packageFunction(def);
-    await this.postProcess(def);
 
     this.functions.push(def.name);
     this.functionHashes.push(buildSpec.buildSpec!.hash);
 
+    if (isSandbox && !fsUtils.exists(functionCacheLocation)) {
+      fsUtils.cp(def.buildArtifact, functionCacheLocation);
+    }
+
     return def;
   }
 
-  private getFunctionDef(buildSpec: BuildSpec): any {
+  async postProcess(def: any) {
+    // fsUtils.rimraf(def.buildPath);
+  }
+
+  async postBuild(def: any) {}
+
+  getFunctionDef(buildSpec: BuildSpec): any {
     let name = "";
 
     // if we have more than one function in our array this is a combined function
@@ -127,9 +162,8 @@ export default abstract class FunctionBuilder {
     // fsUtils.rimraf(def.buildPath);
   }
 
-  protected async postBuild(def: any) {}
-
-  private async buildFunction(def: any) {
+  async buildFunction(def: any) {
+    console.log(`building ${def.name}...`);
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
       case "nodejs8.10":
@@ -137,51 +171,72 @@ export default abstract class FunctionBuilder {
         // them. if it's only one or none, nothing to worry about
         let templatePackage = "{}";
         if (fsUtils.exists(path.join(def.templatePath, "package.json"))) {
-          templatePackage = fsUtils.readFile(path.join(def.templatePath, "package.json"));
+          templatePackage = fsUtils.readFile(
+            path.join(def.templatePath, "package.json")
+          );
         }
 
         for (const key in def.codePaths) {
           if (fsUtils.exists(path.join(def.codePaths[key], "package.json"))) {
-            const functionPackage = fsUtils.readFile(path.join(def.codePaths[key], "package.json"));
+            const functionPackage = fsUtils.readFile(
+              path.join(def.codePaths[key], "package.json")
+            );
 
             templatePackage = merge(functionPackage, templatePackage);
           }
         }
-        fsUtils.writeFile(path.join(def.buildPath, "package.json"), templatePackage);
+        fsUtils.writeFile(
+          path.join(def.buildPath, "package.json"),
+          templatePackage
+        );
         // do not build on preview
-        if (!pulumi.runtime.isDryRun()) {
-          await this.buildNode(def.name, def.buildPath);
-        }
+        // if (!pulumi.runtime.isDryRun()) {
+        await this.buildNode(def.name, def.buildPath);
+        // }
         break;
 
       case "python3.6":
         //in case we have 2 requirements.txt files we need to merge them. if it's only one or none, nothing to worry about
-        let templateRequirements = '';
-        if (fsUtils.exists(path.join(def.templatePath, 'requirements.txt')))
-          templateRequirements = fsUtils.readFile(path.join(def.templatePath, 'requirements.txt'));
+        let templateRequirements = "";
+        if (fsUtils.exists(path.join(def.templatePath, "requirements.txt")))
+          templateRequirements = fsUtils.readFile(
+            path.join(def.templatePath, "requirements.txt")
+          );
 
-        for(const key in def.codePaths) {
-          if (fsUtils.exists(path.join(def.codePaths[key], 'requirements.txt'))) {
-            let functionRequirements = fsUtils.readFile(path.join(def.codePaths[key], 'requirements.txt'));
+        for (const key in def.codePaths) {
+          if (
+            fsUtils.exists(path.join(def.codePaths[key], "requirements.txt"))
+          ) {
+            let functionRequirements = fsUtils.readFile(
+              path.join(def.codePaths[key], "requirements.txt")
+            );
             // if we are combining functions we need them to be treated as modules
             if (def.codePaths.length > 1)
-              fsUtils.writeFile(path.join(def.codePaths[key], '__init__.py'),'');
-            
-            templateRequirements = templateRequirements + "\n" + functionRequirements;
+              fsUtils.writeFile(
+                path.join(def.codePaths[key], "__init__.py"),
+                ""
+              );
+
+            templateRequirements =
+              templateRequirements + "\n" + functionRequirements;
           }
         }
-        fsUtils.writeFile(path.join(def.buildPath, 'requirements.txt'), templateRequirements);
+        fsUtils.writeFile(
+          path.join(def.buildPath, "requirements.txt"),
+          templateRequirements
+        );
 
         // do not build on preview
-        if (!pulumi.runtime.isDryRun()) {
-          await this.buildPython(def.name, def.buildPath);
-        }
+        // if (!pulumi.runtime.isDryRun()) {
+        await this.buildPython(def.name, def.buildPath);
+        // }
         break;
 
       default:
-        throw new Error(`unsupported runtime ${def.runtime} for function ${def.name}`);
+        throw new Error(
+          `unsupported runtime ${def.runtime} for function ${def.name}`
+        );
     }
-
   }
 
   async packageFunction(def: any) {
@@ -189,7 +244,6 @@ export default abstract class FunctionBuilder {
   }
 
   async buildNode(name: string, buildPath: string) {
-
     try {
       if (process.env.NPM_TOKEN) {
         const npmrc = "//registry.npmjs.org/:_authToken=${NPM_TOKEN}";
@@ -198,41 +252,48 @@ export default abstract class FunctionBuilder {
 
       // console.log(`building ${name} in ${buildPath}`);
 
-      const execResult = await execPromise("npm install --production",
-        { cwd: buildPath, env: process.env });
+      const execResult = await execPromise("npm install --production", {
+        cwd: buildPath,
+        env: process.env
+      });
 
       if (execResult.stderr) {
-        throw new Error(`npm install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
+        throw new Error(
+          `npm install returned an error:\n${execResult.stdout}\n${execResult.stderr}`
+        );
       }
-
     } catch (err) {
       throw new Error(`unable to build function ${name}: ${err}`);
     }
-
   }
 
   async buildPython(name: string, buildPath: string) {
-
     try {
       // console.log(`building ${name} in ${buildPath}`);
 
-      if (fsUtils.exists(path.join(buildPath, 'requirements.txt'))) {
+      if (fsUtils.exists(path.join(buildPath, "requirements.txt"))) {
         // console.log('installing dependencies...')
-        const execResult = await execPromise("pip3 install -r requirements.txt -t .",
-          { cwd: buildPath, env: process.env });
+        const execResult = await execPromise(
+          "pip3 install -r requirements.txt -t .",
+          { cwd: buildPath, env: process.env }
+        );
 
         if (execResult.stderr) {
-          throw new Error(`pip install returned an error:\n${execResult.stdout}\n${execResult.stderr}`);
+          throw new Error(
+            `pip install returned an error:\n${execResult.stdout}\n${execResult.stderr}`
+          );
         }
       } else {
-        console.log('no requirements.txt file. skipping pip install.')
+        console.log("no requirements.txt file. skipping pip install.");
       }
-
     } catch (err) {
-      throw new Error(`unable to build function ${name}: ${err}`)
+      throw new Error(`unable to build function ${name}: ${err}`);
     }
-
   }
 
-  abstract async uploadArtifcat(bucketName: string, key: string, artifact: string): Promise<any>;
+  abstract async uploadArtifcat(
+    bucketName: string,
+    key: string,
+    artifact: string
+  ): Promise<any>;
 }
