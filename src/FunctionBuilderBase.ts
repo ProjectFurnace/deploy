@@ -85,10 +85,6 @@ export default abstract class FunctionBuilder {
     return def;
   }
 
-  async postProcess(def: any) {
-    // fsUtils.rimraf(def.buildPath);
-  }
-
   async postBuild(def: any) {}
 
   getFunctionDef(buildSpec: BuildSpec): any {
