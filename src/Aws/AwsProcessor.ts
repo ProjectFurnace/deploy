@@ -414,12 +414,12 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (outputRes && component.meta!.output) {
       // if input and output are different, and the input is not a timer
-      if (
+      /*if (
         previousType !== outputRes.type &&
         previousType !== "aws.cloudwatch.EventRule"
-      ) {
+      ) {*/
         variables.OUTPUT_TYPE = outputRes.type;
-      }
+      //}
     }
 
     const lambdaConfig = this.resourceUtil.configure(

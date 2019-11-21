@@ -13,22 +13,22 @@ import { PlatformProcessor } from "./IPlatformProcessor";
 import * as aws from "@pulumi/aws";
 
 export default class PlatformProcessorFactory {
-  static async getProcessor(platform: string, flows: Array<BuildSpec>, stack: Stack, environment: string, buildBucket: string, repoDir: string, templateRepoDir: string): Promise<PlatformProcessor>  {
+  static async getProcessor(platform: string, flows: Array<BuildSpec>, stack: Stack, environment: string, buildBucket: string, stackRepoDir: string, templateRepoDir: string, reposCacheDir: string): Promise<PlatformProcessor>  {
     
     this.verifyEnvironment(platform);
 
     switch (platform) {
       case "aws":
         const identity = await aws.getCallerIdentity();
-        const awsBuilder = new AwsFunctionBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
+        const awsBuilder = new AwsFunctionBuilder(stackRepoDir, templateRepoDir, reposCacheDir, buildBucket, platform, this.getConfig(platform));
         return new AwsProcessor(flows, stack, environment, buildBucket, { identity }, awsBuilder);
 
       case "azure":
-        const azureBuilder = new AzureFunctionBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
+        const azureBuilder = new AzureFunctionBuilder(stackRepoDir, templateRepoDir, reposCacheDir, buildBucket, platform, this.getConfig(platform));
         return new AzureProcessor(flows, stack, environment, buildBucket, {}, azureBuilder);
 
       case "gcp":
-        const gcpBuilder = new GcpFunctionBuilder(repoDir, templateRepoDir, buildBucket, platform, this.getConfig(platform));
+        const gcpBuilder = new GcpFunctionBuilder(stackRepoDir, templateRepoDir, reposCacheDir, buildBucket, platform, this.getConfig(platform));
         return new GcpProcessor(flows, stack, environment, buildBucket, {}, gcpBuilder);
 
       default:

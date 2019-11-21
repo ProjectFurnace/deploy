@@ -1,7 +1,7 @@
 {
   "name": "typescript",
   "scripts": {
-    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=azctdlm2818-bucket-source-test-de14528 REPO_DIR=../../stacks/apigw-test TEMPLATE_REPO_DIR=../function-templates pulumi up",
+    "dev_aws": "FURNACE_LOCAL=1 PLATFORM=aws ENVIRONMENT=test BUILD_BUCKET=azctdlm2818-bucket-source-test-de14528 REPO_DIR=../../stacks/iot-package TEMPLATE_REPO_DIR=../function-templates pulumi up",
     "dev_azure": "STACK_REGION=uksouth FURNACE_LOCAL=1 PLATFORM=azure ENVIRONMENT=test BUILD_BUCKET=azgm21artifactsc REPO_DIR=../../stacks/azctdl-connector-v0.2 TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "dev_gcp": "GCLOUD_REGION=asia-northeast1 FURNACE_LOCAL=1 PLATFORM=gcp ENVIRONMENT=test GCLOUD_PROJECT=furnace-scratch BUILD_BUCKET=furnace-scratch REPO_DIR=../../stacks/azctdl-connector-v0.2 TEMPLATE_REPO_DIR=./test/fixtures/templates pulumi up",
     "test": "PULUMI_CONFIG='{\"aws:config:region\":\"eu-west-1\"}' jest"
@@ -26,7 +26,7 @@
     "@project-furnace/fsutils": "^0.1.6",
     "@project-furnace/gitutils": "^0.1.4",
     "@project-furnace/s3utils": "^0.1.6",
-    "@project-furnace/stack-processor": "^0.0.17",
+    "@project-furnace/stack-processor": "^0.0.19",
     "@project-furnace/ziputils": "^0.1.4",
     "@pulumi/aws": "^0.17.1",
     "@pulumi/awsx": "^0.18.3",

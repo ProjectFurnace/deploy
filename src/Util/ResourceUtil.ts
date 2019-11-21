@@ -141,10 +141,12 @@ export default class ResourceUtil {
                   throw new Error(`Secret ${fragment.resource} not found! Please make sure to add the secret with the CLI first`);
                 }
               } else {
-                const dependencyName = `${this.stackName}-${fragment.resource}-${this.environment}`;
+                // construct fragmentResource based on scope
+                const fragmentResource = fragment.scope === "resource" ? fragment.resource : fragment.scope + "_" + fragment.resource;
+                const dependencyName = `${this.stackName}-${fragmentResource}-${this.environment}`;
                 const resource = ResourceUtil.findResourceOrConfigByName(dependencyName, registeredResources);
                 if (!resource) {
-                  throw new Error(`Dependency resource: ${fragment.resource} not found`);
+                  throw new Error(`Dependency resource: ${fragmentResource} not found`);
                 } else {
                   // add this resource as a dependency
                   dependencies.push(resource.resource);

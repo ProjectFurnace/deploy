@@ -6,8 +6,8 @@ export default class GcpFunctionBuilder extends FunctionBuilderBase {
 
   storage: any;
 
-  constructor(repoDir: string, templateRepoDir: string, bucket: string, platform: string, initConfig: any) {
-    super(repoDir, templateRepoDir, bucket, platform, initConfig);
+  constructor(repoDir: string, templateRepoDir: string, reposCacheDir: string, bucket: string, platform: string, initConfig: any) {
+    super(repoDir, templateRepoDir, reposCacheDir, bucket, platform, initConfig);
 
     // Instantiate a storage client
     this.storage = new Storage();
