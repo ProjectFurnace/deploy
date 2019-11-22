@@ -5,6 +5,7 @@ import {
 } from "@project-furnace/stack-processor/src/Model";
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
+import * as _ from "lodash";
 import FunctionBuilderBase from "../FunctionBuilderBase";
 import { PlatformProcessor } from "../IPlatformProcessor";
 import { RegisteredResource, ResourceConfig } from "../Types";
@@ -15,6 +16,7 @@ import AwsResourceFactory from "./AwsResourceFactory";
 export default class AwsProcessor implements PlatformProcessor {
   public resourceUtil: ResourceUtil;
   private readonly PLATFORM: string = "aws";
+  private apigwRestApi: RegisteredResource;
 
   constructor(
     private flows: BuildSpec[],
@@ -55,12 +57,23 @@ export default class AwsProcessor implements PlatformProcessor {
       this.PLATFORM
     );
 
-    const routingResourceConfigs = routingDefs.map(def =>
-      this.createRoutingComponent(def.name, def.mechanism, def.config)
+    const functionComponents = this.flows.filter(
+      flow => flow.functionSpec !== undefined
     );
 
+    const routingResourceConfigsPromises = [];
+    routingResourceConfigsPromises.push(...await Promise.all(routingDefs.map(def => this.createRoutingComponent(def.name, def.mechanism, def.config))));
+
+    const routingResourceConfigs = [];
+    for (const prom of routingResourceConfigsPromises) {
+      routingResourceConfigs.push(...prom);
+    }
+
+    /*const routingResourceConfigs = [];
+    routingResourceConfigs.push(...await Promise.all(routingResourceConfigsPromises));*/
+
     const registeredResources = await this.resourceUtil.batchRegister(
-      routingResourceConfigs
+      routingResourceConfigs,
     );
 
     const resourceConfigsPromises = this.flows
@@ -74,9 +87,6 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     const functionResources: RegisteredResource[] = [];
-    const functionComponents = this.flows.filter(
-      flow => flow.functionSpec !== undefined
-    );
 
     let pendingFunctionConfigs: ResourceConfig[] = [];
     let resources;
@@ -247,7 +257,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
             case "aws.cloudwatch.EventRule":
             case "aws.s3.Bucket":
-            case "aws.apigateway.RestApi":
+            case "aws.apigateway.Resource":
               break;
 
             default:
@@ -545,58 +555,25 @@ export default class AwsProcessor implements PlatformProcessor {
           );
           break;
 
-        case "aws.apigateway.RestApi":
-          resourceConfigs.push(
-            this.resourceUtil.configure(
-              ResourceUtil.injectInName(identifier, "resource"),
-              "aws.apigateway.Resource",
-              {
-                //function: (lambda.resource as aws.lambda.Function).arn,
-                parentId: (inputResource.resource as aws.apigateway.RestApi)
-                  .rootResourceId,
-                path: component.config.path ? component.config.path : "/",
-                pathPart: component.config.pathPart
-                  ? component.config.pathPart
-                  : "",
-                restApi: inputResource.resource as aws.apigateway.RestApi
-              } as aws.apigateway.ResourceArgs,
-              "resource"
-            )
-          );
-
-          resourceConfigs.push(
-            this.resourceUtil.configure(
-              ResourceUtil.injectInName(identifier, "method"),
-              "aws.apigateway.Method",
-              {
-                //function: (lambda.resource as aws.lambda.Function).arn,
-                resourceId: "${" + identifierBaseName + "-resource.id}",
-                authorization: "NONE",
-                httpMethod: component.config.method,
-                restApi: inputResource.resource as aws.apigateway.RestApi
-              } as aws.apigateway.MethodArgs,
-              "resource"
-            )
-          );
-
+        case "aws.apigateway.Resource":
+          // create the pending bits for the api resource that link to the function
           resourceConfigs.push(
             this.resourceUtil.configure(
               ResourceUtil.injectInName(identifier, "integration"),
               "aws.apigateway.Integration",
               {
-                //function: (lambda.resource as aws.lambda.Function).arn,
-                httpMethod: "${" + identifierBaseName + "-method.httpMethod}",
+                httpMethod: "${" + ResourceUtil.getBits(inputResource.name)[2] + "-method.httpMethod}",
                 integrationHttpMethod: "POST",
-                resourceId: "${" + identifierBaseName + "-resource.id}",
-                restApi: inputResource.resource as aws.apigateway.RestApi,
+                resourceId: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
+                restApi: this.apigwRestApi.resource as aws.apigateway.RestApi,
                 type: "AWS_PROXY",
                 uri:
                   "arn:aws:apigateway:${global:stack.region}:lambda:path/2015-03-31/functions/${" +
                   identifierBaseName +
-                  ".arn}/invocations"
+                  ".arn}/invocations",
               } as aws.apigateway.IntegrationArgs,
-              "resource"
-            )
+              "resource",
+            ),
           );
 
           resourceConfigs.push(
@@ -604,7 +581,7 @@ export default class AwsProcessor implements PlatformProcessor {
               ResourceUtil.injectInName(identifier, "deployment"),
               "aws.apigateway.Deployment",
               {
-                restApi: inputResource.resource as aws.apigateway.RestApi,
+                restApi: this.apigwRestApi.resource as aws.apigateway.RestApi,
                 stageName: this.environment
               } as aws.apigateway.DeploymentArgs,
               "resource",
@@ -618,20 +595,20 @@ export default class AwsProcessor implements PlatformProcessor {
               "aws.lambda.Permission",
               {
                 action: "lambda:InvokeFunction",
-                //function: (lambda.resource as aws.lambda.Function).arn,
                 function: "${" + identifierBaseName + ".arn}",
                 principal: "apigateway.amazonaws.com",
-                //sourceArn: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
                 sourceArn:
                   "arn:aws:execute-api:${global:stack.region}:${global:account.id}:${" +
                   ResourceUtil.getBits(inputResource.name)[2] +
                   ".id}/" +
                   this.environment +
                   "/${" +
-                  identifierBaseName +
-                  "-method.httpMethod}" +
-                  component.config.path +
-                  component.config.pathPart
+                  ResourceUtil.getBits(inputResource.name)[2] +
+                  "-method.httpMethod}${" +
+                  ResourceUtil.getBits(inputResource.name)[2] +
+                  ".path}${" +
+                  ResourceUtil.getBits(inputResource.name)[2] +
+                  ".pathPart}"
               } as aws.lambda.PermissionArgs,
               "resource"
             )
@@ -646,11 +623,11 @@ export default class AwsProcessor implements PlatformProcessor {
     return [resources, resourceConfigs];
   }
 
-  private createRoutingComponent(
+  private async createRoutingComponent(
     name: string,
     mechanism: string | undefined,
     config: any
-  ): ResourceConfig {
+  ): Promise<ResourceConfig[]> {
     const awsConfig =
       (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
     const defaultRoutingMechanism =
@@ -676,9 +653,44 @@ export default class AwsProcessor implements PlatformProcessor {
       if (!config.visibilityTimeoutSeconds) {
         config.visibilityTimeoutSeconds = 60;
       }
+    } else if (mechanism === "aws.apigateway.Resource") {
+      const apiGwName = `${this.stackConfig.name}-apigw-${this.environment}`;
+
+      // create the restapi if it does not exit
+      if (!this.apigwRestApi) {
+        const apigwRestApiConf = this.resourceUtil.configure(apiGwName, "aws.apigateway.RestApi", {}, "resource");
+        this.apigwRestApi = await this.resourceUtil.register(apigwRestApiConf);
+      }
+
+      // prepare config for the resource
+      const newconfig = {
+        path: config.path,
+        pathPart: config.pathPart,
+        parentId: (this.apigwRestApi.resource as aws.apigateway.RestApi).rootResourceId,
+        restApi: this.apigwRestApi.resource as aws.apigateway.RestApi
+      };
+
+      // create the api resource
+      const apigwResourceConfig = this.resourceUtil.configure(name, mechanism, newconfig, "resource");
+
+      // create the api method
+      const apigwMethodConfig = this.resourceUtil.configure(
+        ResourceUtil.injectInName(name, "method"),
+        "aws.apigateway.Method",
+        {
+          apiKeyRequired: config.apiKeyRequired || false,
+          authorization: config.authorization || "NONE",
+          httpMethod: config.method,
+          resourceId: "${" + ResourceUtil.getBits(name)[2] + ".id}",
+          restApi: this.apigwRestApi.resource as aws.apigateway.RestApi,
+        } as aws.apigateway.MethodArgs,
+        "resource",
+      );
+
+      return [apigwResourceConfig, apigwMethodConfig];
     }
 
-    return this.resourceUtil.configure(name, mechanism, config, "resource");
+    return [this.resourceUtil.configure(name, mechanism, config, "resource")];
   }
 
   private validate() {
