@@ -16,7 +16,7 @@ import AwsResourceFactory from "./AwsResourceFactory";
 export default class AwsProcessor implements PlatformProcessor {
   public resourceUtil: ResourceUtil;
   private readonly PLATFORM: string = "aws";
-  private apigwRestApi: RegisteredResource;
+  private apigwRestApiConfig: Boolean = false;
 
   constructor(
     private flows: BuildSpec[],
@@ -651,8 +651,11 @@ export default class AwsProcessor implements PlatformProcessor {
 
       const resourceConfigs = [];
 
-      // create the restapi if it does not exit
-      resourceConfigs.push(this.resourceUtil.configure(apiGwName, "aws.apigateway.RestApi", {}, "resource"));
+      // add the restapi if it does not exit
+      if (!this.apigwRestApiConfig) {
+        resourceConfigs.push(this.resourceUtil.configure(apiGwName, "aws.apigateway.RestApi", {}, "resource"));
+        this.apigwRestApiConfig = true;
+      }
 
       // prepare config for the resource
       const newconfig = {
