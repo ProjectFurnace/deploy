@@ -18,22 +18,24 @@ export default class ResourceUtil {
       if (component.construct === "source") {
         const existing = routingDefs.find((r:any) => r.name === component.meta!.identifier);
         if (!existing) {
-          const componentConfig = component.config || {};
+          routingDefs.push(ResourceUtil.createRoutingComponentDefinition(component, component.meta!.identifier, platform));
+          /*const componentConfig = component.config || {};
           const platformConfig = (component.config && component.config[platform]) || {};
           Object.assign(componentConfig, platformConfig);
           routingDefs.push({
             config: _.cloneDeep(componentConfig),
             mechanism: component.type,
             name: component.meta!.identifier,
-          });
+          });*/
         }
       } else {
         if (component.meta!.output) {
           const existing = routingDefs.find((r:any) => r.name === component.meta!.output);
           if (!existing) {
             const outputComponent = routingComponents.find((r:any) => r.meta!.sources.includes(component.meta!.output));
+            routingDefs.push(ResourceUtil.createRoutingComponentDefinition(outputComponent, component.meta!.output!, platform));
             // TODO: would be nice to find a more concise way to code the next 3 lines
-            const outputConfig = (outputComponent && outputComponent.config) || {};
+            /*const outputConfig = (outputComponent && outputComponent.config) || {};
             const platformConfig = (outputComponent && outputComponent.config && outputComponent.config[platform]) || {};
             Object.assign(outputConfig, platformConfig);
             routingDefs.push({
@@ -41,15 +43,16 @@ export default class ResourceUtil {
               //config: (component.config && component.config[platform]) || {},
               mechanism: (outputComponent ? outputComponent.type : undefined),
               name: component.meta!.output!,
-            });
+            });*/
           }
         }
         for (const source of component.meta!.sources!) {
           const existing = routingDefs.find((r:any) => r.name === source);
           if (!existing) {
             const sourceComponent = routingComponents.find((r:any) => r.meta!.identifier === source);
+            routingDefs.push(ResourceUtil.createRoutingComponentDefinition(sourceComponent, source!, platform));
             // TODO: would be nice to find a more concise way to code the next 3 lines
-            const sourceConfig = (sourceComponent && sourceComponent.config) || {};
+            /*const sourceConfig = (sourceComponent && sourceComponent.config) || {};
             const platformConfig = (sourceComponent && sourceComponent.config && sourceComponent.config[platform]) || {};
             Object.assign(sourceConfig, platformConfig);
             routingDefs.push({
@@ -57,12 +60,24 @@ export default class ResourceUtil {
               config: _.cloneDeep(sourceConfig),
               mechanism: sourceComponent.type || undefined,
               name: source!,
-            });
+            });*/
           }
         }
       }
     }
     return routingDefs;
+  }
+
+  static createRoutingComponentDefinition(component: any, name: string, platform: string) {
+    const componentConfig = (component && component.config) || {};
+    const platformConfig = (component && component.config && component.config[platform]) || {};
+    Object.assign(componentConfig, platformConfig);
+    return {
+      //config: (component.config && component.config[platform]) || {},
+      config: _.cloneDeep(componentConfig),
+      mechanism: component && component.type ? component.type : undefined,
+      name: name!,
+    };
   }
 
   public static injectInName(name: string, inject: string): string {
