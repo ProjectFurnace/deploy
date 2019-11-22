@@ -12,7 +12,14 @@ export default abstract class FunctionBuilder {
   functions: string[];
   functionHashes: string[] = [];
 
-  constructor(private stackRepoDir: string, private templateRepoDir: string, private reposCacheDir: string, private bucket: string, private platform: string, initConfig: any) {
+  constructor(
+    private stackRepoDir: string,
+    private templateRepoDir: string,
+    private reposCacheDir: string,
+    private bucket: string,
+    private platform: string,
+    initConfig: any
+  ) {
     this.functions = [];
   }
 
@@ -32,6 +39,11 @@ export default abstract class FunctionBuilder {
     if (isSandbox && !fsUtils.exists(cacheLocation))
       fsUtils.mkdir(cacheLocation);
 
+    // const hash = HashUtil.combineHashes(
+    //   buildSpec.buildSpec!.functionHash,
+    //   buildSpec.buildSpec!.templateHash
+    // );
+    // console.log("hash", buildSpec.name, hash);
     const def = await this.getFunctionDef(buildSpec);
 
     await this.preProcess(def);
@@ -44,6 +56,7 @@ export default abstract class FunctionBuilder {
       buildSpec.buildSpec!.functionHash,
       buildSpec.buildSpec!.templateHash
     );
+
     if (this.functionHashes.includes(buildSpec.buildSpec!.hash)) {
       console.log(`function ${def.name} already built, skipping`);
       return def;
@@ -104,7 +117,9 @@ export default abstract class FunctionBuilder {
     for (const func of buildSpec.functionSpec.functions) {
       // add only to codepaths if we haven't already processed that function
       if (!Object.keys(codePaths).includes(func.function)) {
-        const fncRoot = func.repo ? path.join(this.reposCacheDir, func.repo, func.function) :  path.join(this.stackRepoDir, "src", func.function);
+        const fncRoot = func.repo
+          ? path.join(this.reposCacheDir, func.repo, func.function)
+          : path.join(this.stackRepoDir, "src", func.function);
         if (!fsUtils.stat(fncRoot).isDirectory()) {
           throw new Error(`unable to find function directory at ${fncRoot}`);
         }
@@ -135,6 +150,14 @@ export default abstract class FunctionBuilder {
 
   protected async preProcess(def: any) {
     //TODO: We should check that there won't be any files from the function overwritten by the template and viceversa
+
+    if (fsUtils.exists(def.buildPath)) {
+      console.log(
+        `build path exists in build pre process, skipping ${def.buildPath}`
+      );
+      return;
+    }
+
     if (def.eventType !== "raw") {
       // if eventType is raw, we don't copy over a template
       fsUtils.cp(def.templatePath, def.buildPath);
@@ -146,7 +169,7 @@ export default abstract class FunctionBuilder {
         const codePath = def.codePaths[key];
         // if we have more than one function, place the code inside folders
         if (combined) {
-          fsUtils.cp(codePath, path.join(def.buildPath, 'combined', key));
+          fsUtils.cp(codePath, path.join(def.buildPath, "combined", key));
         } else {
           fsUtils.cp(codePath, def.buildPath);
         }

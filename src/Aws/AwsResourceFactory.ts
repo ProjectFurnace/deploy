@@ -51,6 +51,9 @@ export default class AwsResourceFactory {
       "aws.iot.Policy": aws.iot.Policy,
       "aws.iot.PolicyAttachment": aws.iot.PolicyAttachment,
       "aws.cognito.UserPool": aws.cognito.UserPool,
+      "aws.sns.Topic": aws.sns.Topic,
+      "aws.sns.TopicSubscription": aws.sns.TopicSubscription,
+      "aws.sfn.StateMachine": aws.sfn.StateMachine
     };
 
     const provider = providers[type];
@@ -70,8 +73,8 @@ export default class AwsResourceFactory {
         config.attributes = [
           {
             name: config.primaryKey,
-            type: config.primaryKeyType.charAt(0).toUpperCase(),
-          },
+            type: config.primaryKeyType.charAt(0).toUpperCase()
+          }
         ];
         config.hashKey = config.primaryKey;
         config.writeCapacity = 1;
@@ -85,8 +88,8 @@ export default class AwsResourceFactory {
             config,
             "resource",
             [],
-            component.outputs,
-          ),
+            component.outputs
+          )
         ];
 
       case "ActiveConnector":
@@ -104,48 +107,55 @@ export default class AwsResourceFactory {
         }
 
         // create a specific role that allows access to parameter store for the credentials
-        const functionRoleConfig = processor.resourceUtil.configure(ResourceUtil.injectInName(name, 'executionRole'), "aws.iam.Role", {
-          assumeRolePolicy: JSON.stringify({
-            "Version": "2012-10-17",
-            "Statement": [
-              {
-                "Action": "sts:AssumeRole",
-                "Principal": {
-                  "Service": "ecs-tasks.amazonaws.com",
-                },
-                "Effect": "Allow",
-                "Sid": "",
-              },
-            ],
-          })
-        }, 'resource');
+        const functionRoleConfig = processor.resourceUtil.configure(
+          ResourceUtil.injectInName(name, "executionRole"),
+          "aws.iam.Role",
+          {
+            assumeRolePolicy: JSON.stringify({
+              Version: "2012-10-17",
+              Statement: [
+                {
+                  Action: "sts:AssumeRole",
+                  Principal: {
+                    Service: "ecs-tasks.amazonaws.com"
+                  },
+                  Effect: "Allow",
+                  Sid: ""
+                }
+              ]
+            })
+          },
+          "resource"
+        );
 
-        const functionRoleResource = await processor.resourceUtil.register(functionRoleConfig);
-        const role = (functionRoleResource.resource as aws.iam.Role);
-    
+        const functionRoleResource = await processor.resourceUtil.register(
+          functionRoleConfig
+        );
+        const role = functionRoleResource.resource as aws.iam.Role;
+
         const rolePolicyDefStatement: aws.iam.PolicyStatement[] = [
           {
             Effect: "Allow",
             Action: ["ssm:GetParameters"],
             Resource: [
               `arn:aws:ssm:${aws.config.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/*`
-            ],
-          },
+            ]
+          }
         ];
 
         const rolePolicyDef: aws.iam.RolePolicyArgs = {
           role: role.id,
           policy: {
             Version: "2012-10-17",
-            Statement: rolePolicyDefStatement,
-          },
+            Statement: rolePolicyDefStatement
+          }
         };
 
         const rolePolicyConf = processor.resourceUtil.configure(
           ResourceUtil.injectInName(name, "policy"),
           "aws.iam.RolePolicy",
           rolePolicyDef,
-          "resource",
+          "resource"
         );
         processor.resourceUtil.register(rolePolicyConf);
 
@@ -154,9 +164,9 @@ export default class AwsResourceFactory {
           "aws.iam.RolePolicyAttachment",
           {
             role,
-            policyArn: `arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy`,
+            policyArn: `arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy`
           } as aws.iam.RolePolicyAttachmentArgs,
-          "resource",
+          "resource"
         );
         processor.resourceUtil.register(rolePolicyAttachResourceConfig);
 
@@ -177,22 +187,22 @@ export default class AwsResourceFactory {
             dockerBuildPath,
             "https://github.com/ProjectFurnace/active-connector-base",
             "",
-            "",
+            ""
           );
           const dockerUtil = new DockerUtil(
             `activeconnector/${component.name}`,
-            dockerBuildPath,
+            dockerBuildPath
           );
           await dockerUtil.getOrCreateRepo("aws");
           console.log("Building connector image...");
           const buildOut = await dockerUtil.build(
-            `--build-arg OUTPUT_PACKAGE=${outputPackage} --build-arg INPUT_PACKAGE=${inputPackage}`,
+            `--build-arg OUTPUT_PACKAGE=${outputPackage} --build-arg INPUT_PACKAGE=${inputPackage}`
           );
           console.log(buildOut);
           console.log("Pushing image to ECR...");
           await dockerUtil.awsAuthenticate(aws.config.region);
           const pushOut = await dockerUtil.push(
-            `${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`,
+            `${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`
           );
           console.log(pushOut);
         }
@@ -209,7 +219,7 @@ export default class AwsResourceFactory {
             "-" +
             resourceName +
             "-" +
-            processor.resourceUtil.global.stack.environment,
+            processor.resourceUtil.global.stack.environment
         };
 
         // remove credential list from the options so we do not encode those into the INPUT env var
@@ -229,34 +239,34 @@ export default class AwsResourceFactory {
                 {
                   name: "INPUT_OPTIONS",
                   value: Base64Util.toBase64(
-                    JSON.stringify(config.input.options),
-                  ),
+                    JSON.stringify(config.input.options)
+                  )
                 },
                 { name: "INPUT_NAME", value: config.input.name },
                 { name: "INPUT_PACKAGE", value: inputPackage },
                 {
                   name: "OUTPUT_OPTIONS",
-                  value: Base64Util.toBase64(JSON.stringify(outputOptions)),
+                  value: Base64Util.toBase64(JSON.stringify(outputOptions))
                 },
                 { name: "OUTPUT_NAME", value: outputName },
-                { name: "OUTPUT_PACKAGE", value: outputPackage },
-              ],
-            } as awsx.ecs.Container,
+                { name: "OUTPUT_PACKAGE", value: outputPackage }
+              ]
+            } as awsx.ecs.Container
           },
-          ...config,
+          ...config
         } as unknown) as awsx.ecs.FargateServiceArgs;
 
         const vpcConfig = {
           //name: ResourceUtil.injectInName(name, 'vpc'),
           subnets: [
             {
-              type: "private",
-            },
-          ],
+              type: "private"
+            }
+          ]
         } as awsx.ec2.VpcArgs;
 
         const clusterConfig = ({
-          name: ResourceUtil.injectInName(name, "cluster"),
+          name: ResourceUtil.injectInName(name, "cluster")
           // vpc: '${' + component.name + '-vpc}',
         } as unknown) as awsx.ecs.ClusterArgs;
 
@@ -266,14 +276,14 @@ export default class AwsResourceFactory {
             ResourceUtil.injectInName(name, "cluster"),
             "awsx.ecs.Cluster",
             clusterConfig,
-            "resource",
+            "resource"
           ),
           processor.resourceUtil.configure(
             ResourceUtil.injectInName(name, "container"),
             "awsx.ecs.FargateService",
             fargateConfig,
-            "resource",
-          ),
+            "resource"
+          )
         ];
 
       default:
@@ -283,7 +293,14 @@ export default class AwsResourceFactory {
           ] || "name";
         config[nameProp] = name;
         return [
-          processor.resourceUtil.configure(name, type!, config, "resource", component.dependsOn, component.outputs),
+          processor.resourceUtil.configure(
+            name,
+            type!,
+            config,
+            "resource",
+            component.dependsOn,
+            component.outputs
+          )
         ];
     }
   }
