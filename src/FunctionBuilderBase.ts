@@ -57,10 +57,11 @@ export default abstract class FunctionBuilder {
       buildSpec.buildSpec!.templateHash
     );
 
-    if (this.functionHashes.includes(buildSpec.buildSpec!.hash)) {
-      console.log(`function ${def.name} already built, skipping`);
-      return def;
-    }
+    // FIX: causes file not found error on build artifact
+    // if (this.functionHashes.includes(buildSpec.buildSpec!.hash)) {
+    //   console.log(`function ${def.name} already built, skipping`);
+    //   return def;
+    // }
 
     const functionCacheLocation = `${cacheLocation}/${
       buildSpec.buildSpec!.hash
