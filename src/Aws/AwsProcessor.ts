@@ -638,7 +638,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const awsConfig =
       (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
     const defaultRoutingMechanism =
-      awsConfig.defaultRoutingMechanism || "aws.kinesis.Stream";
+      awsConfig.defaultRoutingMechanism || "aws.sqs.Queue";
     const defaultRoutingShards = awsConfig.defaultRoutingShards || 1;
 
     if (!mechanism) {
