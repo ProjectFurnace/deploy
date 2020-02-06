@@ -69,6 +69,20 @@ export default class AwsResourceFactory {
     const { type, config } = component;
 
     switch (type) {
+      case "aws.sfn.StateMachine":
+        config.definition = JSON.stringify(config.definition);
+
+        return [
+          processor.resourceUtil.configure(
+            name,
+            type,
+            config,
+            "resource",
+            [],
+            component.outputs
+          )
+        ];
+
       case "Table":
         config.attributes = [
           {
@@ -200,7 +214,7 @@ export default class AwsResourceFactory {
           );
           console.log(buildOut);
           console.log("Pushing image to ECR...");
-          await dockerUtil.awsAuthenticate(aws.config.region);
+          await dockerUtil.awsAuthenticate(aws.config.region!);
           const pushOut = await dockerUtil.push(
             `${processor.resourceUtil.global.account.id}.dkr.ecr.${aws.config.region}.amazonaws.com`
           );

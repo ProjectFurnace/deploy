@@ -62,7 +62,13 @@ export default class AwsProcessor implements PlatformProcessor {
     );
 
     const routingResourceConfigsPromises = [];
-    routingResourceConfigsPromises.push(...await Promise.all(routingDefs.map(def => this.createRoutingComponent(def.name, def.mechanism, def.config))));
+    routingResourceConfigsPromises.push(
+      ...(await Promise.all(
+        routingDefs.map(def =>
+          this.createRoutingComponent(def.name, def.mechanism, def.config)
+        )
+      ))
+    );
 
     const routingResourceConfigs = [];
     for (const prom of routingResourceConfigsPromises) {
@@ -73,7 +79,7 @@ export default class AwsProcessor implements PlatformProcessor {
     routingResourceConfigs.push(...await Promise.all(routingResourceConfigsPromises));*/
 
     const registeredResources = await this.resourceUtil.batchRegister(
-      routingResourceConfigs,
+      routingResourceConfigs
     );
 
     const resourceConfigsPromises = this.flows
@@ -428,7 +434,7 @@ export default class AwsProcessor implements PlatformProcessor {
         previousType !== outputRes.type &&
         previousType !== "aws.cloudwatch.EventRule"
       ) {*/
-        variables.OUTPUT_TYPE = outputRes.type;
+      variables.OUTPUT_TYPE = outputRes.type;
       //}
     }
 
@@ -437,7 +443,10 @@ export default class AwsProcessor implements PlatformProcessor {
       "aws.lambda.Function",
       {
         name: identifier,
-        handler: "handler.handler",
+        handler:
+          component.functionSpec.eventType === "raw"
+            ? "index.handler"
+            : "handler.handler",
         role: (functionRoleResource.resource as aws.iam.Role).arn,
         runtime: AwsUtil.runtimeFromString(
           component.functionSpec.runtime
@@ -559,28 +568,33 @@ export default class AwsProcessor implements PlatformProcessor {
             this.resourceUtil.configure(
               ResourceUtil.injectInName(identifier, "integration"),
               "aws.apigateway.Integration",
-              {
-                httpMethod: "${" + ResourceUtil.getBits(inputResource.name)[2] + "-method.httpMethod}",
+              ({
+                httpMethod:
+                  "${" +
+                  ResourceUtil.getBits(inputResource.name)[2] +
+                  "-method.httpMethod}",
                 integrationHttpMethod: "POST",
-                resourceId: "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
+                resourceId:
+                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".id}",
                 restApi: "${apigw.id}",
                 type: "AWS_PROXY",
-                uri: "arn:aws:apigateway:${global:stack.region}:lambda:path/2015-03-31/functions/${" +
+                uri:
+                  "arn:aws:apigateway:${global:stack.region}:lambda:path/2015-03-31/functions/${" +
                   identifierBaseName +
-                  ".arn}/invocations",
-              } as unknown as aws.apigateway.IntegrationArgs,
-              "resource",
-            ),
+                  ".arn}/invocations"
+              } as unknown) as aws.apigateway.IntegrationArgs,
+              "resource"
+            )
           );
 
           resourceConfigs.push(
             this.resourceUtil.configure(
               ResourceUtil.injectInName(identifier, "deployment"),
               "aws.apigateway.Deployment",
-              {
+              ({
                 restApi: "${apigw.id}",
                 stageName: this.environment
-              } as unknown as aws.apigateway.DeploymentArgs,
+              } as unknown) as aws.apigateway.DeploymentArgs,
               "resource",
               [identifierBaseName + "-integration"]
             )
@@ -601,7 +615,7 @@ export default class AwsProcessor implements PlatformProcessor {
                   ResourceUtil.getBits(inputResource.name)[2] +
                   "-method.httpMethod}/${" +
                   ResourceUtil.getBits(inputResource.name)[2] +
-                  ".pathPart}",
+                  ".pathPart}"
               } as aws.lambda.PermissionArgs,
               "resource"
             )
@@ -653,7 +667,14 @@ export default class AwsProcessor implements PlatformProcessor {
 
       // add the restapi if it does not exit
       if (!this.apigwRestApiConfig) {
-        resourceConfigs.push(this.resourceUtil.configure(apiGwName, "aws.apigateway.RestApi", {}, "resource"));
+        resourceConfigs.push(
+          this.resourceUtil.configure(
+            apiGwName,
+            "aws.apigateway.RestApi",
+            {},
+            "resource"
+          )
+        );
         this.apigwRestApiConfig = true;
       }
 
@@ -661,25 +682,29 @@ export default class AwsProcessor implements PlatformProcessor {
       const newconfig = {
         parentId: "${apigw.rootResourceId}",
         pathPart: config.pathPart || "",
-        restApi: "${apigw.id}",
+        restApi: "${apigw.id}"
       };
 
       // create the api resource
-      resourceConfigs.push(this.resourceUtil.configure(name, mechanism, newconfig, "resource"));
+      resourceConfigs.push(
+        this.resourceUtil.configure(name, mechanism, newconfig, "resource")
+      );
 
       // create the api method
-      resourceConfigs.push(this.resourceUtil.configure(
-        ResourceUtil.injectInName(name, "method"),
-        "aws.apigateway.Method",
-        {
-          apiKeyRequired: config.apiKeyRequired || false,
-          authorization: config.authorization || "NONE",
-          httpMethod: config.method,
-          resourceId: "${" + ResourceUtil.getBits(name)[2] + ".id}",
-          restApi: "${apigw.id}",
-        } as unknown as aws.apigateway.MethodArgs,
-        "resource",
-      ));
+      resourceConfigs.push(
+        this.resourceUtil.configure(
+          ResourceUtil.injectInName(name, "method"),
+          "aws.apigateway.Method",
+          ({
+            apiKeyRequired: config.apiKeyRequired || false,
+            authorization: config.authorization || "NONE",
+            httpMethod: config.method,
+            resourceId: "${" + ResourceUtil.getBits(name)[2] + ".id}",
+            restApi: "${apigw.id}"
+          } as unknown) as aws.apigateway.MethodArgs,
+          "resource"
+        )
+      );
 
       return resourceConfigs;
     }

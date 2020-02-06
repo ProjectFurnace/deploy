@@ -187,6 +187,7 @@ export default abstract class FunctionBuilder {
     // functionDef: any, codePath: string, templatePath: string, buildPath: string
     switch (def.runtime) {
       case "nodejs8.10":
+      case "nodejs12.x":
         // in case we have more than one package.json file we need to merge
         // them. if it's only one or none, nothing to worry about
         let templatePackage = "{}";
