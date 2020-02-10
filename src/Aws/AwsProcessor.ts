@@ -65,7 +65,12 @@ export default class AwsProcessor implements PlatformProcessor {
     routingResourceConfigsPromises.push(
       ...(await Promise.all(
         routingDefs.map(def =>
-          this.createRoutingComponent(def.name, def.mechanism, def.config)
+          this.createRoutingComponent(
+            def.name,
+            def.mechanism,
+            def.config,
+            def.component
+          )
         )
       ))
     );
@@ -633,7 +638,8 @@ export default class AwsProcessor implements PlatformProcessor {
   private async createRoutingComponent(
     name: string,
     mechanism: string | undefined,
-    config: any
+    config: any,
+    component: any
   ): Promise<ResourceConfig[]> {
     const awsConfig =
       (this.stackConfig.platform && this.stackConfig.platform.aws) || {};
@@ -651,19 +657,65 @@ export default class AwsProcessor implements PlatformProcessor {
       );
     }
 
+    const resourceConfigs = [];
+
+    const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
+
     // set some defauls depending on the routing mechanism
     if (mechanism === "aws.kinesis.Stream") {
       if (!config.shardCount) {
         config.shardCount = defaultRoutingShards; // TODO: allow shards to be set in config
       }
     } else if (mechanism === "aws.sqs.Queue") {
+      let deadLetterName;
+      let deadLetterTargetArn;
+      let maxReceiveCount = 5;
+
+      // TODO: this is a hack for injecting the DLQ suffix, clean it up
+      deadLetterName = name.replace(
+        `-${this.environment}`,
+        `-dlq-${this.environment}`
+      );
+      deadLetterTargetArn = `arn:aws:sqs:${aws.config.region}:${identity.accountId}:${deadLetterName}`;
+
+      resourceConfigs.push(
+        this.resourceUtil.configure(deadLetterName, mechanism, {}, "resource")
+      );
+
+      // config.redrivePolicy =
+      //   '{"deadLetterTargetArn": "${' +
+      //   deadLetterTargetArn +
+      //   '}", "maxReceiveCount": "5"}';
+
+      // config.redrivePolicy =
+      //   '{"deadLetterTargetArn": "' +
+      //   deadLetterTargetArn +
+      //   '", "maxReceiveCount": "5"}';
+
+      // console.log(config.redrivePolicy);
+
+      config.redrivePolicy = JSON.stringify({
+        deadLetterTargetArn,
+        maxReceiveCount: "5"
+      });
+
+      // stuffing a reference to the dependsOn property to invoke dependency
+      config.dependsOn =
+        "${" +
+        deadLetterName
+          .replace(`${this.stackConfig.name}-`, "")
+          .replace(`-${this.environment}`, "") +
+        ".arn}";
+
       if (!config.visibilityTimeoutSeconds) {
         config.visibilityTimeoutSeconds = 60;
       }
+
+      resourceConfigs.push(
+        this.resourceUtil.configure(name, mechanism, config, "resource")
+      );
     } else if (mechanism === "aws.apigateway.Resource") {
       const apiGwName = `${this.stackConfig.name}-apigw-${this.environment}`;
-
-      const resourceConfigs = [];
 
       // add the restapi if it does not exit
       if (!this.apigwRestApiConfig) {
@@ -705,11 +757,8 @@ export default class AwsProcessor implements PlatformProcessor {
           "resource"
         )
       );
-
-      return resourceConfigs;
     }
-
-    return [this.resourceUtil.configure(name, mechanism, config, "resource")];
+    return resourceConfigs;
   }
 
   private validate() {
