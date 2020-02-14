@@ -666,6 +666,10 @@ export default class AwsProcessor implements PlatformProcessor {
       if (!config.shardCount) {
         config.shardCount = defaultRoutingShards; // TODO: allow shards to be set in config
       }
+
+      resourceConfigs.push(
+        this.resourceUtil.configure(name, mechanism, config, "resource")
+      );
     } else if (mechanism === "aws.sqs.Queue") {
       let deadLetterName;
       let deadLetterTargetArn;
@@ -691,8 +695,6 @@ export default class AwsProcessor implements PlatformProcessor {
       //   '{"deadLetterTargetArn": "' +
       //   deadLetterTargetArn +
       //   '", "maxReceiveCount": "5"}';
-
-      // console.log(config.redrivePolicy);
 
       config.redrivePolicy = JSON.stringify({
         deadLetterTargetArn,
@@ -756,6 +758,10 @@ export default class AwsProcessor implements PlatformProcessor {
           } as unknown) as aws.apigateway.MethodArgs,
           "resource"
         )
+      );
+    } else {
+      resourceConfigs.push(
+        this.resourceUtil.configure(name, mechanism, config, "resource")
       );
     }
     return resourceConfigs;
