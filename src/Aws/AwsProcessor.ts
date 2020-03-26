@@ -199,6 +199,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const buildDef = await this.functionBuilder!.processFunction(component);
 
     const s3Key = `${component.meta!.identifier}/${component.buildSpec!.hash}`;
+
     if (!pulumi.runtime.isDryRun()) {
       await this.functionBuilder!.uploadArtifcat(
         this.buildBucket,
@@ -673,7 +674,7 @@ export default class AwsProcessor implements PlatformProcessor {
     } else if (mechanism === "aws.sqs.Queue") {
       let deadLetterName;
       let deadLetterTargetArn;
-      let maxReceiveCount = 5;
+      let maxReceiveCount = awsConfig.deadLetterMaxReceiveCount || 3;
 
       // TODO: this is a hack for injecting the DLQ suffix, clean it up
       deadLetterName = name.replace(
@@ -698,7 +699,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
       config.redrivePolicy = JSON.stringify({
         deadLetterTargetArn,
-        maxReceiveCount: "5"
+        maxReceiveCount
       });
 
       // stuffing a reference to the dependsOn property to invoke dependency
