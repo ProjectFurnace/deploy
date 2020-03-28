@@ -80,9 +80,6 @@ export default class AwsProcessor implements PlatformProcessor {
       routingResourceConfigs.push(...prom);
     }
 
-    /*const routingResourceConfigs = [];
-    routingResourceConfigs.push(...await Promise.all(routingResourceConfigsPromises));*/
-
     const registeredResources = await this.resourceUtil.batchRegister(
       routingResourceConfigs
     );
@@ -270,6 +267,7 @@ export default class AwsProcessor implements PlatformProcessor {
             case "aws.cloudwatch.EventRule":
             case "aws.s3.Bucket":
             case "aws.apigateway.Resource":
+            case "RestApi":
               break;
 
             default:
@@ -569,6 +567,7 @@ export default class AwsProcessor implements PlatformProcessor {
           break;
 
         case "aws.apigateway.Resource":
+        case "RestApi":
           // create the pending bits for the api resource that link to the function
           resourceConfigs.push(
             this.resourceUtil.configure(
@@ -652,6 +651,8 @@ export default class AwsProcessor implements PlatformProcessor {
       mechanism = defaultRoutingMechanism;
     }
 
+    if (mechanism === "RestApi") mechanism = "aws.apigateway.Resource";
+
     if (!name) {
       throw new Error(
         `unable to get name for routing resource for component: '${name}'`
@@ -717,7 +718,7 @@ export default class AwsProcessor implements PlatformProcessor {
       resourceConfigs.push(
         this.resourceUtil.configure(name, mechanism, config, "resource")
       );
-    } else if (mechanism === "aws.apigateway.Resource") {
+    } else if (["aws.apigateway.Resource"].includes(mechanism)) {
       const apiGwName = `${this.stackConfig.name}-apigw-${this.environment}`;
 
       // add the restapi if it does not exit
@@ -736,7 +737,7 @@ export default class AwsProcessor implements PlatformProcessor {
       // prepare config for the resource
       const newconfig = {
         parentId: "${apigw.rootResourceId}",
-        pathPart: config.pathPart || "",
+        pathPart: config.pathPart || name,
         restApi: "${apigw.id}"
       };
 
@@ -766,6 +767,13 @@ export default class AwsProcessor implements PlatformProcessor {
       );
     }
     return resourceConfigs;
+  }
+
+  private translateResource(type: string) {
+    // Native Resources
+    // Timer: aws.cloudwatch.EventRule,
+    // Stream: aws.sqs.Queue,
+    return type;
   }
 
   private validate() {

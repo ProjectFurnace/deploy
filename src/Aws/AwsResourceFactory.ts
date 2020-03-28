@@ -16,6 +16,7 @@ export default class AwsResourceFactory {
     const providers: { [key: string]: any } = {
       // Native Resources
       Timer: aws.cloudwatch.EventRule,
+      Stream: aws.sqs.Queue,
 
       // AWS Specific
       "aws.elasticsearch.Domain": aws.elasticsearch.Domain,
