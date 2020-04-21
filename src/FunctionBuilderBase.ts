@@ -43,7 +43,7 @@ export default abstract class FunctionBuilder {
     //   buildSpec.buildSpec!.functionHash,
     //   buildSpec.buildSpec!.templateHash
     // );
-    // console.log("hash", buildSpec.name, hash);
+
     const def = await this.getFunctionDef(buildSpec);
 
     await this.preProcess(def);
@@ -69,6 +69,13 @@ export default abstract class FunctionBuilder {
 
     if (fsUtils.exists(functionCacheLocation)) {
       // now copy the cached version
+      // if (process.env.FURNACE_DEBUG)
+      console.log(
+        "building from cache",
+        functionCacheLocation,
+        def.buildArtifact
+      );
+
       fsUtils.cp(functionCacheLocation, def.buildArtifact);
     } else {
       // TODO: Build only when its not preview. No point in building during preview
@@ -143,7 +150,7 @@ export default abstract class FunctionBuilder {
       identifier,
       sources,
       output,
-      eventType
+      eventType,
     };
 
     return def;
@@ -275,7 +282,7 @@ export default abstract class FunctionBuilder {
 
       const execResult = await execPromise("npm install --production", {
         cwd: buildPath,
-        env: process.env
+        env: process.env,
       });
 
       if (execResult.stderr) {

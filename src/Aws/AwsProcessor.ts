@@ -1,7 +1,7 @@
 import {
   BuildSpec,
   Stack,
-  Tap
+  Tap,
 } from "@project-furnace/stack-processor/src/Model";
 import * as aws from "@pulumi/aws";
 import * as pulumi from "@pulumi/pulumi";
@@ -43,13 +43,13 @@ export default class AwsProcessor implements PlatformProcessor {
 
     this.resourceUtil.setGlobal({
       account: {
-        id: identity.accountId
+        id: identity.accountId,
       },
       stack: {
         environment: this.environment,
         name: this.stackConfig.name,
-        region: aws.config.region
-      }
+        region: aws.config.region,
+      },
     });
 
     let routingDefs = ResourceUtil.getRoutingDefinitions(
@@ -58,13 +58,13 @@ export default class AwsProcessor implements PlatformProcessor {
     );
 
     const functionComponents = this.flows.filter(
-      flow => flow.functionSpec !== undefined
+      (flow) => flow.functionSpec !== undefined
     );
 
     const routingResourceConfigsPromises = [];
     routingResourceConfigsPromises.push(
       ...(await Promise.all(
-        routingDefs.map(def =>
+        routingDefs.map((def) =>
           this.createRoutingComponent(
             def.name,
             def.mechanism,
@@ -85,8 +85,8 @@ export default class AwsProcessor implements PlatformProcessor {
     );
 
     const resourceConfigsPromises = this.flows
-      .filter(flow => ["resource", "connector"].includes(flow.construct))
-      .map(flow => AwsResourceFactory.getResourceConfig(flow, this));
+      .filter((flow) => ["resource", "connector"].includes(flow.construct))
+      .map((flow) => AwsResourceFactory.getResourceConfig(flow, this));
 
     const resourceConfigs = [];
 
@@ -100,11 +100,11 @@ export default class AwsProcessor implements PlatformProcessor {
     let resources;
 
     for (const component of functionComponents) {
-      const routingResources = registeredResources.filter(r =>
+      const routingResources = registeredResources.filter((r) =>
         component.meta!.sources!.includes(r.name)
       );
       const outputRoutingResources = registeredResources.filter(
-        r => component.meta!.output! === r.name
+        (r) => component.meta!.output! === r.name
       );
 
       [resources, pendingFunctionConfigs] = await this.createFunctionResource(
@@ -113,8 +113,8 @@ export default class AwsProcessor implements PlatformProcessor {
         outputRoutingResources,
         identity.accountId
       );
-      resources.forEach(resource => functionResources.push(resource));
-      pendingFunctionConfigs.forEach(functionConfig =>
+      resources.forEach((resource) => functionResources.push(resource));
+      pendingFunctionConfigs.forEach((functionConfig) =>
         resourceConfigs.push(functionConfig)
       );
     }
@@ -131,7 +131,7 @@ export default class AwsProcessor implements PlatformProcessor {
     return [
       ...registeredResources,
       ...resourceResources,
-      ...([] as RegisteredResource[]).concat(...functionResources) // flatten the functionResources
+      ...([] as RegisteredResource[]).concat(...functionResources), // flatten the functionResources
     ];
   }
 
@@ -150,7 +150,7 @@ export default class AwsProcessor implements PlatformProcessor {
               {
                 name: `/${process.env.FURNACE_INSTANCE}/${nameBits[1]}/${nameBits[2]}.${key}/${nameBits[3]}`,
                 type: "SecureString",
-                value: resource[outputs[key]]
+                value: resource[outputs[key]],
               },
               "resource"
             )
@@ -220,12 +220,12 @@ export default class AwsProcessor implements PlatformProcessor {
               Action: "sts:AssumeRole",
               Effect: "Allow",
               Principal: {
-                Service: "lambda.amazonaws.com"
+                Service: "lambda.amazonaws.com",
               },
-              Sid: ""
-            }
-          ]
-        })
+              Sid: "",
+            },
+          ],
+        }),
       },
       "resource"
     );
@@ -243,7 +243,7 @@ export default class AwsProcessor implements PlatformProcessor {
     if (component.meta!.sources!) {
       var previousType;
       for (const source of component.meta!.sources!) {
-        const inputRes = inputResources.find(r => r.name === source);
+        const inputRes = inputResources.find((r) => r.name === source);
         if (inputRes) {
           if (previousType && previousType !== inputRes.type) {
             throw new Error(
@@ -259,6 +259,7 @@ export default class AwsProcessor implements PlatformProcessor {
               break;
 
             case "aws.sqs.Queue":
+            case "Stream":
               sqsResources.push(
                 `arn:aws:sqs:${aws.config.region}:${accountId}:${source}`
               );
@@ -267,6 +268,7 @@ export default class AwsProcessor implements PlatformProcessor {
             case "aws.cloudwatch.EventRule":
             case "aws.s3.Bucket":
             case "aws.apigateway.Resource":
+            case "Timer":
             case "RestApi":
               break;
 
@@ -281,7 +283,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
     if (component.meta!.output) {
       var outputRes = outputResources.find(
-        r => r.name === component.meta!.output
+        (r) => r.name === component.meta!.output
       );
       if (outputRes) {
         switch (outputRes.type) {
@@ -294,6 +296,7 @@ export default class AwsProcessor implements PlatformProcessor {
             break;
 
           case "aws.sqs.Queue":
+          case "Stream":
             sqsResources.push(
               `arn:aws:sqs:${aws.config.region}:${accountId}:${
                 component.meta!.output
@@ -317,17 +320,17 @@ export default class AwsProcessor implements PlatformProcessor {
         Action: [
           "logs:CreateLogGroup",
           "logs:CreateLogStream",
-          "logs:PutLogEvents"
+          "logs:PutLogEvents",
         ],
-        Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`
+        Resource: `arn:aws:logs:${aws.config.region}:${accountId}:*`,
       },
       {
         Effect: "Allow",
         Action: ["ssm:GetParametersByPath"],
         Resource: [
-          `arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`
-        ]
-      }
+          `arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`,
+        ],
+      },
     ];
 
     if (kinesisResources.length > 0) {
@@ -338,10 +341,10 @@ export default class AwsProcessor implements PlatformProcessor {
           "kinesis:PutRecords",
           "kinesis:GetShardIterator",
           "kinesis:GetRecords",
-          "kinesis:ListStreams"
+          "kinesis:ListStreams",
         ],
         Effect: "Allow",
-        Resource: kinesisResources
+        Resource: kinesisResources,
       });
     }
 
@@ -354,19 +357,19 @@ export default class AwsProcessor implements PlatformProcessor {
           "sqs:DeleteMessage",
           "sqs:DeleteMessageBatch",
           "sqs:SendMessage",
-          "sqs:SendMessageBatch"
+          "sqs:SendMessageBatch",
         ],
         Effect: "Allow",
-        Resource: sqsResources
+        Resource: sqsResources,
       });
     }
 
     const rolePolicyDef: aws.iam.RolePolicyArgs = {
       policy: {
         Statement: rolePolicyDefStatement,
-        Version: "2012-10-17"
+        Version: "2012-10-17",
       },
-      role: role.id
+      role: role.id,
     };
 
     const rolePolicyConf = this.resourceUtil.configure(
@@ -384,7 +387,7 @@ export default class AwsProcessor implements PlatformProcessor {
           "aws.iam.RolePolicyAttachment",
           {
             policyArn: `arn:aws:iam::aws:policy/${p}`,
-            role
+            role,
           } as aws.iam.RolePolicyAttachmentArgs,
           "resource"
         );
@@ -397,7 +400,7 @@ export default class AwsProcessor implements PlatformProcessor {
     const variables: { [key: string]: string } = {
       FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || "undefined",
       STACK_ENV: this.environment || "undefined",
-      STACK_NAME: stackName || "undefined"
+      STACK_NAME: stackName || "undefined",
     };
 
     // we have a combined function
@@ -415,12 +418,8 @@ export default class AwsProcessor implements PlatformProcessor {
     }
 
     for (const param of component.functionSpec.functions[0].parameters || []) {
-      variables[
-        param[0]
-          .toUpperCase()
-          .replace(/'/g, "")
-          .replace(/-/g, "_")
-      ] = param[1];
+      variables[param[0].toUpperCase().replace(/'/g, "").replace(/-/g, "_")] =
+        param[1];
     }
 
     if (component.construct !== "sink") {
@@ -461,7 +460,7 @@ export default class AwsProcessor implements PlatformProcessor {
         s3Key,
         memorySize: 256,
         timeout: 60,
-        environment: { variables }
+        environment: { variables },
       },
       "function"
     );
@@ -476,7 +475,7 @@ export default class AwsProcessor implements PlatformProcessor {
         enabled: true,
         eventSourceArn: (inputResource.resource as any).arn,
         //eventSourceArn: `arn:aws:sqs:${aws.config.region}:${accountId}:${inputResource.name}`,
-        functionName: identifier
+        functionName: identifier,
       };
 
       if (inputResource.type === "aws.kinesis.Stream") {
@@ -487,6 +486,7 @@ export default class AwsProcessor implements PlatformProcessor {
       switch (inputResource.type) {
         case "aws.kinesis.Stream":
         case "aws.sqs.Queue":
+        case "Stream":
           resourceConfigs.push(
             this.resourceUtil.configure(
               ResourceUtil.injectInName(
@@ -501,6 +501,7 @@ export default class AwsProcessor implements PlatformProcessor {
           break;
 
         case "aws.cloudwatch.EventRule":
+        case "Timer":
           resourceConfigs.push(
             this.resourceUtil.configure(
               ResourceUtil.injectInName(identifier, "eventTarget"),
@@ -508,7 +509,7 @@ export default class AwsProcessor implements PlatformProcessor {
               {
                 //arn: (lambda.resource as aws.lambda.Function).arn,
                 arn: "${" + identifierBaseName + ".arn}",
-                rule: inputResource.name
+                rule: inputResource.name,
               } as aws.cloudwatch.EventTargetArgs,
               "resource"
             )
@@ -524,7 +525,7 @@ export default class AwsProcessor implements PlatformProcessor {
                 function: "${" + identifierBaseName + ".name}",
                 principal: "events.amazonaws.com",
                 sourceArn:
-                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}"
+                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
               } as aws.lambda.PermissionArgs,
               "resource"
             )
@@ -541,7 +542,7 @@ export default class AwsProcessor implements PlatformProcessor {
                 function: "${" + identifierBaseName + ".arn}",
                 principal: "s3.amazonaws.com",
                 sourceArn:
-                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}"
+                  "${" + ResourceUtil.getBits(inputResource.name)[2] + ".arn}",
               } as aws.lambda.PermissionArgs,
               "resource"
             )
@@ -557,9 +558,9 @@ export default class AwsProcessor implements PlatformProcessor {
                 lambdaFunctions: [
                   {
                     events: ["s3:ObjectCreated:*"],
-                    lambdaFunctionArn: "${" + identifierBaseName + ".arn}"
-                  }
-                ]
+                    lambdaFunctionArn: "${" + identifierBaseName + ".arn}",
+                  },
+                ],
               } as aws.s3.BucketNotificationArgs,
               "resource"
             )
@@ -586,7 +587,7 @@ export default class AwsProcessor implements PlatformProcessor {
                 uri:
                   "arn:aws:apigateway:${global:stack.region}:lambda:path/2015-03-31/functions/${" +
                   identifierBaseName +
-                  ".arn}/invocations"
+                  ".arn}/invocations",
               } as unknown) as aws.apigateway.IntegrationArgs,
               "resource"
             )
@@ -598,7 +599,7 @@ export default class AwsProcessor implements PlatformProcessor {
               "aws.apigateway.Deployment",
               ({
                 restApi: "${apigw.id}",
-                stageName: this.environment
+                stageName: this.environment,
               } as unknown) as aws.apigateway.DeploymentArgs,
               "resource",
               [identifierBaseName + "-integration"]
@@ -620,7 +621,7 @@ export default class AwsProcessor implements PlatformProcessor {
                   ResourceUtil.getBits(inputResource.name)[2] +
                   "-method.httpMethod}/${" +
                   ResourceUtil.getBits(inputResource.name)[2] +
-                  ".pathPart}"
+                  ".pathPart}",
               } as aws.lambda.PermissionArgs,
               "resource"
             )
@@ -700,7 +701,7 @@ export default class AwsProcessor implements PlatformProcessor {
 
       config.redrivePolicy = JSON.stringify({
         deadLetterTargetArn,
-        maxReceiveCount
+        maxReceiveCount,
       });
 
       // stuffing a reference to the dependsOn property to invoke dependency
@@ -738,7 +739,7 @@ export default class AwsProcessor implements PlatformProcessor {
       const newconfig = {
         parentId: "${apigw.rootResourceId}",
         pathPart: config.pathPart || name,
-        restApi: "${apigw.id}"
+        restApi: "${apigw.id}",
       };
 
       // create the api resource
@@ -756,7 +757,7 @@ export default class AwsProcessor implements PlatformProcessor {
             authorization: config.authorization || "NONE",
             httpMethod: config.method,
             resourceId: "${" + ResourceUtil.getBits(name)[2] + ".id}",
-            restApi: "${apigw.id}"
+            restApi: "${apigw.id}",
           } as unknown) as aws.apigateway.MethodArgs,
           "resource"
         )

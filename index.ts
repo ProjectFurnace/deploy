@@ -16,12 +16,7 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
     gitUsername = process.env.GIT_USERNAME,
     gitToken = process.env.GIT_TOKEN,
     buildBucket = process.env.BUILD_BUCKET,
-    environment =
-      process.env.ENVIRONMENT ||
-      pulumi
-        .getStack()
-        .split("-")
-        .pop(),
+    environment = process.env.ENVIRONMENT || pulumi.getStack().split("-").pop(),
     platform = process.env.PLATFORM,
     stackRepoDir = process.env.REPO_DIR || "/tmp/stack/",
     functionsDir = path.join(stackRepoDir, "src"),
@@ -43,6 +38,7 @@ import PlatformProcessorFactory from "./src/PlatformProcessorFactory";
       gitUsername!,
       gitToken!
     );
+
     if (process.env.FN_TEMPLATES_TAG) {
       await gitUtils.checkout(templateRepoDir, process.env.FN_TEMPLATES_TAG);
     }

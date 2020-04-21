@@ -58,7 +58,7 @@ export default class AwsResourceFactory {
       "aws.cognito.UserPool": aws.cognito.UserPool,
       "aws.sns.Topic": aws.sns.Topic,
       "aws.sns.TopicSubscription": aws.sns.TopicSubscription,
-      "aws.sfn.StateMachine": aws.sfn.StateMachine
+      "aws.sfn.StateMachine": aws.sfn.StateMachine,
     };
 
     const provider = providers[type];
@@ -85,15 +85,15 @@ export default class AwsResourceFactory {
             "resource",
             [],
             component.outputs
-          )
+          ),
         ];
 
       case "Table":
         config.attributes = [
           {
             name: config.primaryKey,
-            type: config.primaryKeyType.charAt(0).toUpperCase()
-          }
+            type: config.primaryKeyType.charAt(0).toUpperCase(),
+          },
         ];
         config.hashKey = config.primaryKey;
         config.writeCapacity = 1;
@@ -108,7 +108,7 @@ export default class AwsResourceFactory {
             "resource",
             [],
             component.outputs
-          )
+          ),
         ];
 
       case "ActiveConnector":
@@ -133,7 +133,7 @@ export default class AwsResourceFactory {
             "resource",
             component.dependsOn,
             component.outputs
-          )
+          ),
         ];
     }
   }
@@ -151,7 +151,7 @@ export default class AwsResourceFactory {
         name: (config.input.name + "_" + item).toUpperCase().replace(/-/g, "_"),
         // if we were doing params on different regions we'd need the full ARN
         // valueFrom: `arn:aws:ssm:${processor.resourceUtil.global.stack.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}-${item}-${processor.resourceUtil.global.stack.environment}`
-        valueFrom: `/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/${item}`
+        valueFrom: `/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/${item}`,
       });
     }
 
@@ -166,13 +166,13 @@ export default class AwsResourceFactory {
             {
               Action: "sts:AssumeRole",
               Principal: {
-                Service: "ecs-tasks.amazonaws.com"
+                Service: "ecs-tasks.amazonaws.com",
               },
               Effect: "Allow",
-              Sid: ""
-            }
-          ]
-        })
+              Sid: "",
+            },
+          ],
+        }),
       },
       "resource"
     );
@@ -187,17 +187,17 @@ export default class AwsResourceFactory {
         Effect: "Allow",
         Action: ["ssm:GetParameters"],
         Resource: [
-          `arn:aws:ssm:${aws.config.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/*`
-        ]
-      }
+          `arn:aws:ssm:${aws.config.region}:${processor.resourceUtil.global.account.id}:parameter/${process.env.FURNACE_INSTANCE}/${processor.resourceUtil.global.stack.name}/${processor.resourceUtil.global.stack.environment}/activeconnector/${config.input.name}/*`,
+        ],
+      },
     ];
 
     const rolePolicyDef: aws.iam.RolePolicyArgs = {
       role: role.id,
       policy: {
         Version: "2012-10-17",
-        Statement: rolePolicyDefStatement
-      }
+        Statement: rolePolicyDefStatement,
+      },
     };
 
     const rolePolicyConf = processor.resourceUtil.configure(
@@ -213,7 +213,7 @@ export default class AwsResourceFactory {
       "aws.iam.RolePolicyAttachment",
       {
         role,
-        policyArn: `arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy`
+        policyArn: `arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy`,
       } as aws.iam.RolePolicyAttachmentArgs,
       "resource"
     );
@@ -266,7 +266,7 @@ export default class AwsResourceFactory {
         "-" +
         resourceName +
         "-" +
-        processor.resourceUtil.global.stack.environment
+        processor.resourceUtil.global.stack.environment,
     };
 
     // remove credential list from the options so we do not encode those into the INPUT env var
@@ -285,33 +285,33 @@ export default class AwsResourceFactory {
           environment: [
             {
               name: "INPUT_OPTIONS",
-              value: Base64Util.toBase64(JSON.stringify(config.input.options))
+              value: Base64Util.toBase64(JSON.stringify(config.input.options)),
             },
             { name: "INPUT_NAME", value: config.input.name },
             { name: "INPUT_PACKAGE", value: inputPackage },
             {
               name: "OUTPUT_OPTIONS",
-              value: Base64Util.toBase64(JSON.stringify(outputOptions))
+              value: Base64Util.toBase64(JSON.stringify(outputOptions)),
             },
             { name: "OUTPUT_NAME", value: outputName },
-            { name: "OUTPUT_PACKAGE", value: outputPackage }
-          ]
-        } as awsx.ecs.Container
+            { name: "OUTPUT_PACKAGE", value: outputPackage },
+          ],
+        } as awsx.ecs.Container,
       },
-      ...config
+      ...config,
     } as unknown) as awsx.ecs.FargateServiceArgs;
 
     const vpcConfig = {
       //name: ResourceUtil.injectInName(name, 'vpc'),
       subnets: [
         {
-          type: "private"
-        }
-      ]
+          type: "private",
+        },
+      ],
     } as awsx.ec2.VpcArgs;
 
     const clusterConfig = ({
-      name: ResourceUtil.injectInName(name, "cluster")
+      name: ResourceUtil.injectInName(name, "cluster"),
       // vpc: '${' + component.name + '-vpc}',
     } as unknown) as awsx.ecs.ClusterArgs;
 
@@ -328,7 +328,7 @@ export default class AwsResourceFactory {
         "awsx.ecs.FargateService",
         fargateConfig,
         "resource"
-      )
+      ),
     ];
   }
 }
