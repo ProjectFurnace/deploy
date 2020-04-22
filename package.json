@@ -23,7 +23,7 @@
   "dependencies": {
     "@google-cloud/kms": "^1.6.2",
     "@google-cloud/storage": "^4.3.0",
-    "@project-furnace/fsutils": "^0.1.6",
+    "@project-furnace/fsutils": "^0.1.8",
     "@project-furnace/gitutils": "^0.1.4",
     "@project-furnace/s3utils": "^0.1.6",
     "@project-furnace/stack-processor": "^0.0.20",
