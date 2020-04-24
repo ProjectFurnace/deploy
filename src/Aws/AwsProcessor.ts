@@ -357,6 +357,21 @@ export default class AwsProcessor implements PlatformProcessor {
           `arn:aws:ssm:${aws.config.region}:${accountId}:parameter/${process.env.FURNACE_INSTANCE}/${identifier}/*`,
         ],
       },
+      {
+        Effect: "Allow",
+        Action: [
+          "dynamodb:BatchGetItem",
+          "dynamodb:GetItem",
+          "dynamodb:Query",
+          "dynamodb:Scan",
+          "dynamodb:BatchWriteItem",
+          "dynamodb:PutItem",
+          "dynamodb:UpdateItem",
+        ],
+        Resource: [
+          `arn:aws:dynamodb:${aws.config.region}:${accountId}:table/${this.stackConfig.name}-lookup-${this.environment}`,
+        ],
+      },
     ];
 
     if (kinesisResources.length > 0) {
