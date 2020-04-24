@@ -81,7 +81,7 @@ export default class ResourceUtil {
       config: _.cloneDeep(componentConfig),
       mechanism: component && component.type ? component.type : undefined,
       name: name!,
-      component
+      component,
     };
   }
 
@@ -108,7 +108,7 @@ export default class ResourceUtil {
 
   private static findResourceOrConfigByName(name: string, items: any[]) {
     if (items.length > 0) {
-      return items.find(item => item.name === name);
+      return items.find((item) => item.name === name);
     }
     return false;
   }
@@ -144,7 +144,7 @@ export default class ResourceUtil {
       outputs,
       propertiesWithVars,
       scope,
-      type
+      type,
     };
   }
 
@@ -175,8 +175,10 @@ export default class ResourceUtil {
                     fragment.default
                   )
                 );
-              } else if (fragment.scope === "secret") {
-                const secretName = `/${process.env.FURNACE_INSTANCE}/${this.stackName}/${this.environment}/${fragment.resource}`;
+              } else if (fragment.resource === "secret") {
+                // WARNING: bug fixed here, change above if from fragment.scope to fragment.resource, unable to work out if that was the intention
+
+                const secretName = `/${process.env.FURNACE_INSTANCE}/${this.stackName}/${this.environment}/${fragment.bindTo}`; // changed last part to fragment.bindTo from fragment.resource, see above
 
                 try {
                   const secret = await AwsUtil.getSecretSM(secretName);
@@ -240,7 +242,7 @@ export default class ResourceUtil {
                 propertyWithVars.property,
                 pulumi
                   .all(toConcat)
-                  .apply(toConcat => Base64Util.toBase64(toConcat.join("")))
+                  .apply((toConcat) => Base64Util.toBase64(toConcat.join("")))
               );
             } else {
               _.set(
@@ -270,7 +272,7 @@ export default class ResourceUtil {
       }
 
       const instance = new provider(config.name, newConfig, {
-        dependsOn: dependencies
+        dependsOn: dependencies,
       }) as pulumi.CustomResource;
 
       if (config.outputs) {
@@ -280,7 +282,7 @@ export default class ResourceUtil {
       return {
         name: config.name,
         resource: instance,
-        type: config.type
+        type: config.type,
       };
     } catch (err) {
       throw new Error(

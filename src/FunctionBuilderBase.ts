@@ -180,7 +180,6 @@ export default abstract class FunctionBuilder {
           fsUtils.cp(codePath, path.join(def.buildPath, "combined", key));
         } else {
           fsUtils.cp(codePath, def.buildPath, {
-            // filter: (src: any) => src !== "node_modules",
             filter: (src: any) => !src.match("node_modules"),
           });
         }

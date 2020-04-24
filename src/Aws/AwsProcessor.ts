@@ -401,6 +401,7 @@ export default class AwsProcessor implements PlatformProcessor {
       FURNACE_INSTANCE: process.env.FURNACE_INSTANCE || "undefined",
       STACK_ENV: this.environment || "undefined",
       STACK_NAME: stackName || "undefined",
+      FURNACE_CONSTRUCT: component.construct,
     };
 
     // we have a combined function
