@@ -52,6 +52,8 @@ export default class AwsProcessor implements PlatformProcessor {
       },
     });
 
+    await this.createBaseComponents(this.stackConfig.name, this.environment);
+
     let routingDefs = ResourceUtil.getRoutingDefinitions(
       this.flows,
       this.PLATFORM
@@ -133,6 +135,30 @@ export default class AwsProcessor implements PlatformProcessor {
       ...resourceResources,
       ...([] as RegisteredResource[]).concat(...functionResources), // flatten the functionResources
     ];
+  }
+
+  private createBaseComponents(stackName: string, environment: string) {
+    // TODO: leverage autoscaling here https://www.terraform.io/docs/providers/aws/r/appautoscaling_policy.html
+    // aws.appautoscaling.Target
+    // aws.appautoscaling.Policy
+
+    const lookupTableName = `${stackName}-lookup-${environment}`;
+    new aws.dynamodb.Table(lookupTableName, {
+      name: lookupTableName,
+      attributes: [
+        {
+          name: "lookupId",
+          type: "S",
+        },
+        {
+          name: "keyId",
+          type: "S",
+        },
+      ],
+      billingMode: "PAY_PER_REQUEST",
+      hashKey: "lookupId",
+      rangeKey: "keyId",
+    });
   }
 
   public processOutputs(name: string, resource: any, outputs: any) {
