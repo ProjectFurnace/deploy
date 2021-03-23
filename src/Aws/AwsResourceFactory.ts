@@ -17,6 +17,7 @@ export default class AwsResourceFactory {
       // Native Resources
       Timer: aws.cloudwatch.EventRule,
       Stream: aws.sqs.Queue,
+      Queue: aws.sqs.Queue,
 
       // AWS Specific
       "aws.elasticsearch.Domain": aws.elasticsearch.Domain,

@@ -2,6 +2,8 @@ FROM projectfurnace/deploy-base:latest
 
 RUN pip3 install awscli
 
+RUN pulumi plugin install resource aws v0.18.23
+
 WORKDIR /app
 
 ARG NPM_TOKEN  

@@ -279,13 +279,14 @@ export default class AwsProcessor implements PlatformProcessor {
           previousType = inputRes.type;
           switch (inputRes.type) {
             case "aws.kinesis.Stream":
+            case "Stream":
               kinesisResources.push(
                 `arn:aws:kinesis:${aws.config.region}:${accountId}:stream/${source}`
               );
               break;
 
             case "aws.sqs.Queue":
-            case "Stream":
+            case "Queue":
               sqsResources.push(
                 `arn:aws:sqs:${aws.config.region}:${accountId}:${source}`
               );
@@ -529,17 +530,20 @@ export default class AwsProcessor implements PlatformProcessor {
         case "aws.kinesis.Stream":
         case "aws.sqs.Queue":
         case "Stream":
+          const mapping = this.resourceUtil.configure(
+            ResourceUtil.injectInName(
+              identifier,
+              "source" + inputResources.indexOf(inputResource)
+            ),
+            "aws.lambda.EventSourceMapping",
+            sourceMappingConfig,
+            "resource"
+          )
+         
           resourceConfigs.push(
-            this.resourceUtil.configure(
-              ResourceUtil.injectInName(
-                identifier,
-                "source" + inputResources.indexOf(inputResource)
-              ),
-              "aws.lambda.EventSourceMapping",
-              sourceMappingConfig,
-              "resource"
-            )
+            mapping
           );
+
           break;
 
         case "aws.cloudwatch.EventRule":
@@ -715,7 +719,7 @@ export default class AwsProcessor implements PlatformProcessor {
       resourceConfigs.push(
         this.resourceUtil.configure(name, mechanism, config, "resource")
       );
-    } else if (mechanism === "aws.sqs.Queue") {
+    } else if (["aws.sqs.Queue", "Queue"].includes(mechanism)) {
       let deadLetterName;
       let deadLetterTargetArn;
       let maxReceiveCount = awsConfig.deadLetterMaxReceiveCount || 3;
@@ -728,7 +732,7 @@ export default class AwsProcessor implements PlatformProcessor {
       deadLetterTargetArn = `arn:aws:sqs:${aws.config.region}:${identity.accountId}:${deadLetterName}`;
 
       resourceConfigs.push(
-        this.resourceUtil.configure(deadLetterName, mechanism, {}, "resource")
+        this.resourceUtil.configure(deadLetterName, mechanism, { visibilityTimeoutSeconds: 60 }, "resource")
       );
 
       // config.redrivePolicy =
