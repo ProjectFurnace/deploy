@@ -801,7 +801,7 @@ export default class AwsProcessor implements PlatformProcessor {
           ({
             apiKeyRequired: config.apiKeyRequired || false,
             authorization: config.authorization || "NONE",
-            httpMethod: config.method,
+            httpMethod: "ANY", // TODO: changing to any to support CORS, should be config.method,
             resourceId: "${" + ResourceUtil.getBits(name)[2] + ".id}",
             restApi: "${apigw.id}",
           } as unknown) as aws.apigateway.MethodArgs,
