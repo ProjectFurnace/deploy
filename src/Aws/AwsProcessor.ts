@@ -784,7 +784,7 @@ export default class AwsProcessor implements PlatformProcessor {
       // prepare config for the resource
       const newconfig = {
         parentId: "${apigw.rootResourceId}",
-        pathPart: config.pathPart || name,
+        pathPart: config.pathPart || "{proxy+}",
         restApi: "${apigw.id}",
       };
 
@@ -801,7 +801,7 @@ export default class AwsProcessor implements PlatformProcessor {
           ({
             apiKeyRequired: config.apiKeyRequired || false,
             authorization: config.authorization || "NONE",
-            httpMethod: "ANY", // TODO: changing to any to support CORS, should be config.method,
+            httpMethod: config.method || "ANY",
             resourceId: "${" + ResourceUtil.getBits(name)[2] + ".id}",
             restApi: "${apigw.id}",
           } as unknown) as aws.apigateway.MethodArgs,
