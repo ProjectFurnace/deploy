@@ -168,7 +168,9 @@ export default abstract class FunctionBuilder {
 
     if (def.eventType !== "raw") {
       // if eventType is raw, we don't copy over a template
-      fsUtils.cp(def.templatePath, def.buildPath);
+      fsUtils.cp(def.templatePath, def.buildPath, {
+        filter: (src: any) => !src.match("node_modules"),
+      });
     }
 
     if (def.codePaths) {
@@ -177,7 +179,9 @@ export default abstract class FunctionBuilder {
         const codePath = def.codePaths[key];
         // if we have more than one function, place the code inside folders
         if (combined) {
-          fsUtils.cp(codePath, path.join(def.buildPath, "combined", key));
+          fsUtils.cp(codePath, path.join(def.buildPath, "combined", key), {
+            filter: (src: any) => !src.match("node_modules"),
+          });
         } else {
           fsUtils.cp(codePath, def.buildPath, {
             filter: (src: any) => !src.match("node_modules"),
@@ -215,10 +219,12 @@ export default abstract class FunctionBuilder {
             templatePackage = merge(functionPackage, templatePackage);
           }
         }
+        // console.log("templatePackage", templatePackage);
         fsUtils.writeFile(
           path.join(def.buildPath, "package.json"),
           templatePackage
         );
+
         // do not build on preview
         // if (!pulumi.runtime.isDryRun()) {
         await this.buildNode(def.name, def.buildPath);
@@ -282,7 +288,7 @@ export default abstract class FunctionBuilder {
 
       // console.log(`building ${name} in ${buildPath}`);
 
-      const execResult = await execPromise("npm install --production", {
+      const execResult = await execPromise("npm install --only=production", {
         cwd: buildPath,
         env: process.env,
       });

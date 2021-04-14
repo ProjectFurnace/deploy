@@ -12,6 +12,7 @@ import { RegisteredResource, ResourceConfig } from "../Types";
 import AwsUtil from "../Util/AwsUtil";
 import ResourceUtil from "../Util/ResourceUtil";
 import AwsResourceFactory from "./AwsResourceFactory";
+import * as fs from "fs";
 
 export default class AwsProcessor implements PlatformProcessor {
   public resourceUtil: ResourceUtil;
@@ -40,6 +41,9 @@ export default class AwsProcessor implements PlatformProcessor {
 
   public async process(): Promise<RegisteredResource[]> {
     const identity: aws.GetCallerIdentityResult = this.initialConfig.identity;
+    fs.writeFileSync("./flows.json", JSON.stringify(this.flows), {
+      encoding: "utf8",
+    });
 
     this.resourceUtil.setGlobal({
       account: {
@@ -423,12 +427,17 @@ export default class AwsProcessor implements PlatformProcessor {
     resources.push(await this.resourceUtil.register(rolePolicyConf));
 
     if (component.policies) {
-      for (const p of component.policies) {
+      for (const policy of component.policies) {
+        const p = policy.replace("!", "");
+        const policyArn = policy.endsWith("!")
+          ? `arn:aws:iam::${accountId}:policy/${this.stackConfig.name}-${p}-${this.environment}`
+          : `arn:aws:iam::aws:policy/${policy}`;
+
         const rolePolicyAttachResourceConfig = this.resourceUtil.configure(
           ResourceUtil.injectInName(identifier, p),
           "aws.iam.RolePolicyAttachment",
           {
-            policyArn: `arn:aws:iam::aws:policy/${p}`,
+            policyArn,
             role,
           } as aws.iam.RolePolicyAttachmentArgs,
           "resource"
@@ -444,6 +453,7 @@ export default class AwsProcessor implements PlatformProcessor {
       STACK_ENV: this.environment || "undefined",
       STACK_NAME: stackName || "undefined",
       FURNACE_CONSTRUCT: component.construct,
+      AWS_ACCOUNT_ID: accountId,
     };
 
     // we have a combined function
@@ -452,6 +462,13 @@ export default class AwsProcessor implements PlatformProcessor {
 
       for (const func of component.functionSpec.functions) {
         variables.COMBINE = variables.COMBINE.concat(func.function, ",");
+
+        // add environment variables (uppercase only)
+        Object.entries(func.config || {}).forEach(([k, v]) => {
+          if (k.charAt(0) === k.charAt(0).toUpperCase()) {
+            variables[k.toUpperCase()] = v;
+          }
+        });
       }
       // remove last comma - there's probably a fancier way to do this...
       variables.COMBINE = variables.COMBINE.substring(
@@ -497,7 +514,7 @@ export default class AwsProcessor implements PlatformProcessor {
         runtime: AwsUtil.runtimeFromString(
           component.functionSpec.runtime
             ? component.functionSpec.runtime
-            : "nodejs8.10"
+            : "nodejs12.x"
         ),
         s3Bucket: this.buildBucket,
         s3Key,
@@ -538,11 +555,9 @@ export default class AwsProcessor implements PlatformProcessor {
             "aws.lambda.EventSourceMapping",
             sourceMappingConfig,
             "resource"
-          )
-         
-          resourceConfigs.push(
-            mapping
           );
+
+          resourceConfigs.push(mapping);
 
           break;
 
@@ -732,7 +747,12 @@ export default class AwsProcessor implements PlatformProcessor {
       deadLetterTargetArn = `arn:aws:sqs:${aws.config.region}:${identity.accountId}:${deadLetterName}`;
 
       resourceConfigs.push(
-        this.resourceUtil.configure(deadLetterName, mechanism, { visibilityTimeoutSeconds: 60 }, "resource")
+        this.resourceUtil.configure(
+          deadLetterName,
+          mechanism,
+          { visibilityTimeoutSeconds: 60 },
+          "resource"
+        )
       );
 
       // config.redrivePolicy =

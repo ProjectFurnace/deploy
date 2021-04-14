@@ -27,6 +27,7 @@ export default class AwsResourceFactory {
       "aws.iam.Role": aws.iam.Role,
       "aws.iam.RolePolicy": aws.iam.RolePolicy,
       "aws.iam.RolePolicyAttachment": aws.iam.RolePolicyAttachment,
+      "aws.iam.Policy": aws.iam.Policy,
       "aws.lambda.Function": aws.lambda.Function,
       "aws.lambda.EventSourceMapping": aws.lambda.EventSourceMapping,
       "awsx.apigateway.API": awsx.apigateway.API,
